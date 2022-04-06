@@ -12,7 +12,8 @@ namespace ClipboardDiff {
 			string text2 = null;
 
 			var sql = "select ooData from data where strClipBoardFormat = 'CF_TEXT' and LParentId in (select lId from main order by lID desc limit 2)";
-			using (var connection = new SQLiteConnection("Data Source=C:\\Users\\stuartd\\AppData\\Roaming\\Ditto\\Ditto.db;Version=3;")) {
+			var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Ditto", "Ditto.db;Version=3;");
+			using (var connection = new SQLiteConnection($"Data Source={path}")) {
 				using (var command = new SQLiteCommand(sql, connection)) {
 					command.Prepare();
 					connection.Open();
