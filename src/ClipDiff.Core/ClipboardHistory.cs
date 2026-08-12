@@ -99,12 +99,6 @@ public sealed class ClipboardHistory
             return ApplyExplicitClear(observation.ObservedAt);
         }
 
-        if (Current is { } current && string.Equals(current.Text, text, StringComparison.Ordinal))
-        {
-            _clearEligibility = new(current.Id, observation.ObservedAt);
-            return ClipboardHistoryChange.None;
-        }
-
         var entry = new ClipboardEntry(_idFactory(), text, observation.ObservedAt);
         _entries.Insert(0, entry);
         if (_entries.Count > 2)

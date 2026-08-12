@@ -80,7 +80,7 @@
 \fs36 \cf0 1. Product summary\
 \pard\pardeftab720\sa240\partightenfactor0
 
-\f0\b0\fs24 \cf0 ClipDiff is a small, native Windows notification-area utility for comparing the last two distinct plain-text values copied to the Windows clipboard.\
+\f0\b0\fs24 \cf0 ClipDiff is a small, native Windows notification-area utility for comparing the last two plain-text values copied to the Windows clipboard.\
 The intended workflow is:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls1\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
@@ -202,7 +202,7 @@ Initial release architecture:\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Retain at most two accepted clipboard values.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Ignore consecutive duplicate text.\
+\outl0\strokewidth0 \strokec2 Accept consecutive copies of identical text as separate entries.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Ignore non-text clipboard changes.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -306,7 +306,7 @@ Consequently, the user must copy two values after ClipDiff starts. Running ClipD
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 The text is not the empty string.\
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 The text differs from the current accepted entry.\
+\outl0\strokewidth0 \strokec2 The clipboard sequence is a new observation, even if its text equals the current accepted entry.\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 Whitespace-only text is valid and must be captured. Only a truly empty string is rejected.\
 When accepted:\
@@ -325,19 +325,19 @@ When accepted:\
 \outl0\strokewidth0 \strokec2 Update tray status and preview information.\
 \pard\pardeftab720\sa280\partightenfactor0
 
-\f1\b\fs28 \cf0 6.3 Consecutive duplicates\
+\f1\b\fs28 \cf0 6.3 Consecutive identical copies\
 \pard\pardeftab720\sa240\partightenfactor0
 
 \f0\b0\fs24 \cf0 If copied text is exactly equal to the current entry:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls11\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Do not add another entry.\
+\outl0\strokewidth0 \strokec2 Add a new entry for the new copy occurrence.\
 \ls11\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Do not change ordering.\
+\outl0\strokewidth0 \strokec2 Move the formerly current entry to the previous position.\
 \ls11\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Do not evict the previous entry.\
+\outl0\strokewidth0 \strokec2 Evict entries beyond the two-item limit.\
 \ls11\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Treat it as a recent occurrence of the current clipboard item for the clipboard-clear privacy heuristic described later.\
+\outl0\strokewidth0 \strokec2 Allow the two identical entries to produce a comparison whose summary is No differences.\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 Comparison is ordinal and case-sensitive.\
 \pard\pardeftab720\sa280\partightenfactor0
@@ -525,7 +525,7 @@ Use short asynchronous retries such as:\
 Implement this best-effort heuristic:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls20\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 If an accepted text item, or a duplicate of the current accepted item, is immediately followed by an explicit clipboard clear within 60 seconds, remove the current captured entry.\
+\outl0\strokewidth0 \strokec2 If an accepted text item is immediately followed by an explicit clipboard clear within 60 seconds, remove the current captured entry.\
 \ls20\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 \'93Immediately followed\'94 means there was no intervening unrelated clipboard item.\
 \ls20\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -1566,13 +1566,13 @@ Handle:\
 \f0\b0\fs24 \cf0 At minimum:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls49\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Captures the last two unique text values.\
+\outl0\strokewidth0 \strokec2 Captures the last two text copy occurrences.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Orders newest as current and older as previous.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Evicts values beyond two.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Ignores consecutive duplicates.\
+\outl0\strokewidth0 \strokec2 Accepts consecutive identical copies as separate entries.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	5	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Ignores empty text without clearing history.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	6	}\expnd0\expndtw0\kerning0
@@ -1594,7 +1594,7 @@ Handle:\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	14	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 An intervening non-text or sensitive item prevents an unrelated clear from removing older history, according to the finalized state model.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	15	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 A duplicate-current copy followed by immediate clear removes the current item.\
+\outl0\strokewidth0 \strokec2 A second identical copy followed by immediate clear removes only the latest entry.\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	16	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Own clipboard writes never enter history.\
 \pard\pardeftab720\sa280\partightenfactor0
@@ -1795,7 +1795,7 @@ Include:\
 \ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	15	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Inspect the clipboard formats and verify exclusion markers.\
 \ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	16	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Copy duplicate text and confirm history does not change.\
+\outl0\strokewidth0 \strokec2 Copy identical text twice and confirm Show Diff reports No differences.\
 \ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	17	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Copy an image and confirm history does not change.\
 \ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	18	}\expnd0\expndtw0\kerning0
@@ -1992,11 +1992,11 @@ The README may explain how the user can place a shortcut in:\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 A notification-area icon appears.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It captures two future distinct plain-text clipboard values.\
+\outl0\strokewidth0 \strokec2 It captures two future plain-text clipboard values, including identical consecutive copies.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It stores those values only in memory.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It ignores duplicates, empty text, and non-text changes correctly.\
+\outl0\strokewidth0 \strokec2 It accepts duplicate text copies while ignoring empty text and non-text changes correctly.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It honours all three agreed Windows privacy formats.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0

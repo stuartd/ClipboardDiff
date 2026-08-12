@@ -8,7 +8,7 @@ public sealed class ClipboardHistoryTests
     private static readonly DateTimeOffset Start = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 
     [TestMethod]
-    public void CapturesLastTwoUniqueValuesNewestFirstAndEvictsOlderValues()
+    public void CapturesLastTwoValuesNewestFirstAndEvictsOlderValues()
     {
         var history = CreateHistory();
 
@@ -22,17 +22,22 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
-    public void ConsecutiveDuplicateDoesNotChangeOrderingOrEvictPrevious()
+    public void ConsecutiveIdenticalCopiesCreateAReadyNoDifferencesComparison()
     {
         var history = CreateHistory();
-        history.Apply(Text(1, "first"));
-        history.Apply(Text(2, "second"));
-        var ids = history.Entries.Select(entry => entry.Id).ToArray();
+        history.Apply(Text(1, "same text"));
 
-        var result = history.Apply(Text(3, "second"));
+        var result = history.Apply(Text(2, "same text"));
 
-        Assert.AreEqual(ClipboardHistoryChange.None, result);
-        CollectionAssert.AreEqual(ids, history.Entries.Select(entry => entry.Id).ToArray());
+        Assert.AreEqual(ClipboardHistoryChange.Accepted, result);
+        Assert.AreEqual(2, history.Entries.Count);
+        Assert.AreEqual("same text", history.Current?.Text);
+        Assert.AreEqual("same text", history.Previous?.Text);
+        Assert.AreNotEqual(history.Current?.Id, history.Previous?.Id);
+        Assert.AreEqual("Ready to diff", history.Status);
+
+        var document = new DiffEngine().Compare(history.Previous!, history.Current!);
+        Assert.AreEqual("No differences", DiffFormatting.Summary(document.Summary));
     }
 
     [TestMethod]
@@ -104,7 +109,7 @@ public sealed class ClipboardHistoryTests
         history.Apply(Text(1, "first"));
         Assert.AreEqual("Copy one more text value", history.Status);
 
-        history.Apply(Text(2, "second"));
+        history.Apply(Text(2, "first"));
         Assert.AreEqual("Ready to diff", history.Status);
 
         history.Pause();
@@ -152,7 +157,7 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
-    public void DuplicateCurrentFollowedByImmediateClearRemovesCurrent()
+    public void SecondIdenticalCopyFollowedByImmediateClearRemovesOnlyLatestEntry()
     {
         var history = CreateHistory();
         history.Apply(Text(1, "ordinary"));
@@ -160,7 +165,8 @@ public sealed class ClipboardHistoryTests
 
         history.Apply(ClipboardObservation.ExplicitClear(3, Start.AddSeconds(75)));
 
-        Assert.AreEqual(0, history.Entries.Count);
+        Assert.AreEqual(1, history.Entries.Count);
+        Assert.AreEqual("ordinary", history.Current?.Text);
     }
 
     [TestMethod]

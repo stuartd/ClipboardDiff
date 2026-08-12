@@ -1,6 +1,6 @@
 # ClipDiff for Windows
 
-ClipDiff is a small Windows notification-area utility that compares the last two distinct plain-text values copied after it starts. It listens to the Windows clipboard directly; it does not use Ditto, a database, or a web service.
+ClipDiff is a small Windows notification-area utility that compares the last two plain-text values copied after it starts. It listens to the Windows clipboard directly; it does not use Ditto, a database, or a web service.
 
 ## Use
 
@@ -15,7 +15,7 @@ The menu also lets you pause/resume monitoring and shows short previews of the c
 
 ## Privacy model and limitations
 
-ClipDiff captures only future, non-empty Unicode text and retains at most two accepted values in process memory. Consecutive duplicates and non-text clipboard changes do not alter those two entries. **Clear Captured Text** removes the in-memory entries and active diff without changing the Windows clipboard. All captured content disappears when ClipDiff exits. ClipDiff never intentionally persists, logs, uploads, or transmits captured clipboard text.
+ClipDiff captures only future, non-empty Unicode text and retains at most two accepted values in process memory. Consecutive copies of identical text are accepted as separate entries, allowing ClipDiff to report **No differences**. Non-text clipboard changes do not alter the entries. **Clear Captured Text** removes the in-memory entries and active diff without changing the Windows clipboard. All captured content disappears when ClipDiff exits. ClipDiff never intentionally persists, logs, uploads, or transmits captured clipboard text.
 
 Before reading text, ClipDiff inspects and honours these advisory clipboard formats:
 
@@ -25,7 +25,7 @@ Before reading text, ClipDiff inspects and honours these advisory clipboard form
 
 Malformed or unreadable privacy markers are excluded conservatively. **Copy diff** writes its Unicode text and all three exclusion formats in one native clipboard operation, and ClipDiff suppresses the resulting clipboard update.
 
-Some password managers clear an unmarked value shortly after copying it. If an accepted value (or a duplicate of the current value) is immediately followed by an explicit clipboard clear within 60 seconds, ClipDiff removes that current entry. An intervening unrelated, sensitive, or failed clipboard observation cancels this eligibility. This is only a best-effort heuristic.
+Some password managers clear an unmarked value shortly after copying it. If an accepted value is immediately followed by an explicit clipboard clear within 60 seconds, ClipDiff removes that current entry. An intervening unrelated, sensitive, or failed clipboard observation cancels this eligibility. This is only a best-effort heuristic.
 
 Important limitations:
 
@@ -81,10 +81,10 @@ On a Windows desktop, verify:
 
 - only one notification-area icon appears and a second process exits cleanly;
 - clipboard text that existed before startup is not captured;
-- two future distinct copies produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
+- two future text copies, including identical text, produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
 - side-by-side rows remain aligned, unified output is exact, and long lines wrap;
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
-- duplicates and images leave history unchanged;
+- two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;
