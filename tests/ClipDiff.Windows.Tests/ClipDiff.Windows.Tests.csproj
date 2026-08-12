@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>ClipDiff.Windows.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="MSTest" Version="4.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ClipDiff.Core/ClipDiff.Core.csproj" />
+    <Compile Include="../../src/ClipDiff.Windows/Clipboard/ClipboardPrivacyInspector.cs" Link="ClipboardPrivacyInspector.cs" />
+  </ItemGroup>
+</Project>
