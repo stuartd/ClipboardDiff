@@ -12,5 +12,9 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ClipDiff.Core/ClipDiff.Core.csproj" />
     <Compile Include="../../src/ClipDiff.Windows/Clipboard/ClipboardPrivacyInspector.cs" Link="ClipboardPrivacyInspector.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffTool.cs" Link="ExternalDiffTool.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffToolCatalog.cs" Link="ExternalDiffToolCatalog.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffSettingsStore.cs" Link="ExternalDiffSettingsStore.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffWorkspace.cs" Link="ExternalDiffWorkspace.cs" />
   </ItemGroup>
 </Project>

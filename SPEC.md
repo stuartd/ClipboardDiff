@@ -198,7 +198,7 @@ Initial release architecture:\
 \ls6\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Capture plain text only.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Keep captured text in memory only.\
+\outl0\strokewidth0 \strokec2 Keep captured text in memory only unless the user explicitly selects an external diff viewer. That approved workflow may use the temporary plaintext handoff defined in section 16.5.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Retain at most two accepted clipboard values.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -214,14 +214,14 @@ Initial release architecture:\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Continue working if global hotkey registration fails.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Lose all captured text when the application exits.\
+\outl0\strokewidth0 \strokec2 Lose all in-memory captured text when the application exits and attempt to delete all external-diff temporary files.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Use one notification-area icon and one reusable diff window.\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 The application must not:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls7\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Write captured clipboard values to disk.\
+\outl0\strokewidth0 \strokec2 Write captured clipboard values to disk except for the explicitly selected, warned, short-lived external-diff handoff in section 16.5.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Use a database.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -239,7 +239,7 @@ Initial release architecture:\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Retain more than the two values needed for the comparison.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Add settings, onboarding, or a complex preferences interface.\
+\outl0\strokewidth0 \strokec2 Add settings or onboarding beyond the external-viewer executable path and warning acknowledgement, or add a complex preferences interface.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Add file comparison or document-management features.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -1092,6 +1092,7 @@ Current: <preview>                   [disabled]\
 Previous: <preview>                  [disabled]\
 \uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
 Show Diff\
+Diff viewer: Built-in               [submenu]\
 Monitor Clipboard                    [checked/unchecked]\
 Clear Captured Text\
 \uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
@@ -1104,6 +1105,10 @@ Quit ClipDiff\
 \f1\b \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Show Diff
 \f0\b0  is disabled until two entries are available.\
+\ls36\ilvl0
+\f1\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Diff viewer
+\f0\b0  selects the built-in viewer, a detected external program, or an executable chosen by the user.\
 \ls36\ilvl0
 \f1\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Monitor Clipboard
@@ -1323,6 +1328,38 @@ Use monospaced text and allow selection.\
 Copy two text values, then press Ctrl+Alt+D.\
 \pard\pardeftab720\sa298\partightenfactor0
 
+\f1\b\fs28 \cf0 16.5 External diff viewers\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 The built-in viewer is the default. The notification-area\~
+\f1\b Diff viewer
+\f0\b0  submenu must offer the built-in viewer, supported external programs detected through Windows App Paths, PATH, or normal installation locations, and\~
+\f1\b Choose program...
+\f0\b0  for manual executable selection. Detection must not select an external program automatically. Remember the selected executable path between runs.\
+\
+When two entries are ready,\~
+\f1\b Show Diff
+\f0\b0  must launch the selected external program with the previous value on the left and the current value on the right. If there is no selection, the executable is unavailable, the privacy warning is cancelled, temporary-file creation fails, or process launch fails, open the built-in viewer instead. Do not discard either captured entry.\
+\
+Known command profiles must be provided for SourceGear DiffMerge, WinMerge, Meld, KDiff3, Beyond Compare, Araxis Merge, Visual Studio Code, Visual Studio, TortoiseGitMerge, TortoiseMerge, P4Merge, and ExamDiff Pro. Use each program's supported read-only, separate-instance, wait, and side-title options where available. A manually chosen unknown executable receives the previous and current file paths as two positional arguments. Construct arguments as separate process arguments rather than shell-concatenated text so spaces and special characters in paths remain safe. Clipboard contents must never appear in the command line.\
+\
+Before the first external comparison for a user profile, show one modal privacy warning. It must state that the clipboard may contain passwords, tokens, or other secrets; external comparison requires temporary plaintext files; a crash or power loss can leave them behind; and the selected program may retain its own copies. The user may cancel. Cancelling must create no files and must open the built-in viewer. Remember only successful acknowledgement, so the warning is normally shown once.\
+\
+After acknowledgement, create a unique per-comparison directory below\~
+\f2\fs26 %LOCALAPPDATA%\\ClipDiff\\Temp
+\f0\fs24 . Write the values exactly as UTF-8 text to\~
+\f2\fs26 Previous clipboard.txt
+\f0\fs24  and\~
+\f2\fs26 Current clipboard.txt
+\f0\fs24 . Mark both files read-only and temporary. The files are the only permitted disk persistence of captured clipboard values. Do not reuse a directory between comparisons.\
+\
+Track the process returned by the launch. Attempt to delete the comparison directory after that process exits, allowing a short grace period for handoff; when ClipDiff exits; and on ClipDiff's next startup to remove stale directories. Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.\
+\
+Persist external-viewer state in\~
+\f2\fs26 %LOCALAPPDATA%\\ClipDiff\\settings.json
+\f0\fs24 . The file may contain only the selected executable path and the one-time-warning acknowledgement. It must never contain clipboard text, previews, diffs, or temporary-file contents. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.\
+\pard\pardeftab720\sa298\partightenfactor0
+
 \f1\b\fs36 \cf0 17. Suggested solution structure\
 \pard\pardeftab720\partightenfactor0
 
@@ -1451,6 +1488,8 @@ Responsibilities:\
 \ls44\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Single-instance mutex\
 \ls44\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 External-diff discovery, command profiles, warned temporary-file handoff, minimal preference storage, and best-effort cleanup\
+\ls44\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 UI-thread coordination\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 All clipboard and UI work should be coordinated through the WPF dispatcher/STA thread.\
@@ -1476,6 +1515,8 @@ Responsibilities:\
 \outl0\strokewidth0 \strokec2 Manage current view mode.\
 \ls45\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Coordinate tray menu state.\
+\ls45\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Select and launch the configured diff viewer, falling back to the built-in viewer on failure.\
 \ls45\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Coordinate diff-window lifetime.\
 \ls45\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -1753,7 +1794,28 @@ Include:\
 \cf0 Malformed privacy data should be handled conservatively if exclusion cannot be established safely. Document the selected behaviour.\
 \pard\pardeftab720\sa280\partightenfactor0
 
-\f1\b\fs28 \cf0 21.5 Windows integration/manual tests\
+\f1\b\fs28 \cf0 21.5 External diff tests\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 At minimum:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 The catalog contains every supported known program.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Known executable names match case-insensitively, including Windows paths when tests run on macOS.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Each command profile produces the expected switches, labels, and previous/current argument order.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Paths containing spaces remain separate arguments.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 An unknown executable receives two positional paths.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Settings round-trip the path and acknowledgement, while missing or malformed settings use built-in-safe defaults and serialized settings contain no clipboard content.\
+\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Temporary workspaces use unique directories, preserve exact Unicode and line endings, mark files read-only, and remove stale read-only directories.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f1\b\fs28 \cf0 21.6 Windows integration/manual tests\
 \pard\pardeftab720\sa240\partightenfactor0
 
 \f0\b0\fs24 \cf0 On Windows:\
@@ -1818,6 +1880,24 @@ Include:\
 \outl0\strokewidth0 \strokec2 Test an unmarked value followed by an immediate clipboard clear and confirm the latest captured item is removed.\
 \ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	26	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Test under Remote Desktop if Windows Server 2022 is the intended machine.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	27	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Confirm the built-in viewer is the default and detected supported programs appear in the Diff viewer submenu without being auto-selected.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	28	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Choose an external program, invoke Show Diff, and confirm the privacy warning appears before any temporary file is written.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	29	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Cancel the warning and confirm the built-in viewer opens and no external-diff temporary directory is created.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	30	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Accept the warning and confirm it is not repeated on later comparisons in the same user profile.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	31	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Verify each available supported viewer receives the exact previous and current text on the intended sides with readable labels and read-only behavior where supported.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	32	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Confirm the per-comparison directory and its two read-only files are removed after the launched process exits and when ClipDiff exits.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	33	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Leave a simulated stale comparison directory and confirm the next ClipDiff start removes it.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	34	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.\
+\ls53\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	35	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Inspect settings.json and confirm it contains only the selected path and acknowledgement, never captured text or previews.\
 \pard\pardeftab720\sa298\partightenfactor0
 
 \f1\b\fs36 \cf0 22. Release build\
@@ -1963,7 +2043,9 @@ The README may explain how the user can place a shortcut in:\
 \ls58\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Notification-area commands.\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 The memory-only privacy model.\
+\outl0\strokewidth0 \strokec2 The memory-only built-in privacy model and the explicit temporary-plaintext exception for external viewers.\
+\ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Supported external viewers, fallback behavior, one-time warning, temporary-file locations, cleanup limits, and minimal stored preference data.\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Password/privacy-marker limitations.\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -1979,7 +2061,7 @@ The README may explain how the user can place a shortcut in:\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Why there is no Ditto dependency.\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 That captured content disappears on exit.\
+\outl0\strokewidth0 \strokec2 That in-memory captured content disappears on exit and external temporary-file cleanup is best effort.\
 \pard\pardeftab720\sa298\partightenfactor0
 
 \f1\b\fs36 \cf0 26. Acceptance criteria\
@@ -1994,7 +2076,7 @@ The README may explain how the user can place a shortcut in:\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It captures two future plain-text clipboard values, including identical consecutive copies.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It stores those values only in memory.\
+\outl0\strokewidth0 \strokec2 It stores those values only in memory unless the user explicitly selects and acknowledges the external-viewer temporary-plaintext workflow.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It accepts duplicate text copies while ignoring empty text and non-text changes correctly.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -2009,6 +2091,14 @@ The README may explain how the user can place a shortcut in:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls59\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 The menu command still works if hotkey registration fails.\
+\ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 The built-in viewer is the default; supported external viewers can be selected or browsed for and the selection is remembered.\
+\ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 External comparison shows the one-time secret-aware warning before writing and falls back to the built-in viewer on cancellation or failure.\
+\ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 External comparison uses unique read-only temporary files and attempts cleanup after process exit, application exit, and next startup.\
+\ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Persisted external-viewer settings never contain clipboard content.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Side-by-side mode is readable and correctly aligned.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -2088,5 +2178,5 @@ The README may explain how the user can place a shortcut in:\
 \cf0 Copy old text, copy new text, press 
 \f2\fs26 Ctrl+Alt+D
 \f0\fs24 , inspect or copy the diff.\
-If a proposed feature introduces persistence, accounts, a history browser, dependencies, background infrastructure, or significant configuration, it is probably outside the scope of ClipDiff.\
+The narrowly scoped external-viewer preference and temporary-file handoff in section 16.5 are explicit exceptions. If another proposed feature introduces persistence, accounts, a history browser, dependencies, background infrastructure, or significant configuration, it is probably outside the scope of ClipDiff.\
 }
