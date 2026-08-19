@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using ClipDiff.Windows.Native;
 
 namespace ClipDiff.Windows.Clipboard;
@@ -90,5 +91,42 @@ internal sealed class NativeClipboard : IClipboardDataAccess
         {
             NativeMethods.GlobalUnlock(memory);
         }
+    }
+
+    public bool TryReadFilePaths(out IReadOnlyList<string>? filePaths)
+    {
+        filePaths = null;
+        var dropHandle = NativeMethods.GetClipboardData(NativeMethods.CfHDrop);
+        if (dropHandle == nint.Zero)
+        {
+            return false;
+        }
+
+        var fileCount = NativeMethods.DragQueryFile(dropHandle, uint.MaxValue, null, 0);
+        if (fileCount > int.MaxValue)
+        {
+            return false;
+        }
+
+        var paths = new List<string>(checked((int)fileCount));
+        for (uint index = 0; index < fileCount; index++)
+        {
+            var pathLength = NativeMethods.DragQueryFile(dropHandle, index, null, 0);
+            if (pathLength == 0 || pathLength >= int.MaxValue)
+            {
+                return false;
+            }
+
+            var path = new StringBuilder(checked((int)pathLength + 1));
+            if (NativeMethods.DragQueryFile(dropHandle, index, path, pathLength + 1) != pathLength)
+            {
+                return false;
+            }
+
+            paths.Add(path.ToString());
+        }
+
+        filePaths = paths;
+        return true;
     }
 }

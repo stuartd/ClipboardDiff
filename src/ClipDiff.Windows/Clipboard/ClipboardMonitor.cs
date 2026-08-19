@@ -16,6 +16,7 @@ internal sealed class ClipboardMonitor : IDisposable
     private readonly NativeMessageWindow _messageWindow;
     private readonly NativeClipboard _nativeClipboard;
     private readonly ClipboardPrivacyInspector _inspector;
+    private readonly CopiedFileTextReader _copiedFileTextReader = new();
     private readonly SemaphoreSlim _readGate = new(1, 1);
     private CancellationTokenSource? _pendingRead;
     private uint _baselineSequence;
@@ -151,18 +152,27 @@ internal sealed class ClipboardMonitor : IDisposable
                         return;
                     }
 
-                    ClipboardObservation? observation = null;
+                    ClipboardInspection? inspection = null;
                     if (_nativeClipboard.TryOpen(_messageWindow.Handle))
                     {
                         try
                         {
-                            observation = _inspector.Inspect(expectedSequence, DateTimeOffset.Now);
+                            inspection = _inspector.Inspect(expectedSequence, DateTimeOffset.Now);
                         }
                         finally
                         {
                             _nativeClipboard.Close();
                         }
                     }
+
+                    var observation = inspection switch
+                    {
+                        ClipboardInspection.Completed completed => completed.Observation,
+                        ClipboardInspection.CopiedFiles copiedFiles => await CreateFileObservationAsync(
+                            copiedFiles,
+                            cancellationToken),
+                        _ => null
+                    };
 
                     if (observation is not null &&
                         observation.Kind != ClipboardObservationKind.InspectionFailed &&
@@ -199,6 +209,19 @@ internal sealed class ClipboardMonitor : IDisposable
         catch (ObjectDisposedException) when (_disposed)
         {
         }
+    }
+
+    private async ValueTask<ClipboardObservation> CreateFileObservationAsync(
+        ClipboardInspection.CopiedFiles copiedFiles,
+        CancellationToken cancellationToken)
+    {
+        var readTask = Task.Run(
+            async () => await _copiedFileTextReader.ReadAsync(copiedFiles.FilePaths, cancellationToken),
+            CancellationToken.None);
+        var text = await readTask.WaitAsync(cancellationToken);
+        return string.IsNullOrEmpty(text)
+            ? ClipboardObservation.NonText(copiedFiles.SequenceNumber, copiedFiles.ObservedAt)
+            : ClipboardObservation.TextValue(copiedFiles.SequenceNumber, copiedFiles.ObservedAt, text);
     }
 
     private void CancelPendingRead()

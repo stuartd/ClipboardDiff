@@ -129,7 +129,52 @@ public sealed class ClipboardPrivacyInspectorTests
         Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
     }
 
-    private static ClipboardObservation Inspect(FakeClipboard clipboard) =>
+    [TestMethod]
+    public void CopiedFilesAreReturnedWithoutReadingIncidentalUnicodeText()
+    {
+        var clipboard = FakeClipboard.WithText("incidental path text");
+        clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
+        clipboard.FilePaths = [@"C:\work\script.bat"];
+
+        var result = InspectRaw(clipboard);
+
+        Assert.IsTrue(result is ClipboardInspection.CopiedFiles);
+        var copiedFiles = (ClipboardInspection.CopiedFiles)result;
+        CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
+        Assert.AreEqual(0, clipboard.TextReadCount);
+        Assert.AreEqual(1, clipboard.FilePathReadCount);
+    }
+
+    [TestMethod]
+    public void PrivacyMarkerPreventsCopiedFilePathRequest()
+    {
+        var clipboard = FakeClipboard.WithFiles(@"C:\work\secret.txt");
+        clipboard.Dwords[History] = 0;
+
+        var result = Inspect(clipboard);
+
+        Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
+        Assert.AreEqual(0, clipboard.FilePathReadCount);
+    }
+
+    [TestMethod]
+    public void CopiedFilePathReadFailureRequestsARetryOutcome()
+    {
+        var clipboard = FakeClipboard.WithFiles(@"C:\work\script.bat");
+        clipboard.FilePathReadSucceeds = false;
+
+        Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
+    }
+
+    private static ClipboardObservation Inspect(FakeClipboard clipboard)
+    {
+        var result = InspectRaw(clipboard);
+        return result is ClipboardInspection.Completed completed
+            ? completed.Observation
+            : throw new AssertFailedException("Expected a completed clipboard inspection.");
+    }
+
+    private static ClipboardInspection InspectRaw(FakeClipboard clipboard) =>
         new ClipboardPrivacyInspector(clipboard, new ClipboardFormatIds(Exclude, History, Cloud)).Inspect(7, Now);
 
     private sealed class FakeClipboard : IClipboardDataAccess
@@ -146,14 +191,27 @@ public sealed class ClipboardPrivacyInspectorTests
 
         public bool TextReadSucceeds { get; set; } = true;
 
+        public bool FilePathReadSucceeds { get; set; } = true;
+
         public string? Text { get; set; }
 
+        public IReadOnlyList<string>? FilePaths { get; set; }
+
         public int TextReadCount { get; private set; }
+
+        public int FilePathReadCount { get; private set; }
 
         public static FakeClipboard WithText(string text)
         {
             var clipboard = new FakeClipboard { Text = text };
             clipboard.Formats.Add(ClipboardPrivacyInspector.NativeUnicodeTextFormat);
+            return clipboard;
+        }
+
+        public static FakeClipboard WithFiles(params string[] filePaths)
+        {
+            var clipboard = new FakeClipboard { FilePaths = filePaths };
+            clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
             return clipboard;
         }
 
@@ -176,6 +234,13 @@ public sealed class ClipboardPrivacyInspectorTests
             TextReadCount++;
             text = TextReadSucceeds ? Text : null;
             return TextReadSucceeds;
+        }
+
+        public bool TryReadFilePaths(out IReadOnlyList<string>? filePaths)
+        {
+            FilePathReadCount++;
+            filePaths = FilePathReadSucceeds ? FilePaths : null;
+            return FilePathReadSucceeds;
         }
     }
 }

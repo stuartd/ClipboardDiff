@@ -7,6 +7,7 @@ internal static class NativeMethods
     internal const int WmClipboardUpdate = 0x031D;
     internal const int WmHotKey = 0x0312;
     internal const uint CfUnicodeText = 13;
+    internal const uint CfHDrop = 15;
     internal const uint ModAlt = 0x0001;
     internal const uint ModControl = 0x0002;
     internal const uint ModNoRepeat = 0x4000;
@@ -77,4 +78,11 @@ internal static class NativeMethods
 
     [DllImport("kernel32.dll", SetLastError = true)]
     internal static extern nuint GlobalSize(nint memory);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern uint DragQueryFile(
+        nint dropHandle,
+        uint fileIndex,
+        System.Text.StringBuilder? fileName,
+        uint characterCount);
 }

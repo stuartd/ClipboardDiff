@@ -1,17 +1,27 @@
 # ClipDiff for Windows
 
-ClipDiff is a small Windows notification-area utility that compares the last two plain-text values copied after it starts. It listens to the Windows clipboard directly; it does not use Ditto, a database, or a web service.
+ClipDiff is a small Windows notification-area utility that compares the last two text values captured after it starts. A value can come from copied Unicode text or from a file copied in Explorer. ClipDiff listens to the Windows clipboard directly; it does not use Ditto, a database, or a web service.
 
 ## Use
 
 1. Start `ClipDiff.exe`. It opens in the notification area without a conventional main window.
-2. Copy the older text.
-3. Copy the newer text.
+2. Copy the older text or file.
+3. Copy the newer text or file.
 4. Press `Ctrl+Alt+D`, or right-click the ClipDiff icon and choose **Show Diff**.
 
 The built-in viewer is the default. Its reusable window opens in **Side by Side** mode and can switch to **Unified**, copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
 The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
+
+## Copied files
+
+When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. A single copied file is converted as follows:
+
+- `.bat`, `.cmd`, `.ps1`, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
+- Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute only the filename.
+- Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute only the filename.
+
+The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename. When several files are copied together, ClipDiff captures their filenames separated by newlines and does not read their contents. File contents and paths are never written by this workflow; the resulting text value follows the same two-entry, in-memory history policy as copied text.
 
 ## External diff viewers
 
@@ -34,7 +44,7 @@ ClipDiff checks Windows App Paths, `PATH`, and the programs' usual install locat
 
 ## Privacy model and limitations
 
-ClipDiff captures only future, non-empty Unicode text and retains at most two accepted values in process memory. Consecutive copies of identical text are accepted as separate entries, allowing ClipDiff to report **No differences**. Non-text clipboard changes do not alter the entries. **Clear Captured Text** removes the in-memory entries and active diff without changing the Windows clipboard. ClipDiff never logs, uploads, or transmits captured clipboard text.
+ClipDiff captures only future, non-empty text values (including the copied-file conversion above) and retains at most two accepted values in process memory. Consecutive copies of identical text are accepted as separate entries, allowing ClipDiff to report **No differences**. Unsupported non-text clipboard changes do not alter the entries. **Clear Captured Text** removes the in-memory entries and active diff without changing the Windows clipboard. ClipDiff never logs, uploads, or transmits captured text or file contents.
 
 The built-in viewer keeps captured text in memory only. An external program cannot compare in-memory strings directly, so selecting an external viewer creates an explicit exception: after a one-time warning is accepted, ClipDiff writes the two values as UTF-8 plaintext files named `Previous clipboard.txt` and `Current clipboard.txt` in a unique directory below `%LOCALAPPDATA%\ClipDiff\Temp`. The files are marked read-only. ClipDiff attempts to remove that directory after the launched process exits, when ClipDiff exits, and during its next startup.
 
@@ -54,6 +64,7 @@ Some password managers clear an unmarked value shortly after copying it. If an a
 
 Important limitations:
 
+- Copying a text-like file intentionally causes ClipDiff to read that file from disk and retain its decoded contents in process memory.
 - Passwords without standard privacy markers are indistinguishable from ordinary text.
 - The automatic-clear heuristic cannot identify every sensitive value or clearing pattern.
 - .NET strings cannot be guaranteed to be securely zeroed in memory.
@@ -117,6 +128,8 @@ On a Windows desktop, verify:
 - `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference and warning acknowledgement, never clipboard content;
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
+- a copied `.bat` contributes its full text, a copied `.exe` contributes only its filename, and a renamed binary is still treated as binary;
+- multiple copied files contribute filenames only, while missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;

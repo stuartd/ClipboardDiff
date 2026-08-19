@@ -80,13 +80,13 @@
 \fs36 \cf0 1. Product summary\
 \pard\pardeftab720\sa240\partightenfactor0
 
-\f0\b0\fs24 \cf0 ClipDiff is a small, native Windows notification-area utility for comparing the last two plain-text values copied to the Windows clipboard.\
+\f0\b0\fs24 \cf0 ClipDiff is a small, native Windows notification-area utility for comparing the last two text values captured from copied Unicode text or copied files.\
 The intended workflow is:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls1\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Copy the older text.\
+\outl0\strokewidth0 \strokec2 Copy the older text or file.\
 \ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Copy the newer text.\
+\outl0\strokewidth0 \strokec2 Copy the newer text or file.\
 \ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Press 
 \f2\fs26 Ctrl+Alt+D
@@ -196,7 +196,7 @@ Initial release architecture:\
 \f0\b0\fs24 \cf0 The application must:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls6\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Capture plain text only.\
+\outl0\strokewidth0 \strokec2 Capture text values only, including the copied-file-to-text conversion defined in section 6.4.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Keep captured text in memory only unless the user explicitly selects an external diff viewer. That approved workflow may use the temporary plaintext handoff defined in section 16.5.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -204,7 +204,7 @@ Initial release architecture:\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Accept consecutive copies of identical text as separate entries.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Ignore non-text clipboard changes.\
+\outl0\strokewidth0 \strokec2 Ignore unsupported non-text clipboard changes; handle copied file lists as defined in section 6.4.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Ignore privacy-marked clipboard items.\
 \ls6\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -241,7 +241,7 @@ Initial release architecture:\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Add settings or onboarding beyond the external-viewer executable path and warning acknowledgement, or add a complex preferences interface.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Add file comparison or document-management features.\
+\outl0\strokewidth0 \strokec2 Add document-management features or file access beyond the copied-file conversion in section 6.4.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Use a terminal window or embedded web UI for the diff.\
 \ls7\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -302,7 +302,7 @@ Consequently, the user must copy two values after ClipDiff starts. Running ClipD
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 No supported privacy/exclusion marker is present.\
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 Unicode plain text is present.\
+\outl0\strokewidth0 \strokec2 Unicode plain text is present, or a copied file list can be converted under section 6.4.\
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 The text is not the empty string.\
 \ls9\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -345,7 +345,7 @@ When accepted:\
 \f1\b\fs28 \cf0 6.4 Non-text changes\
 \pard\pardeftab720\sa240\partightenfactor0
 
-\f0\b0\fs24 \cf0 If the clipboard contains an image, file list, rich content without a plain-text representation, or another non-text value:\
+\f0\b0\fs24 \cf0 If the clipboard contains an image, rich content without a plain-text representation, an unusable file list, or another unsupported non-text value:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls12\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Ignore the change.\
@@ -357,6 +357,8 @@ When accepted:\
 \outl0\strokewidth0 \strokec2 Do not treat an ordinary non-text change as an explicit clipboard clear.\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 If a clipboard object contains both rich content and Unicode text, capturing its Unicode text is acceptable unless privacy markers prohibit it.\
+If CF_HDROP contains one copied file, inspect privacy markers before obtaining the path, release the clipboard before file I/O, and convert the file to one text value. Known binary executable/package extensions, binary-looking content, directories, empty files, missing or unreadable files, and files larger than 16 MiB contribute the filename only. Otherwise decode and capture the complete text contents. Support UTF-8, BOM-marked UTF-16 and UTF-32, common BOM-less UTF-16, and Windows-1252. Text scripts such as BAT, CMD, and PowerShell files therefore contribute their contents, while EXE, COM, DLL, MSI, and similar binary types contribute only their filename.\
+If several files are copied together, capture their filenames separated by LF and do not read their contents. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.\
 \pard\pardeftab720\sa280\partightenfactor0
 
 \f1\b\fs28 \cf0 6.5 Empty clipboard changes\
@@ -470,12 +472,12 @@ The equivalent modern Windows API property,
 \f2\fs26 \cf0 WM_CLIPBOARDUPDATE\
   \uc0\u8594  open and inspect clipboard formats\
   \uc0\u8594  check privacy markers\
-  \uc0\u8594  if excluded, stop without reading text\
-  \uc0\u8594  otherwise read CF_UNICODETEXT\
+  \uc0\u8594  if excluded, stop without reading text or file paths\
+  \uc0\u8594  otherwise read CF_UNICODETEXT, or obtain CF_HDROP paths and release the clipboard before file I/O\
   \uc0\u8594  apply history policy\
 \pard\pardeftab720\sa240\partightenfactor0
 
-\f0\fs24 \cf0 Do not read the text first and then decide whether to retain it.\
+\f0\fs24 \cf0 Do not read text or file paths first and then decide whether to retain them.\
 If ClipDiff cannot inspect the privacy markers because the clipboard is temporarily locked:\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls18\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -1639,6 +1641,7 @@ Handle:\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	16	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Own clipboard writes never enter history.\
 \pard\pardeftab720\sa280\partightenfactor0
+\cf0 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, multiple-file names-only behavior, and filename fallback for directories, empty, missing, unreadable, and oversized files.\
 
 \f1\b\fs28 \cf0 21.2 Line-splitting tests\
 \pard\pardeftab720\sa240\partightenfactor0
@@ -2034,6 +2037,8 @@ The README may explain how the user can place a shortcut in:\
 \outl0\strokewidth0 \strokec2 What ClipDiff does.\
 \ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 The two-copy workflow.\
+\ls58\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 How copied files are converted to text or filenames, including limits and privacy behavior.\
 \pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
 \ls58\ilvl0
 \f2\fs26 \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -2074,11 +2079,11 @@ The README may explain how the user can place a shortcut in:\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 A notification-area icon appears.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It captures two future plain-text clipboard values, including identical consecutive copies.\
+\outl0\strokewidth0 \strokec2 It captures two future text values from copied Unicode text or the section 6.4 copied-file conversion, including identical consecutive copies.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It stores those values only in memory unless the user explicitly selects and acknowledges the external-viewer temporary-plaintext workflow.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It accepts duplicate text copies while ignoring empty text and non-text changes correctly.\
+\outl0\strokewidth0 \strokec2 It accepts duplicate text copies, converts copied files according to section 6.4, and ignores empty text and unsupported non-text changes correctly.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It honours all three agreed Windows privacy formats.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
@@ -2175,8 +2180,7 @@ The README may explain how the user can place a shortcut in:\
 
 \f0\b0\fs24 \cf0 When considering additional features, preserve this product shape:\
 \pard\pardeftab720\sa240\partightenfactor0
-\cf0 Copy old text, copy new text, press 
-\f2\fs26 Ctrl+Alt+D
+\cf0 Copy old text or file, copy new text or file, press \f2\fs26 Ctrl+Alt+D
 \f0\fs24 , inspect or copy the diff.\
 The narrowly scoped external-viewer preference and temporary-file handoff in section 16.5 are explicit exceptions. If another proposed feature introduces persistence, accounts, a history browser, dependencies, background infrastructure, or significant configuration, it is probably outside the scope of ClipDiff.\
 }
