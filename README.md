@@ -9,6 +9,8 @@ ClipDiff is a small Windows notification-area utility that compares the last two
 3. Copy the newer text or file.
 4. Press `Ctrl+Alt+D`, or right-click the ClipDiff icon and choose **Show Diff**.
 
+Alternatively, copy exactly two files in one Explorer operation; ClipDiff uses them as the older/newer pair immediately.
+
 The built-in viewer is the default. Its reusable window opens in **Side by Side** mode and can switch to **Unified**, copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
 The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
@@ -21,7 +23,7 @@ When Explorer places files on the clipboard, ClipDiff checks the same privacy ma
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute only the filename.
 - Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute only the filename.
 
-The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename. When several files are copied together, ClipDiff captures their filenames separated by newlines and does not read their contents. File contents and paths are never written by this workflow; the resulting text value follows the same two-entry, in-memory history policy as copied text.
+The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename. When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**. Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list. File contents and paths are never written by this workflow; the resulting value or pair follows the same two-entry, in-memory history policy as copied text.
 
 ## External diff viewers
 
@@ -50,7 +52,7 @@ The built-in viewer keeps captured text in memory only. An external program cann
 
 This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files.
 
-ClipDiff stores only the selected executable path and the one-time-warning acknowledgement in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
+ClipDiff stores only the selected executable path and the one-time-warning acknowledgement in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
 
 Before reading text, ClipDiff inspects and honours these advisory clipboard formats:
 
@@ -118,7 +120,7 @@ On a Windows desktop, verify:
 
 - only one notification-area icon appears and a second process exits cleanly;
 - clipboard text that existed before startup is not captured;
-- two future text copies, including identical text, produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
+- two future text copies, including identical text, or one exact-two-file copy produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
 - side-by-side rows remain aligned, unified output is exact, and long lines wrap;
 - the built-in viewer is selected by default, detected external programs appear under **Diff viewer**, and **Choose program...** accepts another executable;
 - selecting an external viewer shows the privacy warning once; cancelling uses the built-in viewer without creating plaintext files;
@@ -129,7 +131,7 @@ On a Windows desktop, verify:
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes only its filename, and a renamed binary is still treated as binary;
-- multiple copied files contribute filenames only, while missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename;
+- exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;

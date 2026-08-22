@@ -7,6 +7,7 @@ namespace ClipDiff.Windows.Tray;
 internal sealed class TrayIconController : IDisposable
 {
     private readonly Forms.NotifyIcon _notifyIcon;
+    private readonly Drawing.Icon? _applicationIcon;
     private readonly Forms.ContextMenuStrip _menu;
     private readonly Forms.ToolStripMenuItem _statusItem;
     private readonly Forms.ToolStripMenuItem _shortcutItem;
@@ -57,10 +58,11 @@ internal sealed class TrayIconController : IDisposable
             quitItem
         ]);
 
+        _applicationIcon = TryLoadApplicationIcon();
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = "ClipDiff",
-            Icon = Drawing.SystemIcons.Application,
+            Icon = _applicationIcon ?? Drawing.SystemIcons.Application,
             ContextMenuStrip = _menu,
             Visible = true
         };
@@ -115,10 +117,25 @@ internal sealed class TrayIconController : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.DoubleClick -= OnDoubleClick;
         _notifyIcon.Dispose();
+        _applicationIcon?.Dispose();
         _menu.Dispose();
     }
 
     private static Forms.ToolStripMenuItem DisabledItem(string text) => new(text) { Enabled = false };
+
+    private static Drawing.Icon? TryLoadApplicationIcon()
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(Environment.ProcessPath)
+                ? null
+                : Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     private void RebuildDiffViewerMenu()
     {

@@ -55,6 +55,9 @@ public sealed class ClipboardHistory
             case ClipboardObservationKind.Text:
                 return ApplyText(observation);
 
+            case ClipboardObservationKind.TextPair:
+                return ApplyTextPair(observation);
+
             case ClipboardObservationKind.ExplicitClear:
                 return ApplyExplicitClear(observation.ObservedAt);
 
@@ -107,6 +110,27 @@ public sealed class ClipboardHistory
         }
 
         _clearEligibility = new(entry.Id, observation.ObservedAt);
+        return ClipboardHistoryChange.Accepted;
+    }
+
+    private ClipboardHistoryChange ApplyTextPair(ClipboardObservation observation)
+    {
+        var previousText = observation.PreviousText ?? throw new ArgumentException(
+            "A text-pair observation must contain a previous text value.", nameof(observation));
+        var currentText = observation.Text ?? throw new ArgumentException(
+            "A text-pair observation must contain a current text value.", nameof(observation));
+        if (previousText.Length == 0 || currentText.Length == 0)
+        {
+            throw new ArgumentException(
+                "A text-pair observation cannot contain an empty text value.", nameof(observation));
+        }
+
+        var previous = new ClipboardEntry(_idFactory(), previousText, observation.ObservedAt);
+        var current = new ClipboardEntry(_idFactory(), currentText, observation.ObservedAt);
+        _entries.Clear();
+        _entries.Add(current);
+        _entries.Add(previous);
+        _clearEligibility = new(current.Id, observation.ObservedAt);
         return ClipboardHistoryChange.Accepted;
     }
 

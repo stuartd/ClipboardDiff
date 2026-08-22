@@ -98,7 +98,8 @@ The intended workflow is:\
 \ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	5	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Optionally copy a readable unified diff back to the clipboard.\
 \pard\pardeftab720\sa240\partightenfactor0
-\cf0 This is a personal local utility. Keep the implementation small, inspectable, dependency-light, and privacy-conscious.\
+\cf0 Alternatively, copy exactly two files in one operation to use them immediately as the older/newer comparison pair.\
+This is a personal local utility. Keep the implementation small, inspectable, dependency-light, and privacy-conscious.\
 The application should not depend on Ditto or any other clipboard manager. Earlier versions of this workflow used the last two values from Ditto\'92s database; this application replaces that hack by listening to the Windows clipboard directly.\
 \pard\pardeftab720\sa298\partightenfactor0
 
@@ -358,7 +359,7 @@ When accepted:\
 \pard\pardeftab720\sa240\partightenfactor0
 \cf0 If a clipboard object contains both rich content and Unicode text, capturing its Unicode text is acceptable unless privacy markers prohibit it.\
 If CF_HDROP contains one copied file, inspect privacy markers before obtaining the path, release the clipboard before file I/O, and convert the file to one text value. Known binary executable/package extensions, binary-looking content, directories, empty files, missing or unreadable files, and files larger than 16 MiB contribute the filename only. Otherwise decode and capture the complete text contents. Support UTF-8, BOM-marked UTF-16 and UTF-32, common BOM-less UTF-16, and Windows-1252. Text scripts such as BAT, CMD, and PowerShell files therefore contribute their contents, while EXE, COM, DLL, MSI, and similar binary types contribute only their filename.\
-If several files are copied together, capture their filenames separated by LF and do not read their contents. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.\
+If exactly two files are copied together, convert each independently using the single-file rules above and atomically replace the comparison pair. The first path in CF_HDROP order is the previous value and the second is the current value. Ignore copies containing more than two files; never create a comparison value from a file list. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.\
 \pard\pardeftab720\sa280\partightenfactor0
 
 \f1\b\fs28 \cf0 6.5 Empty clipboard changes\
@@ -1641,7 +1642,7 @@ Handle:\
 \ls49\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	16	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 Own clipboard writes never enter history.\
 \pard\pardeftab720\sa280\partightenfactor0
-\cf0 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, multiple-file names-only behavior, and filename fallback for directories, empty, missing, unreadable, and oversized files.\
+\cf0 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and filename fallback for directories, empty, missing, unreadable, and oversized files.\
 
 \f1\b\fs28 \cf0 21.2 Line-splitting tests\
 \pard\pardeftab720\sa240\partightenfactor0
@@ -2079,7 +2080,7 @@ The README may explain how the user can place a shortcut in:\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 A notification-area icon appears.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 It captures two future text values from copied Unicode text or the section 6.4 copied-file conversion, including identical consecutive copies.\
+\outl0\strokewidth0 \strokec2 It captures two future text values from copied Unicode text or the section 6.4 copied-file conversion, including identical consecutive copies and the exact-two-file pair workflow.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 It stores those values only in memory unless the user explicitly selects and acknowledges the external-viewer temporary-plaintext workflow.\
 \ls59\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0

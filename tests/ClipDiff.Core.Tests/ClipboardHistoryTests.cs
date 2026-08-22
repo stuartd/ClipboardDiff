@@ -41,6 +41,25 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
+    public void TextPairReplacesHistoryWithPreviousAndCurrentValuesInClipboardOrder()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "stale value"));
+
+        var result = history.Apply(ClipboardObservation.TextPair(
+            2,
+            Start.AddSeconds(1),
+            "first file contents",
+            "second file contents"));
+
+        Assert.AreEqual(ClipboardHistoryChange.Accepted, result);
+        Assert.AreEqual("first file contents", history.Previous?.Text);
+        Assert.AreEqual("second file contents", history.Current?.Text);
+        Assert.AreEqual(2, history.Entries.Count);
+        Assert.AreEqual("Ready to diff", history.Status);
+    }
+
+    [TestMethod]
     public void EmptyTextOutsideClearWindowLeavesHistoryUntouched()
     {
         var history = CreateHistory();

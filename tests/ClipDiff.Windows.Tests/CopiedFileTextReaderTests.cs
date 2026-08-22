@@ -95,14 +95,40 @@ public sealed class CopiedFileTextReaderTests
     }
 
     [TestMethod]
-    public async Task MultipleCopiedFilesReturnNamesOnly()
+    public async Task TwoCopiedTextFilesReturnTheirContentsAsComparisonValues()
     {
         var first = await WriteTextFileAsync("first.bat", "first contents");
         var second = await WriteTextFileAsync("second.txt", "second contents");
 
-        var result = await new CopiedFileTextReader().ReadAsync([first, second]);
+        var result = await new CopiedFileTextReader().ReadValuesAsync([first, second]);
 
-        Assert.AreEqual("first.bat\nsecond.txt", result);
+        CollectionAssert.AreEqual(
+            new[] { "first contents", "second contents" },
+            result.ToArray());
+    }
+
+    [TestMethod]
+    public async Task TwoCopiedFilesApplyFilenameFallbackIndependently()
+    {
+        var binary = Path.Combine(_testDirectory, "first.exe");
+        await File.WriteAllBytesAsync(binary, [0x4D, 0x5A]);
+        var missing = Path.Combine(_testDirectory, "second.txt");
+
+        var result = await new CopiedFileTextReader().ReadValuesAsync([binary, missing]);
+
+        CollectionAssert.AreEqual(new[] { "first.exe", "second.txt" }, result.ToArray());
+    }
+
+    [TestMethod]
+    public async Task MoreThanTwoCopiedFilesAreIgnored()
+    {
+        var first = await WriteTextFileAsync("first.bat", "first contents");
+        var second = await WriteTextFileAsync("second.txt", "second contents");
+        var third = await WriteTextFileAsync("third.ps1", "third contents");
+
+        var result = await new CopiedFileTextReader().ReadValuesAsync([first, second, third]);
+
+        Assert.AreEqual(0, result.Count);
     }
 
     [TestMethod]

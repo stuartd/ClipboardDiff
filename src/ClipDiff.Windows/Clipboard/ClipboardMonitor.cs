@@ -216,12 +216,22 @@ internal sealed class ClipboardMonitor : IDisposable
         CancellationToken cancellationToken)
     {
         var readTask = Task.Run(
-            async () => await _copiedFileTextReader.ReadAsync(copiedFiles.FilePaths, cancellationToken),
+            async () => await _copiedFileTextReader.ReadValuesAsync(copiedFiles.FilePaths, cancellationToken),
             CancellationToken.None);
-        var text = await readTask.WaitAsync(cancellationToken);
-        return string.IsNullOrEmpty(text)
-            ? ClipboardObservation.NonText(copiedFiles.SequenceNumber, copiedFiles.ObservedAt)
-            : ClipboardObservation.TextValue(copiedFiles.SequenceNumber, copiedFiles.ObservedAt, text);
+        var values = await readTask.WaitAsync(cancellationToken);
+        return values.Count switch
+        {
+            1 => ClipboardObservation.TextValue(
+                copiedFiles.SequenceNumber,
+                copiedFiles.ObservedAt,
+                values[0]),
+            2 => ClipboardObservation.TextPair(
+                copiedFiles.SequenceNumber,
+                copiedFiles.ObservedAt,
+                values[0],
+                values[1]),
+            _ => ClipboardObservation.NonText(copiedFiles.SequenceNumber, copiedFiles.ObservedAt)
+        };
     }
 
     private void CancelPendingRead()

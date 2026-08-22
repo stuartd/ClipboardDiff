@@ -209,7 +209,8 @@ internal sealed class AppController : IDisposable
             return true;
         }
 
-        var result = System.Windows.MessageBox.Show(
+        var result = NativeMethods.ShowMessageBox(
+            nint.Zero,
             "External diff programs require ClipDiff to write the previous and current clipboard text to " +
             "read-only plaintext files under your local ClipDiff temporary folder. Clipboard text may contain " +
             "passwords, tokens, or other secrets.\n\n" +
@@ -217,10 +218,13 @@ internal sealed class AppController : IDisposable
             "its next start. Files may remain after a crash or power loss, and the chosen program may retain " +
             "its own copies. Continue with the external diff program?",
             "ClipDiff external diff privacy notice",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning,
-            MessageBoxResult.Cancel);
-        if (result != MessageBoxResult.OK)
+            NativeMethods.MbOkCancel |
+            NativeMethods.MbIconWarning |
+            NativeMethods.MbDefButton2 |
+            NativeMethods.MbTaskModal |
+            NativeMethods.MbSetForeground |
+            NativeMethods.MbTopmost);
+        if (result != NativeMethods.DialogResultOk)
         {
             return false;
         }

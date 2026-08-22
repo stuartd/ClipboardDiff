@@ -9,6 +9,7 @@
     <RootNamespace>ClipDiff.Windows</RootNamespace>
     <AssemblyName>ClipDiff</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/ClipDiff.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../ClipDiff.Core/ClipDiff.Core.csproj" />

@@ -14,7 +14,17 @@ internal static class NativeMethods
     internal const uint VirtualKeyD = 0x44;
     internal const uint GmemMoveable = 0x0002;
     internal const uint GmemZeroInit = 0x0040;
+    internal const uint MbOkCancel = 0x00000001;
+    internal const uint MbIconWarning = 0x00000030;
+    internal const uint MbDefButton2 = 0x00000100;
+    internal const uint MbTaskModal = 0x00002000;
+    internal const uint MbSetForeground = 0x00010000;
+    internal const uint MbTopmost = 0x00040000;
+    internal const int DialogResultOk = 1;
     internal static readonly nint HwndMessage = new(-3);
+
+    [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern int ShowMessageBox(nint owner, string text, string caption, uint type);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

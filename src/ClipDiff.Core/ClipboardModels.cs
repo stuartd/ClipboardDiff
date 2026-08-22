@@ -3,6 +3,7 @@ namespace ClipDiff;
 public enum ClipboardObservationKind
 {
     Text,
+    TextPair,
     ExplicitClear,
     NonText,
     Sensitive,
@@ -14,10 +15,18 @@ public sealed record ClipboardObservation(
     ClipboardObservationKind Kind,
     uint SequenceNumber,
     DateTimeOffset ObservedAt,
-    string? Text = null)
+    string? Text = null,
+    string? PreviousText = null)
 {
     public static ClipboardObservation TextValue(uint sequenceNumber, DateTimeOffset observedAt, string text) =>
         new(ClipboardObservationKind.Text, sequenceNumber, observedAt, text);
+
+    public static ClipboardObservation TextPair(
+        uint sequenceNumber,
+        DateTimeOffset observedAt,
+        string previousText,
+        string currentText) =>
+        new(ClipboardObservationKind.TextPair, sequenceNumber, observedAt, currentText, previousText);
 
     public static ClipboardObservation ExplicitClear(uint sequenceNumber, DateTimeOffset observedAt) =>
         new(ClipboardObservationKind.ExplicitClear, sequenceNumber, observedAt);

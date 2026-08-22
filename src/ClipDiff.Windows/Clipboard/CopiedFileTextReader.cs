@@ -27,6 +27,30 @@ public sealed class CopiedFileTextReader
         _maximumTextFileBytes = maximumTextFileBytes;
     }
 
+    public async ValueTask<IReadOnlyList<string>> ReadValuesAsync(
+        IReadOnlyList<string> filePaths,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        if (filePaths.Count > 2)
+        {
+            return [];
+        }
+
+        if (filePaths.Count == 2)
+        {
+            var previousText = await ReadAsync([filePaths[0]], cancellationToken);
+            var currentText = await ReadAsync([filePaths[1]], cancellationToken);
+            return previousText is null || currentText is null
+                ? []
+                : [previousText, currentText];
+        }
+
+        var text = await ReadAsync(filePaths, cancellationToken);
+        return text is null ? [] : [text];
+    }
+
     public async ValueTask<string?> ReadAsync(
         IReadOnlyList<string> filePaths,
         CancellationToken cancellationToken = default)
