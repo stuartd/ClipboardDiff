@@ -1,17 +1,18 @@
 # ClipDiff for Windows
 
-ClipDiff is a small Windows notification-area utility that compares the last two text values captured after it starts. A value can come from copied Unicode text or from a file copied in Explorer. ClipDiff listens to the Windows clipboard directly; it does not use Ditto, a database, or a web service.
+ClipDiff is a Windows notification-area utility that compares the last two text values captured after it starts. A value can come from copied Unicode text or from a file copied in Explorer. 
+
+ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 
 ## Use
 
-1. Start `ClipDiff.exe`. It opens in the notification area without a conventional main window.
+1. Start `ClipDiff.exe`. It opens in the notification area
 2. Copy the older text or file.
 3. Copy the newer text or file.
 4. Press `Ctrl+Alt+D`, or right-click the ClipDiff icon and choose **Show Diff**.
+5. You can if you wish copy two files at the same time - `code.txt` and `code_old.txt`- and diff those
 
-Alternatively, copy exactly two files in one Explorer operation; ClipDiff uses them as the older/newer pair immediately.
-
-The built-in viewer is the default. Its reusable window opens in **Side by Side** mode and can switch to **Unified**, copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
+The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
 The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
 
@@ -23,7 +24,13 @@ When Explorer places files on the clipboard, ClipDiff checks the same privacy ma
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute only the filename.
 - Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute only the filename.
 
-The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename. When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**. Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list. File contents and paths are never written by this workflow; the resulting value or pair follows the same two-entry, in-memory history policy as copied text.
+The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename.
+
+When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
+
+Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
+
+File contents and paths are never written by this workflow; the resulting value or pair follows the same two-entry, in-memory history policy as copied text.
 
 ## External diff viewers
 
@@ -54,7 +61,7 @@ This cleanup is best effort. A crash, power loss, open file handle, or external 
 
 ClipDiff stores only the selected executable path and the one-time-warning acknowledgement in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
 
-Before reading text, ClipDiff inspects and honours these advisory clipboard formats:
+Before reading text, ClipDiff inspects and honours these advisory [clipboard formats](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-formats):
 
 - `ExcludeClipboardContentFromMonitorProcessing`
 - `CanIncludeInClipboardHistory` when its DWORD is zero
@@ -62,7 +69,7 @@ Before reading text, ClipDiff inspects and honours these advisory clipboard form
 
 Malformed or unreadable privacy markers are excluded conservatively. **Copy diff** writes its Unicode text and all three exclusion formats in one native clipboard operation, and ClipDiff suppresses the resulting clipboard update.
 
-Some password managers clear an unmarked value shortly after copying it. If an accepted value is immediately followed by an explicit clipboard clear within 60 seconds, ClipDiff removes that current entry. An intervening unrelated, sensitive, or failed clipboard observation cancels this eligibility. This is only a best-effort heuristic.
+Some password managers clear an unmarked value shortly after copying it. If an accepted value is immediately followed by an explicit clipboard clear within 60 seconds, ClipDiff removes that current entry. An intervening unrelated, sensitive, or failed clipboard observation cancels this eligibility. **This is only a best-effort heuristic and does not come with a guarantee.**
 
 Important limitations:
 
@@ -78,7 +85,7 @@ ClipDiff does not guess whether text is sensitive from its length, punctuation, 
 ## Requirements
 
 - Windows 10 version 1809 or newer, or Windows 11
-- Windows Server 2022 with Desktop Experience on a best-effort basis
+- Windows Server 2022 with Desktop Experience
 - An interactive desktop session with a clipboard and notification area
 
 Windows Server Core is not supported. The initial release target is `win-x64`.
