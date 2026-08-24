@@ -44,7 +44,7 @@ public sealed class CopiedFileTextReaderTests
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
 
-        Assert.AreEqual("ClipDiff.exe", result);
+        Assert.AreEqual("ClipDiff.exe (binary file)", result);
     }
 
     [TestMethod]
@@ -55,7 +55,7 @@ public sealed class CopiedFileTextReaderTests
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
 
-        Assert.AreEqual("tiny.com", result);
+        Assert.AreEqual("tiny.com (binary file)", result);
     }
 
     [TestMethod]
@@ -66,7 +66,7 @@ public sealed class CopiedFileTextReaderTests
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
 
-        Assert.AreEqual("misleading.txt", result);
+        Assert.AreEqual("misleading.txt (binary file)", result);
     }
 
     [TestMethod]
@@ -116,7 +116,9 @@ public sealed class CopiedFileTextReaderTests
 
         var result = await new CopiedFileTextReader().ReadValuesAsync([binary, missing]);
 
-        CollectionAssert.AreEqual(new[] { "first.exe", "second.txt" }, result.ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "first.exe (binary file)", "second.txt (file not found)" },
+            result.ToArray());
     }
 
     [TestMethod]
@@ -132,7 +134,7 @@ public sealed class CopiedFileTextReaderTests
     }
 
     [TestMethod]
-    public async Task EmptyUnreadableOrOversizedEntryFallsBackToFileName()
+    public async Task EmptyMissingOrOversizedEntryIncludesFallbackReason()
     {
         var empty = Path.Combine(_testDirectory, "empty.txt");
         await File.WriteAllBytesAsync(empty, []);
@@ -140,9 +142,9 @@ public sealed class CopiedFileTextReaderTests
         var missing = Path.Combine(_testDirectory, "missing.txt");
         var reader = new CopiedFileTextReader(maximumTextFileBytes: 4);
 
-        Assert.AreEqual("empty.txt", await reader.ReadAsync([empty]));
-        Assert.AreEqual("large.txt", await reader.ReadAsync([oversized]));
-        Assert.AreEqual("missing.txt", await reader.ReadAsync([missing]));
+        Assert.AreEqual("empty.txt (empty file)", await reader.ReadAsync([empty]));
+        Assert.AreEqual("large.txt (file too large)", await reader.ReadAsync([oversized]));
+        Assert.AreEqual("missing.txt (file not found)", await reader.ReadAsync([missing]));
     }
 
     [TestMethod]
@@ -153,7 +155,18 @@ public sealed class CopiedFileTextReaderTests
 
         var result = await new CopiedFileTextReader().ReadAsync([directory]);
 
-        Assert.AreEqual("folder", result);
+        Assert.AreEqual("folder (directory)", result);
+    }
+
+    [TestMethod]
+    public async Task UnreadableFileIncludesFallbackReason()
+    {
+        var path = await WriteTextFileAsync("locked.txt", "contents");
+        await using var exclusiveStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var result = await new CopiedFileTextReader().ReadAsync([path]);
+
+        Assert.AreEqual("locked.txt (file unreadable)", result);
     }
 
     private async Task<string> WriteTextFileAsync(string name, string contents)

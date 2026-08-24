@@ -78,7 +78,12 @@ public sealed class CopiedFileTextReader
         {
             if (KnownBinaryExecutableExtensions.Contains(Path.GetExtension(path)))
             {
-                return fallbackName;
+                return AnnotateFallback(fallbackName, "binary file");
+            }
+
+            if (Directory.Exists(path))
+            {
+                return AnnotateFallback(fallbackName, "directory");
             }
 
             await using var stream = new FileStream(path, new FileStreamOptions
@@ -89,27 +94,43 @@ public sealed class CopiedFileTextReader
                 Options = FileOptions.Asynchronous | FileOptions.SequentialScan
             });
 
-            if (stream.Length == 0 || stream.Length > _maximumTextFileBytes || stream.Length > int.MaxValue)
+            if (stream.Length == 0)
             {
-                return fallbackName;
+                return AnnotateFallback(fallbackName, "empty file");
+            }
+
+            if (stream.Length > _maximumTextFileBytes || stream.Length > int.MaxValue)
+            {
+                return AnnotateFallback(fallbackName, "file too large");
             }
 
             var bytes = new byte[checked((int)stream.Length)];
             await stream.ReadExactlyAsync(bytes, cancellationToken);
-            return TryDecodeText(bytes, out var text) && text.Length > 0
+            if (!TryDecodeText(bytes, out var text))
+            {
+                return AnnotateFallback(fallbackName, "binary file");
+            }
+
+            return text.Length > 0
                 ? text
-                : fallbackName;
+                : AnnotateFallback(fallbackName, "empty file");
         }
         catch (OperationCanceledException)
         {
             throw;
         }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return AnnotateFallback(fallbackName, "file not found");
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
                                           ArgumentException or NotSupportedException or SecurityException)
         {
-            return fallbackName;
+            return AnnotateFallback(fallbackName, "file unreadable");
         }
     }
+
+    private static string AnnotateFallback(string fileName, string reason) => $"{fileName} ({reason})";
 
     private static string GetDisplayName(string path)
     {

@@ -21,8 +21,8 @@ The menu's **Diff viewer** submenu lists supported programs found on the machine
 When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. A single copied file is converted as follows:
 
 - `.bat`, `.cmd`, `.ps1`, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
-- Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute only the filename.
-- Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute only the filename.
+- Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute the filename with a reason, such as `program.exe (binary file)`.
+- Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute the filename with `(binary file)`, `(empty file)`, `(file not found)`, `(file unreadable)`, `(directory)`, or `(file too large)` appended as appropriate.
 
 The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename.
 
@@ -137,8 +137,8 @@ On a Windows desktop, verify:
 - `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference and warning acknowledgement, never clipboard content;
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
-- a copied `.bat` contributes its full text, a copied `.exe` contributes only its filename, and a renamed binary is still treated as binary;
-- exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename;
+- a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
+- exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;
