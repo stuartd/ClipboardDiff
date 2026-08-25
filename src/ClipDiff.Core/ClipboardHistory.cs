@@ -73,6 +73,18 @@ public sealed class ClipboardHistory
         }
     }
 
+    public ClipboardHistoryChange AcceptDirectText(string text, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (!IsMonitoring || text.Length == 0)
+        {
+            return ClipboardHistoryChange.None;
+        }
+
+        return InsertText(text, capturedAt, isEligibleForRecentClear: false);
+    }
+
     public void Pause()
     {
         IsMonitoring = false;
@@ -102,14 +114,24 @@ public sealed class ClipboardHistory
             return ApplyExplicitClear(observation.ObservedAt);
         }
 
-        var entry = new ClipboardEntry(_idFactory(), text, observation.ObservedAt);
+        return InsertText(text, observation.ObservedAt, isEligibleForRecentClear: true);
+    }
+
+    private ClipboardHistoryChange InsertText(
+        string text,
+        DateTimeOffset capturedAt,
+        bool isEligibleForRecentClear)
+    {
+        var entry = new ClipboardEntry(_idFactory(), text, capturedAt);
         _entries.Insert(0, entry);
         if (_entries.Count > 2)
         {
             _entries.RemoveRange(2, _entries.Count - 2);
         }
 
-        _clearEligibility = new(entry.Id, observation.ObservedAt);
+        _clearEligibility = isEligibleForRecentClear
+            ? new(entry.Id, capturedAt)
+            : null;
         return ClipboardHistoryChange.Accepted;
     }
 

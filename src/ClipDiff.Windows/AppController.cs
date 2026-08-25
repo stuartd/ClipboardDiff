@@ -3,6 +3,7 @@ using System.Media;
 using System.Windows;
 using ClipDiff.Windows.Clipboard;
 using ClipDiff.Windows.ExternalDiff;
+using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Hotkeys;
 using ClipDiff.Windows.Native;
 using ClipDiff.Windows.Tray;
@@ -19,10 +20,14 @@ internal sealed class AppController : IDisposable
     private readonly NativeMessageWindow _messageWindow;
     private readonly ClipboardMonitor _clipboardMonitor;
     private readonly ClipboardWriter _clipboardWriter;
+    private readonly CopiedFileTextReader _copiedFileTextReader = new();
     private readonly ClipboardHistory _history;
     private readonly GlobalHotKey _hotKey;
     private readonly TrayIconController _trayIcon;
     private readonly DiffWindowViewModel _viewModel;
+    private readonly ExplorerCommandServer _explorerCommandServer;
+    private readonly ExplorerContextMenuRegistration _explorerContextMenuRegistration;
+    private readonly CancellationTokenSource _shutdown = new();
     private ExternalDiffSettings _externalDiffSettings;
     private IReadOnlyList<ExternalDiffToolChoice> _externalDiffTools;
     private DiffWindow? _diffWindow;
@@ -43,6 +48,8 @@ internal sealed class AppController : IDisposable
             _externalDiffTools,
             GetSelectedExternalDiffTool()?.ExecutablePath);
         _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText);
+        _explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
+        _explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
 
         _clipboardMonitor.ObservationReceived += OnClipboardObservation;
         _hotKey.Pressed += OnShowDiffRequested;
@@ -55,6 +62,16 @@ internal sealed class AppController : IDisposable
         UpdatePresentation();
     }
 
+    public void CompareWithCurrent(string selectedFilePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(selectedFilePath);
+
+        if (!_disposed)
+        {
+            _ = CompareWithSelectedFileAsync(selectedFilePath);
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -63,6 +80,7 @@ internal sealed class AppController : IDisposable
         }
 
         _disposed = true;
+        _shutdown.Cancel();
         _clipboardMonitor.ObservationReceived -= OnClipboardObservation;
         _hotKey.Pressed -= OnShowDiffRequested;
         _trayIcon.ShowDiffRequested -= OnShowDiffRequested;
@@ -72,6 +90,8 @@ internal sealed class AppController : IDisposable
         _trayIcon.ClearRequested -= OnClearRequested;
         _trayIcon.QuitRequested -= OnQuitRequested;
 
+        _explorerContextMenuRegistration.Dispose();
+        _explorerCommandServer.Dispose();
         _trayIcon.Dispose();
         _externalDiffLauncher.Dispose();
         _hotKey.Dispose();
@@ -86,6 +106,7 @@ internal sealed class AppController : IDisposable
         _viewModel.ClearDocument();
         _history.Clear();
         _messageWindow.Dispose();
+        _shutdown.Dispose();
     }
 
     private void OnClipboardObservation(object? sender, ClipboardObservation observation)
@@ -189,6 +210,63 @@ internal sealed class AppController : IDisposable
         _diffWindow.Activate();
     }
 
+    private async Task CompareWithSelectedFileAsync(string selectedFilePath)
+    {
+        try
+        {
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
+            var canCompare = await dispatcher.InvokeAsync(
+                () => !_disposed && _history.IsMonitoring && _history.Current is not null).Task.ConfigureAwait(false);
+            if (!canCompare)
+            {
+                await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
+                return;
+            }
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(selectedFilePath);
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or
+                                              PathTooLongException or System.Security.SecurityException)
+            {
+                await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
+                return;
+            }
+
+            var selectedText = await _copiedFileTextReader.ReadAsync(
+                [fullPath],
+                _shutdown.Token).ConfigureAwait(false);
+            if (selectedText is null)
+            {
+                await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
+                return;
+            }
+
+            await dispatcher.InvokeAsync(() =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                if (!_history.IsMonitoring || _history.Current is null)
+                {
+                    SystemSounds.Beep.Play();
+                    return;
+                }
+
+                _history.AcceptDirectText(selectedText, DateTimeOffset.Now);
+                UpdatePresentation();
+                ShowDiff();
+            }).Task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+        }
+    }
+
     private ExternalDiffToolChoice? GetSelectedExternalDiffTool()
     {
         if (string.IsNullOrWhiteSpace(_externalDiffSettings.SelectedExecutablePath))
@@ -211,8 +289,8 @@ internal sealed class AppController : IDisposable
 
         var result = NativeMethods.ShowMessageBox(
             nint.Zero,
-            "External diff programs require ClipDiff to write the previous and current clipboard text to " +
-            "read-only plaintext files under your local ClipDiff temporary folder. Clipboard text may contain " +
+            "External diff programs require ClipDiff to write the previous and current comparison text to " +
+            "read-only plaintext files under your local ClipDiff temporary folder. Comparison text may contain " +
             "passwords, tokens, or other secrets.\n\n" +
             "ClipDiff attempts to delete the files after the diff program closes, when ClipDiff exits, and on " +
             "its next start. Files may remain after a crash or power loss, and the chosen program may retain " +
@@ -273,5 +351,7 @@ internal sealed class AppController : IDisposable
             _history.Current,
             _history.Previous);
         _viewModel.SetCanClear(_history.Current is not null);
+        _explorerContextMenuRegistration.SetEnabled(
+            _history.IsMonitoring && _history.Current is not null);
     }
 }

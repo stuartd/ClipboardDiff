@@ -60,6 +60,51 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
+    public void DirectTextActsLikeANewCopyWithoutChangingTheClipboardSequence()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(6, "older contents"));
+        history.Apply(Text(7, "copied file contents"));
+
+        var result = history.AcceptDirectText("selected file contents", Start.AddSeconds(1));
+
+        Assert.AreEqual(ClipboardHistoryChange.Accepted, result);
+        Assert.AreEqual("copied file contents", history.Previous?.Text);
+        Assert.AreEqual("selected file contents", history.Current?.Text);
+        Assert.AreEqual(2, history.Entries.Count);
+        Assert.IsFalse(history.Entries.Any(entry => entry.Text == "older contents"));
+        Assert.AreEqual((uint)7, history.LastSequenceNumber);
+        Assert.AreEqual("Ready to diff", history.Status);
+    }
+
+    [TestMethod]
+    public void DirectTextIsNotRemovedByAClipboardClear()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "copied file contents"));
+        history.AcceptDirectText("selected file contents", Start.AddSeconds(1));
+
+        history.Apply(ClipboardObservation.ExplicitClear(2, Start.AddSeconds(2)));
+
+        Assert.AreEqual("selected file contents", history.Current?.Text);
+        Assert.AreEqual("copied file contents", history.Previous?.Text);
+    }
+
+    [TestMethod]
+    public void DirectTextIsIgnoredWhileMonitoringIsPaused()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "copied file contents"));
+        history.Pause();
+
+        var result = history.AcceptDirectText("selected file contents", Start.AddSeconds(1));
+
+        Assert.AreEqual(ClipboardHistoryChange.None, result);
+        Assert.AreEqual("copied file contents", history.Current?.Text);
+        Assert.IsNull(history.Previous);
+    }
+
+    [TestMethod]
     public void EmptyTextOutsideClearWindowLeavesHistoryUntouched()
     {
         var history = CreateHistory();

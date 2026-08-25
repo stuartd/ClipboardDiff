@@ -17,5 +17,7 @@
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffToolCatalog.cs" Link="ExternalDiffToolCatalog.cs" />
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffSettingsStore.cs" Link="ExternalDiffSettingsStore.cs" />
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffWorkspace.cs" Link="ExternalDiffWorkspace.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerContextCommandLine.cs" Link="ExplorerContextCommandLine.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerCommandProtocol.cs" Link="ExplorerCommandProtocol.cs" />
   </ItemGroup>
 </Project>

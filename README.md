@@ -8,9 +8,9 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 
 1. Start `ClipDiff.exe`. It opens in the notification area
 2. Copy the older text or file.
-3. Copy the newer text or file.
-4. Press `Ctrl+Alt+D`, or right-click the ClipDiff icon and choose **Show Diff**.
-5. You can if you wish copy two files at the same time - `code.txt` and `code_old.txt`- and diff those
+3. Either copy the newer text or file, or right-click the newer file in Explorer and choose **Compare with current ClipDiff capture**.
+4. If you copied the newer value normally, press `Ctrl+Alt+D` or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
+5. You can also copy two files at the same time—`code_old.txt` and `code.txt`, for example—and diff those immediately.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
@@ -28,9 +28,13 @@ The decision uses both safe binary-extension handling and content inspection, so
 
 When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
 
+After ClipDiff has captured at least one value, and while clipboard monitoring is active, it adds **Compare with current ClipDiff capture** to the Explorer context menu for individual files. Choosing it reads the selected file with the same conversion rules, promotes that result to **Current**, moves the former **Current** entry to **Previous**, and immediately uses the normal **Show Diff** workflow. It does not change the Windows clipboard. On Windows 11, this classic context-menu command may appear under **Show more options**.
+
+The context-menu registration is per-user, requires no administrator access, and is present only while ClipDiff is running with a usable current capture. Clearing the capture, pausing monitoring, or quitting removes it; a later ClipDiff start cleans up a registration left by an abnormal exit. The registration contains only the ClipDiff command, never captured text or a selected path.
+
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
-File contents and paths are never written by this workflow; the resulting value or pair follows the same two-entry, in-memory history policy as copied text.
+File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe and does not retain or log it.
 
 ## External diff viewers
 
@@ -139,6 +143,8 @@ On a Windows desktop, verify:
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
 - exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
+- after one capture, right-clicking a second file offers **Compare with current ClipDiff capture**, makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
+- pausing, clearing, and quitting remove the Explorer command, and Windows 11 exposes it under **Show more options** when it is not in the primary menu;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;

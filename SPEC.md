@@ -14,6 +14,8 @@ The intended workflow is:
 
 Alternatively, copy exactly two files in one operation to use them immediately as the older/newer comparison pair.
 
+After one value has been captured, the user may instead right-click a second file in Explorer and select **Compare with current ClipDiff capture**. This must behave as though that file had been copied as the next value and **Show Diff** had then been invoked, without modifying the Windows clipboard.
+
 This is a personal local utility. Keep the implementation small, inspectable, dependency-light, and privacy-conscious.
 
 The application should not depend on Ditto or any other clipboard manager. Earlier versions of this workflow used the last two values from Ditto’s database; this application replaces that hack by listening to the Windows clipboard directly.
@@ -79,7 +81,7 @@ Arm64 can be added later but is not required for the first version.
 
 The application must:
 
-- Capture text values only, including the copied-file-to-text conversion defined in section 6.4.
+- Capture text values only, including the copied-file-to-text conversion and explicit Explorer-file workflow defined in section 6.4.
 - Keep captured text in memory only unless the user explicitly selects an external diff viewer. That approved workflow may use the temporary plaintext handoff defined in section 16.5.
 - Retain at most two accepted clipboard values.
 - Accept consecutive copies of identical text as separate entries.
@@ -102,7 +104,7 @@ The application must not:
 - Add a clipboard-history browser.
 - Retain more than the two values needed for the comparison.
 - Add settings or onboarding beyond the external-viewer executable path and warning acknowledgement, or add a complex preferences interface.
-- Add document-management features or file access beyond the copied-file conversion in section 6.4.
+- Add document-management features or file access beyond the copied-file conversion and explicit Explorer action in section 6.4.
 - Use a terminal window or embedded web UI for the diff.
 - Require an installer for the initial personal release.
 
@@ -185,6 +187,10 @@ If a clipboard object contains both rich content and Unicode text, capturing its
 If CF_HDROP contains one copied file, inspect privacy markers before obtaining the path, release the clipboard before file I/O, and convert the file to one text value. Known binary executable/package extensions, binary-looking content, directories, empty files, missing or unreadable files, and files larger than 16 MiB contribute the filename with a parenthetical reason appended: (binary file), (directory), (empty file), (file not found), (file unreadable), or (file too large), as appropriate. Otherwise decode and capture the complete text contents. Support UTF-8, BOM-marked UTF-16 and UTF-32, common BOM-less UTF-16, and Windows-1252. Text scripts such as BAT, CMD, and PowerShell files therefore contribute their contents, while EXE, COM, DLL, MSI, and similar binary types contribute their filename followed by (binary file).
 
 If exactly two files are copied together, convert each independently using the single-file rules above and atomically replace the comparison pair. The first path in CF_HDROP order is the previous value and the second is the current value. Ignore copies containing more than two files; never create a comparison value from a file list. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.
+
+While monitoring is active and at least one captured entry exists, register a per-user Explorer context-menu command named **Compare with current ClipDiff capture** for individual files. Invoking it must convert the directly selected file with the same single-file rules, insert its result as the new current entry, move the former current entry to previous, evict any older entry, and immediately invoke the ordinary **Show Diff** workflow. It must not modify the Windows clipboard or its sequence baseline, and the direct entry must not be eligible for the recent clipboard-clear heuristic. If monitoring is paused or there is no current entry, do not read the selected file or alter history.
+
+The Explorer command may pass the directly selected path on its process command line and through same-user local IPC to the existing ClipDiff instance. Do not pass the copied file's path or contents, any decoded text, or any diff on a command line. Do not persist or log either file path. Multiple Explorer selections are not supported by this command.
 
 ### 6.5 Empty clipboard changes
 
@@ -426,7 +432,14 @@ If a second instance starts:
 
 - Exit the second instance cleanly.
 - Do not create another notification-area icon.
+- If it was launched by the Explorer comparison command, forward the selected path to the first instance over same-user, per-session local IPC before exiting.
 - Bringing the first instance forward is optional and not required for the initial version.
+
+### 9.4 Explorer context menu
+
+Use an ordinary per-user file-shell verb below `HKCU\Software\Classes`; do not require administrator access, an installer, or an in-process Explorer extension. Register it only while monitoring is active and a current entry exists. Remove it when captured text is cleared, monitoring is paused, or ClipDiff exits, and remove an owned stale registration at the next start. The registry values may contain only the executable command, label, icon, and single-selection policy—never captured text, previews, selected paths, or diffs.
+
+On Windows 11 the classic verb may appear below **Show more options**. Forward invocations to the existing per-session instance through a local pipe restricted to the current user. A failure to register the verb or deliver a command is nonfatal and must not impair clipboard monitoring or tray operation.
 
 ## 10. Status and presentation models
 
@@ -970,6 +983,7 @@ Responsibilities:
 - Global hotkey
 - Single-instance mutex
 - External-diff discovery, command profiles, warned temporary-file handoff, minimal preference storage, and best-effort cleanup
+- Explorer context-menu registration, same-user command forwarding, and selected-file conversion
 - UI-thread coordination
 
 All clipboard and UI work should be coordinated through the WPF dispatcher/STA thread.
@@ -1067,6 +1081,8 @@ At minimum:
 1. Own clipboard writes never enter history.
 
 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and reason-labelled filename fallback for directories, empty, missing, unreadable, oversized, and binary files.
+
+Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, direct insertion as current with the former current moved to previous, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic.
 
 ### 21.2 Line-splitting tests
 
@@ -1227,6 +1243,9 @@ On Windows:
 1. Leave a simulated stale comparison directory and confirm the next ClipDiff start removes it.
 1. Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.
 1. Inspect settings.json and confirm it contains only the selected path and acknowledgement, never captured text or previews.
+1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
+1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
+1. Start ClipDiff after a simulated abnormal exit and confirm it removes an owned stale Explorer registration when there is no captured entry.
 
 ## 22. Release build
 
@@ -1326,6 +1345,7 @@ The README should explain:
 - What ClipDiff does.
 - The two-copy workflow.
 - How copied files are converted to text or filenames, including limits and privacy behavior.
+- How the Explorer **Compare with current ClipDiff capture** action behaves, when it is registered, and its Windows 11 placement.
 - `Ctrl+Alt+D`.
 - Notification-area commands.
 - The memory-only built-in privacy model and the explicit temporary-plaintext exception for external viewers.
@@ -1346,6 +1366,7 @@ The first release is complete when all of these are true:
 - The app starts without a conventional main window.
 - A notification-area icon appears.
 - It captures two future text values from copied Unicode text or the section 6.4 copied-file conversion, including identical consecutive copies and the exact-two-file pair workflow.
+- After one captured value, the Explorer command can make a selected second file current and immediately invoke the configured viewer without changing the clipboard.
 - It stores those values only in memory unless the user explicitly selects and acknowledges the external-viewer temporary-plaintext workflow.
 - It accepts duplicate text copies, converts copied files according to section 6.4, and ignores empty text and unsupported non-text changes correctly.
 - It honours all three agreed Windows privacy formats.

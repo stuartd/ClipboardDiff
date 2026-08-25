@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using ClipDiff.Windows.Explorer;
 
 namespace ClipDiff.Windows;
 
@@ -13,9 +14,18 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(args);
 
+        var isExplorerCommand = ExplorerContextCommandLine.TryGetSelectedFile(
+            args.Args,
+            out var selectedFilePath);
+
         _instanceMutex = new Mutex(true, @"Local\ClipDiff", out _ownsMutex);
         if (!_ownsMutex)
         {
+            if (isExplorerCommand)
+            {
+                ExplorerCommandClient.TrySendSelectedFile(selectedFilePath);
+            }
+
             _instanceMutex.Dispose();
             _instanceMutex = null;
             Shutdown();
@@ -23,6 +33,10 @@ public partial class App : System.Windows.Application
         }
 
         _controller = new AppController();
+        if (isExplorerCommand)
+        {
+            _controller.CompareWithCurrent(selectedFilePath);
+        }
     }
 
     protected override void OnExit(ExitEventArgs args)
