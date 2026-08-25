@@ -113,6 +113,8 @@ dotnet test tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj
 
 The Windows project has `EnableWindowsTargeting=true`, which permits cross-compilation where Microsoft targeting packs are available. A successful macOS compile is not a functional Windows test. Clipboard formats, notification-area behaviour, global hotkeys, WPF presentation, and native cleanup still require Windows verification.
 
+GitHub Actions also restores, tests, and builds the full Release solution on `windows-latest` for every push and pull request. It can be run manually from the repository's **Actions** tab as well.
+
 ## Local release
 
 On Windows PowerShell:
