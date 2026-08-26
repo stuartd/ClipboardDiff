@@ -161,12 +161,43 @@ public sealed class DiffEngineTests
         var previous = new ClipboardEntry(Guid.NewGuid(), "old", time, "before.cs");
         var current = new ClipboardEntry(Guid.NewGuid(), "new", time, "after.cs");
         var document = new DiffEngine().Compare(previous, current, time);
+        var labels = DiffFormatting.Labels(previous, current);
 
-        Assert.AreEqual("Previous clipboard — before.cs", DiffFormatting.PreviousLabel(previous));
-        Assert.AreEqual("Current clipboard — after.cs", DiffFormatting.CurrentLabel(current));
+        Assert.AreEqual("Previous clipboard — before.cs", labels.Previous);
+        Assert.AreEqual("Current clipboard — after.cs", labels.Current);
         Assert.IsTrue(DiffFormatting.Unified(document).StartsWith(
             "--- Previous clipboard — before.cs\n+++ Current clipboard — after.cs\n",
             StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void MatchingFileNamesUseShortestUniquePathsInDiffHeaders()
+    {
+        var time = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var previous = new ClipboardEntry(
+            Guid.NewGuid(),
+            "old",
+            time,
+            "settings.json",
+            @"C:\worktrees\branch-a\src\settings.json");
+        var current = new ClipboardEntry(
+            Guid.NewGuid(),
+            "new",
+            time,
+            "settings.json",
+            @"C:\worktrees\branch-b\src\settings.json");
+
+        var document = new DiffEngine().Compare(previous, current, time);
+        var output = DiffFormatting.Unified(document);
+
+        Assert.IsTrue(output.StartsWith(
+            "--- Previous clipboard — branch-a/src/settings.json\n" +
+            "+++ Current clipboard — branch-b/src/settings.json\n",
+            StringComparison.Ordinal));
+        Assert.IsNull(document.Previous.SourceFilePath);
+        Assert.IsNull(document.Current.SourceFilePath);
+        Assert.AreEqual(@"C:\worktrees\branch-a\src\settings.json", previous.SourceFilePath);
+        Assert.AreEqual(@"C:\worktrees\branch-b\src\settings.json", current.SourceFilePath);
     }
 
     private static DiffDocument Compare(string previous, string current)

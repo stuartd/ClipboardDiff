@@ -67,9 +67,11 @@ public sealed class ClipboardHistoryTests
             1,
             Start,
             "single contents",
-            "single.txt"));
+            "single.txt",
+            @"C:\single\single.txt"));
 
         Assert.AreEqual("single.txt", history.Current?.SourceFileName);
+        Assert.AreEqual(@"C:\single\single.txt", history.Current?.SourceFilePath);
 
         history.Apply(ClipboardObservation.TextPair(
             2,
@@ -77,10 +79,14 @@ public sealed class ClipboardHistoryTests
             "old contents",
             "new contents",
             "old.cs",
-            "new.cs"));
+            "new.cs",
+            @"C:\old\old.cs",
+            @"C:\new\new.cs"));
 
         Assert.AreEqual("old.cs", history.Previous?.SourceFileName);
         Assert.AreEqual("new.cs", history.Current?.SourceFileName);
+        Assert.AreEqual(@"C:\old\old.cs", history.Previous?.SourceFilePath);
+        Assert.AreEqual(@"C:\new\new.cs", history.Current?.SourceFilePath);
     }
 
     [TestMethod]
@@ -107,9 +113,14 @@ public sealed class ClipboardHistoryTests
         var history = CreateHistory();
         history.Apply(Text(1, "copied contents"));
 
-        history.AcceptDirectText("selected contents", Start.AddSeconds(1), "selected.txt");
+        history.AcceptDirectText(
+            "selected contents",
+            Start.AddSeconds(1),
+            "selected.txt",
+            @"C:\selected\selected.txt");
 
         Assert.AreEqual("selected.txt", history.Current?.SourceFileName);
+        Assert.AreEqual(@"C:\selected\selected.txt", history.Current?.SourceFilePath);
         Assert.IsNull(history.Previous?.SourceFileName);
     }
 

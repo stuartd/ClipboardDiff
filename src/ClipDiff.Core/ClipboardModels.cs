@@ -18,19 +18,23 @@ public sealed record ClipboardObservation(
     string? Text = null,
     string? PreviousText = null,
     string? SourceFileName = null,
-    string? PreviousSourceFileName = null)
+    string? PreviousSourceFileName = null,
+    string? SourceFilePath = null,
+    string? PreviousSourceFilePath = null)
 {
     public static ClipboardObservation TextValue(
         uint sequenceNumber,
         DateTimeOffset observedAt,
         string text,
-        string? sourceFileName = null) =>
+        string? sourceFileName = null,
+        string? sourceFilePath = null) =>
         new(
             ClipboardObservationKind.Text,
             sequenceNumber,
             observedAt,
             text,
-            SourceFileName: sourceFileName);
+            SourceFileName: sourceFileName,
+            SourceFilePath: sourceFilePath);
 
     public static ClipboardObservation TextPair(
         uint sequenceNumber,
@@ -38,15 +42,19 @@ public sealed record ClipboardObservation(
         string previousText,
         string currentText,
         string? previousSourceFileName = null,
-        string? currentSourceFileName = null) =>
+        string? currentSourceFileName = null,
+        string? previousSourceFilePath = null,
+        string? currentSourceFilePath = null) =>
         new(
             ClipboardObservationKind.TextPair,
             sequenceNumber,
             observedAt,
-            currentText,
-            previousText,
-            currentSourceFileName,
-            previousSourceFileName);
+            Text: currentText,
+            PreviousText: previousText,
+            SourceFileName: currentSourceFileName,
+            PreviousSourceFileName: previousSourceFileName,
+            SourceFilePath: currentSourceFilePath,
+            PreviousSourceFilePath: previousSourceFilePath);
 
     public static ClipboardObservation ExplicitClear(uint sequenceNumber, DateTimeOffset observedAt) =>
         new(ClipboardObservationKind.ExplicitClear, sequenceNumber, observedAt);

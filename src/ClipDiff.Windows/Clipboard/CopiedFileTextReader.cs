@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ClipDiff.Windows.Clipboard;
 
-public sealed record CopiedFileText(string Text, string FileName);
+public sealed record CopiedFileText(string Text, string FileName, string FilePath);
 
 public sealed class CopiedFileTextReader
 {
@@ -91,19 +91,21 @@ public sealed class CopiedFileTextReader
             return null;
         }
 
+        var sourceFilePath = GetFullPathOrOriginal(filePath);
+
         try
         {
-            if (KnownBinaryExecutableExtensions.Contains(Path.GetExtension(filePath)))
+            if (KnownBinaryExecutableExtensions.Contains(Path.GetExtension(sourceFilePath)))
             {
-                return CreateFallback(fileName, "binary file");
+                return CreateFallback(fileName, sourceFilePath, "binary file");
             }
 
-            if (Directory.Exists(filePath))
+            if (Directory.Exists(sourceFilePath))
             {
-                return CreateFallback(fileName, "directory");
+                return CreateFallback(fileName, sourceFilePath, "directory");
             }
 
-            await using var stream = new FileStream(filePath, new FileStreamOptions
+            await using var stream = new FileStream(sourceFilePath, new FileStreamOptions
             {
                 Mode = FileMode.Open,
                 Access = FileAccess.Read,
@@ -113,24 +115,24 @@ public sealed class CopiedFileTextReader
 
             if (stream.Length == 0)
             {
-                return CreateFallback(fileName, "empty file");
+                return CreateFallback(fileName, sourceFilePath, "empty file");
             }
 
             if (stream.Length > _maximumTextFileBytes || stream.Length > int.MaxValue)
             {
-                return CreateFallback(fileName, "file too large");
+                return CreateFallback(fileName, sourceFilePath, "file too large");
             }
 
             var bytes = new byte[checked((int)stream.Length)];
             await stream.ReadExactlyAsync(bytes, cancellationToken);
             if (!TryDecodeText(bytes, out var text))
             {
-                return CreateFallback(fileName, "binary file");
+                return CreateFallback(fileName, sourceFilePath, "binary file");
             }
 
             return text.Length > 0
-                ? new CopiedFileText(text, fileName)
-                : CreateFallback(fileName, "empty file");
+                ? new CopiedFileText(text, fileName, sourceFilePath)
+                : CreateFallback(fileName, sourceFilePath, "empty file");
         }
         catch (OperationCanceledException)
         {
@@ -138,17 +140,30 @@ public sealed class CopiedFileTextReader
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
-            return CreateFallback(fileName, "file not found");
+            return CreateFallback(fileName, sourceFilePath, "file not found");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
                                           ArgumentException or NotSupportedException or SecurityException)
         {
-            return CreateFallback(fileName, "file unreadable");
+            return CreateFallback(fileName, sourceFilePath, "file unreadable");
         }
     }
 
-    private static CopiedFileText CreateFallback(string fileName, string reason) =>
-        new($"{fileName} ({reason})", fileName);
+    private static CopiedFileText CreateFallback(string fileName, string filePath, string reason) =>
+        new($"{fileName} ({reason})", fileName, filePath);
+
+    private static string GetFullPathOrOriginal(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or
+                                          PathTooLongException or SecurityException)
+        {
+            return path;
+        }
+    }
 
     private static string GetDisplayName(string path)
     {

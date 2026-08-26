@@ -26,7 +26,9 @@ When Explorer places files on the clipboard, ClipDiff checks the same privacy ma
 
 The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename.
 
-ClipDiff retains the source basename separately from the converted text. The filename is always shown on the corresponding side of the built-in diff, in unified/copied diff headers, in the notification-area current/previous item, and in external-viewer labels. Full source paths are not retained in history.
+ClipDiff retains the source basename separately from the converted text. The filename is always shown on the corresponding side of the built-in diff, in unified/copied diff headers, in the notification-area current/previous item, and in external-viewer labels. If both sides have the same filename but come from different paths, ClipDiff adds only enough parent directories to distinguish them—for example, `branch-a/src/settings.json` and `branch-b/src/settings.json`.
+
+The full source paths are retained only in the same two-entry in-memory history as the captured values so ClipDiff can calculate those labels. The diff document keeps the resolved labels but drops the original paths. Paths are never logged, stored in settings or the Explorer registration, or reproduced in the external-viewer temporary workspace. Evicting or clearing an entry, or exiting ClipDiff, discards its retained path.
 
 When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
 
@@ -36,7 +38,7 @@ The context-menu registration is per-user, requires no administrator access, and
 
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
-File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe and does not retain or log it.
+File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe and retains it only with that in-memory entry for collision disambiguation; it is never logged or persisted.
 
 ## External diff viewers
 
@@ -80,6 +82,7 @@ Some password managers clear an unmarked value shortly after copying it. If an a
 Important limitations:
 
 - Copying a text-like file intentionally causes ClipDiff to read that file from disk and retain its decoded contents in process memory.
+- A file-backed entry's full source path is retained in memory until that entry is evicted, cleared, or lost on exit; only the shortest distinguishing suffix is displayed when filenames collide.
 - Passwords without standard privacy markers are indistinguishable from ordinary text.
 - The automatic-clear heuristic cannot identify every sensitive value or clearing pattern.
 - .NET strings cannot be guaranteed to be securely zeroed in memory.
@@ -137,7 +140,7 @@ On a Windows desktop, verify:
 - clipboard text that existed before startup is not captured;
 - two future text copies, including identical text, or one exact-two-file copy produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
 - side-by-side rows remain aligned, unified output is exact, and long lines wrap;
-- copied and directly selected files show their source filename in the tray item and on the corresponding diff side, including unified output and external viewers;
+- copied and directly selected files show their source filename in the tray item and on the corresponding diff side, including unified output and external viewers; equal filenames from different paths use the shortest unique suffix;
 - the built-in viewer is selected by default, detected external programs appear under **Diff viewer**, and **Choose program...** accepts another executable;
 - selecting an external viewer shows the privacy warning once; cancelling uses the built-in viewer without creating plaintext files;
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;

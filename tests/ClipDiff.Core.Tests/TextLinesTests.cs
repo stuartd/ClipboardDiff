@@ -50,4 +50,14 @@ public sealed class TextLinesTests
 
         Assert.AreEqual("notes.txt — first second", TextLines.EntryPreview(entry));
     }
+
+    [TestMethod]
+    public void EntryPreviewCanUseADisambiguatedFileLabel()
+    {
+        var entry = new ClipboardEntry(Guid.NewGuid(), "contents", DateTimeOffset.Now, "notes.txt");
+
+        Assert.AreEqual(
+            "branch-a/notes.txt — contents",
+            TextLines.EntryPreview(entry, "branch-a/notes.txt"));
+    }
 }

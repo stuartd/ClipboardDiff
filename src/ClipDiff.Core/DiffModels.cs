@@ -22,13 +22,16 @@ public sealed record DiffSummary(
     int Changed,
     int Unchanged);
 
+public sealed record DiffSideLabels(string Previous, string Current);
+
 public sealed record DiffDocument(
     Guid Id,
     ClipboardEntry Previous,
     ClipboardEntry Current,
     IReadOnlyList<DiffRow> Rows,
     DiffSummary Summary,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DiffSideLabels Labels);
 
 public enum DiffViewMode
 {

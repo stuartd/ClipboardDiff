@@ -44,11 +44,12 @@ internal sealed class ExternalDiffLauncher : IDisposable
                 UseShellExecute = false,
                 WorkingDirectory = files.DirectoryPath
             };
+            var labels = DiffFormatting.Labels(previous, current);
             foreach (var argument in choice.Tool.BuildArguments(
                          files.PreviousPath,
                          files.CurrentPath,
-                         DiffFormatting.PreviousLabel(previous),
-                         DiffFormatting.CurrentLabel(current)))
+                         labels.Previous,
+                         labels.Current))
             {
                 startInfo.ArgumentList.Add(argument);
             }

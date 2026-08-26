@@ -26,14 +26,16 @@ public sealed class DiffEngine
             rows.Count(row => row.Kind == DiffKind.Removed),
             rows.Count(row => row.Kind == DiffKind.Changed),
             rows.Count(row => row.Kind == DiffKind.Equal));
+        var labels = DiffFormatting.Labels(previous, current);
 
         return new DiffDocument(
             _idFactory(),
-            previous,
-            current,
+            previous with { SourceFilePath = null },
+            current with { SourceFilePath = null },
             rows,
             summary,
-            createdAt ?? DateTimeOffset.Now);
+            createdAt ?? DateTimeOffset.Now,
+            labels);
     }
 
     private IReadOnlyList<DiffRow> GenerateRows(IReadOnlyList<Edit> edits)

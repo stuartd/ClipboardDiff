@@ -124,11 +124,12 @@ public sealed record ClipboardEntry(
     Guid Id,
     string Text,
     DateTimeOffset CapturedAt,
-    string? SourceFileName
+    string? SourceFileName,
+    string? SourceFilePath
 );
 ```
 
-`SourceFileName` is the basename for a value obtained from a copied or directly selected file, and is null for ordinary clipboard text. Do not retain the full source path in history.
+`SourceFileName` is the basename for a value obtained from a copied or directly selected file, and `SourceFilePath` is its normalized full path. Both are null for ordinary clipboard text. The full path may exist only in the same two-entry in-memory history as the captured value, solely to disambiguate equal basenames. Never persist or log it.
 
 ### 6.1 Initial startup
 
@@ -189,7 +190,7 @@ If a clipboard object contains both rich content and Unicode text, capturing its
 
 If CF_HDROP contains one copied file, inspect privacy markers before obtaining the path, release the clipboard before file I/O, and convert the file to one text value. Known binary executable/package extensions, binary-looking content, directories, empty files, missing or unreadable files, and files larger than 16 MiB contribute the filename with a parenthetical reason appended: (binary file), (directory), (empty file), (file not found), (file unreadable), or (file too large), as appropriate. Otherwise decode and capture the complete text contents. Support UTF-8, BOM-marked UTF-16 and UTF-32, common BOM-less UTF-16, and Windows-1252. Text scripts such as BAT, CMD, and PowerShell files therefore contribute their contents, while EXE, COM, DLL, MSI, and similar binary types contribute their filename followed by (binary file).
 
-Every file-backed value must retain its source filename separately from its converted text. Show that filename in the notification-area current/previous item and in every diff presentation, even when the file was successfully decoded and its contents form the comparison value. Retain only the basename, never the full source path.
+Every file-backed value must retain its source filename separately from its converted text. Show that filename in the notification-area current/previous item and in every diff presentation, even when the file was successfully decoded and its contents form the comparison value. If both compared files have the same basename but different paths, add parent directories from right to left until each label has the shortest path suffix that distinguishes it, for example `branch-a/src/settings.json` and `branch-b/src/settings.json`. Do not add path context when the basenames already differ or both entries refer to the same path.
 
 If exactly two files are copied together, convert each independently using the single-file rules above and atomically replace the comparison pair. The first path in CF_HDROP order is the previous value and the second is the current value. Ignore copies containing more than two files; never create a comparison value from a file list. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.
 
@@ -475,13 +476,19 @@ public sealed record DiffSummary(
     int Unchanged
 );
 
+public sealed record DiffSideLabels(
+    string Previous,
+    string Current
+);
+
 public sealed record DiffDocument(
     Guid Id,
     ClipboardEntry Previous,
     ClipboardEntry Current,
     IReadOnlyList<DiffRow> Rows,
     DiffSummary Summary,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    DiffSideLabels Labels
 );
 
 public enum DiffViewMode
@@ -490,6 +497,8 @@ public enum DiffViewMode
     Unified
 }
 ```
+
+Resolve `DiffSideLabels` while creating the document, then omit `SourceFilePath` from the document's entry snapshots. The active history is the only component that needs the original paths.
 
 Status strings:
 
@@ -542,6 +551,8 @@ For file-backed entries, prefix the preview with the filename:
 Current: <filename> — <preview>
 Previous: <filename> — <preview>
 ```
+
+When both filenames match but their paths differ, replace each filename with the shortest unique path suffix defined in section 6.4.
 
 If practical, also show:
 
@@ -680,7 +691,7 @@ For ordinary clipboard text, the first two lines are exactly:
 +++ Current clipboard
 ```
 
-For a file-backed side, append ` — <filename>` to that side's header. This makes the source filename part of the built-in unified view and the copied diff output.
+For a file-backed side, append ` — <file label>` to that side's header. The file label is normally the filename, or the shortest unique path suffix when both filenames collide. This makes the source identity part of the built-in unified view and the copied diff output.
 
 For each row:
 
@@ -825,7 +836,7 @@ Layout:
 └──────────────────────────┴───────────────────────────┘
 ```
 
-When a side is file-backed, its heading must include the filename, for example `Previous clipboard — old.cs`.
+When a side is file-backed, its heading must include the file label, for example `Previous clipboard — old.cs`. Matching filenames from different paths use the shortest unique suffixes defined in section 6.4.
 
 Requirements:
 
@@ -886,7 +897,7 @@ Known command profiles must be provided for SourceGear DiffMerge, WinMerge, Meld
 
 Before the first external comparison for a user profile, show one modal privacy warning. It must state that the clipboard may contain passwords, tokens, or other secrets; external comparison requires temporary plaintext files; a crash or power loss can leave them behind; and the selected program may retain its own copies. The user may cancel. Cancelling must create no files and must open the built-in viewer. Remember only successful acknowledgement, so the warning is normally shown once.
 
-After acknowledgement, create a unique per-comparison directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Write ordinary clipboard values exactly as UTF-8 text to `Previous clipboard.txt` and `Current clipboard.txt`. For a file-backed value, use its source filename within a `Previous` or `Current` child directory so external viewers that expose only basenames still show the filename. Also use filename-aware side titles for viewers that support them. Mark both files read-only and temporary. The files are the only permitted disk persistence of captured clipboard values. Do not reuse a directory between comparisons.
+After acknowledgement, create a unique per-comparison directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Write ordinary clipboard values exactly as UTF-8 text to `Previous clipboard.txt` and `Current clipboard.txt`. For a file-backed value, use its source filename within a `Previous` or `Current` child directory so external viewers that expose only basenames still show the filename. For viewers that support side titles, use the same collision-disambiguated file labels as the built-in viewer. Do not reproduce original parent directories in the temporary workspace. Mark both files read-only and temporary. The files are the only permitted disk persistence of captured clipboard values. Do not reuse a directory between comparisons.
 
 Track the process returned by the launch. Attempt to delete the comparison directory after that process exits, allowing a short grace period for handoff; when ClipDiff exits; and on ClipDiff's next startup to remove stale directories. Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.
 
@@ -1098,7 +1109,7 @@ At minimum:
 
 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and reason-labelled filename fallback for directories, empty, missing, unreadable, oversized, and binary files.
 
-They must also cover retaining the source filename independently from decoded text, showing it in current/previous previews and built-in diff headers, and passing filename-aware labels and basenames to external viewers.
+They must also cover retaining the source filename and memory-only full path independently from decoded text; choosing the shortest unique suffix for equal basenames on different paths; leaving different basenames and identical paths uncluttered; showing the resolved labels in current/previous previews and built-in diff headers; and passing resolved labels and source basenames to external viewers.
 
 Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, filename-aware command labels that exclude the full source path, direct insertion as current with the former current moved to previous, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic.
 
@@ -1263,6 +1274,7 @@ On Windows:
 1. Inspect settings.json and confirm it contains only the selected path and acknowledgement, never captured text or previews.
 1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
 1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
+1. Compare two files with the same basename from different directories and confirm the tray, built-in views, copied diff, and supported external-viewer titles use the shortest unique path suffixes.
 1. Start ClipDiff after a simulated abnormal exit and confirm it removes an owned stale Explorer registration when there is no captured entry.
 
 ## 22. Release build
@@ -1397,6 +1409,7 @@ The first release is complete when all of these are true:
 - Persisted external-viewer settings never contain clipboard content.
 - Side-by-side mode is readable and correctly aligned.
 - Unified mode is readable.
+- File-backed sides show their basenames, using shortest unique path suffixes only when equal basenames need disambiguation.
 - Summary counts are correct.
 - **Copy diff** produces the agreed output.
 - Copied diff output is excluded from history/cloud processing and is not recaptured.

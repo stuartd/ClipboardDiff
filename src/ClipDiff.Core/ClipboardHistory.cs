@@ -76,7 +76,8 @@ public sealed class ClipboardHistory
     public ClipboardHistoryChange AcceptDirectText(
         string text,
         DateTimeOffset capturedAt,
-        string? sourceFileName = null)
+        string? sourceFileName = null,
+        string? sourceFilePath = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -89,7 +90,8 @@ public sealed class ClipboardHistory
             text,
             capturedAt,
             isEligibleForRecentClear: false,
-            sourceFileName: sourceFileName);
+            sourceFileName: sourceFileName,
+            sourceFilePath: sourceFilePath);
     }
 
     public void Pause()
@@ -125,16 +127,23 @@ public sealed class ClipboardHistory
             text,
             observation.ObservedAt,
             isEligibleForRecentClear: true,
-            sourceFileName: observation.SourceFileName);
+            sourceFileName: observation.SourceFileName,
+            sourceFilePath: observation.SourceFilePath);
     }
 
     private ClipboardHistoryChange InsertText(
         string text,
         DateTimeOffset capturedAt,
         bool isEligibleForRecentClear,
-        string? sourceFileName)
+        string? sourceFileName,
+        string? sourceFilePath)
     {
-        var entry = new ClipboardEntry(_idFactory(), text, capturedAt, sourceFileName);
+        var entry = new ClipboardEntry(
+            _idFactory(),
+            text,
+            capturedAt,
+            sourceFileName,
+            sourceFilePath);
         _entries.Insert(0, entry);
         if (_entries.Count > 2)
         {
@@ -163,12 +172,14 @@ public sealed class ClipboardHistory
             _idFactory(),
             previousText,
             observation.ObservedAt,
-            observation.PreviousSourceFileName);
+            observation.PreviousSourceFileName,
+            observation.PreviousSourceFilePath);
         var current = new ClipboardEntry(
             _idFactory(),
             currentText,
             observation.ObservedAt,
-            observation.SourceFileName);
+            observation.SourceFileName,
+            observation.SourceFilePath);
         _entries.Clear();
         _entries.Add(current);
         _entries.Add(previous);

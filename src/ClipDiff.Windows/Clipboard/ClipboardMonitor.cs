@@ -225,14 +225,17 @@ internal sealed class ClipboardMonitor : IDisposable
                 copiedFiles.SequenceNumber,
                 copiedFiles.ObservedAt,
                 values[0].Text,
-                values[0].FileName),
+                values[0].FileName,
+                values[0].FilePath),
             2 => ClipboardObservation.TextPair(
                 copiedFiles.SequenceNumber,
                 copiedFiles.ObservedAt,
                 values[0].Text,
                 values[1].Text,
                 values[0].FileName,
-                values[1].FileName),
+                values[1].FileName,
+                values[0].FilePath,
+                values[1].FilePath),
             _ => ClipboardObservation.NonText(copiedFiles.SequenceNumber, copiedFiles.ObservedAt)
         };
     }

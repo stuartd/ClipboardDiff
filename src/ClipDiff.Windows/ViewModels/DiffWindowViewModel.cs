@@ -32,11 +32,11 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     public string PreviousLabel => _document is null
         ? DiffFormatting.DefaultPreviousLabel
-        : DiffFormatting.PreviousLabel(_document.Previous);
+        : _document.Labels.Previous;
 
     public string CurrentLabel => _document is null
         ? DiffFormatting.DefaultCurrentLabel
-        : DiffFormatting.CurrentLabel(_document.Current);
+        : _document.Labels.Current;
 
     public Visibility EmptyVisibility => _document is null ? Visibility.Visible : Visibility.Collapsed;
 

@@ -46,6 +46,7 @@ public sealed class CopiedFileTextReaderTests
         Assert.IsNotNull(result);
         Assert.AreEqual("file contents", result.Text);
         Assert.AreEqual("source file.txt", result.FileName);
+        Assert.AreEqual(Path.GetFullPath(path), result.FilePath);
     }
 
     [TestMethod]

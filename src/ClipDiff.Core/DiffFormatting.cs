@@ -21,8 +21,8 @@ public static class DiffFormatting
         ArgumentNullException.ThrowIfNull(document);
         var lines = new List<string>(document.Rows.Count * 2 + 2)
         {
-            "--- " + PreviousLabel(document.Previous),
-            "+++ " + CurrentLabel(document.Current)
+            "--- " + document.Labels.Previous,
+            "+++ " + document.Labels.Current
         };
 
         foreach (var row in document.Rows)
@@ -50,19 +50,21 @@ public static class DiffFormatting
         return string.Join('\n', lines);
     }
 
-    public static string PreviousLabel(ClipboardEntry entry) =>
-        EntryLabel(DefaultPreviousLabel, entry);
-
-    public static string CurrentLabel(ClipboardEntry entry) =>
-        EntryLabel(DefaultCurrentLabel, entry);
-
-    private static string EntryLabel(string defaultLabel, ClipboardEntry entry)
+    public static DiffSideLabels Labels(ClipboardEntry previous, ClipboardEntry current)
     {
-        ArgumentNullException.ThrowIfNull(entry);
-        return string.IsNullOrWhiteSpace(entry.SourceFileName)
-            ? defaultLabel
-            : $"{defaultLabel} — {entry.SourceFileName}";
+        ArgumentNullException.ThrowIfNull(previous);
+        ArgumentNullException.ThrowIfNull(current);
+
+        var fileLabels = ClipboardEntryDisplay.ResolveFileLabels(previous, current);
+        return new(
+            EntryLabel(DefaultPreviousLabel, fileLabels.Previous),
+            EntryLabel(DefaultCurrentLabel, fileLabels.Current));
     }
+
+    private static string EntryLabel(string defaultLabel, string? fileLabel) =>
+        string.IsNullOrWhiteSpace(fileLabel)
+            ? defaultLabel
+            : $"{defaultLabel} — {fileLabel}";
 
     private static void Add(List<string> parts, int count, string label)
     {

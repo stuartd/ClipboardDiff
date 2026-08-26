@@ -260,7 +260,8 @@ internal sealed class AppController : IDisposable
                 _history.AcceptDirectText(
                     selectedValue.Text,
                     DateTimeOffset.Now,
-                    selectedValue.FileName);
+                    selectedValue.FileName,
+                    selectedValue.FilePath);
                 UpdatePresentation();
                 ShowDiff();
             }).Task.ConfigureAwait(false);
