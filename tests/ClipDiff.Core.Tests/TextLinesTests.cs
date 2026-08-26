@@ -42,4 +42,12 @@ public sealed class TextLinesTests
         Assert.IsTrue(result.EndsWith("...", StringComparison.Ordinal));
         Assert.AreEqual(string.Concat(Enumerable.Repeat("😀", 120)) + "...", result);
     }
+
+    [TestMethod]
+    public void EntryPreviewAlwaysIncludesTheSourceFileName()
+    {
+        var entry = new ClipboardEntry(Guid.NewGuid(), "first\nsecond", DateTimeOffset.Now, "notes.txt");
+
+        Assert.AreEqual("notes.txt — first second", TextLines.EntryPreview(entry));
+    }
 }

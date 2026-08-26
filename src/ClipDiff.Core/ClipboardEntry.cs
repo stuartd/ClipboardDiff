@@ -3,4 +3,5 @@ namespace ClipDiff;
 public sealed record ClipboardEntry(
     Guid Id,
     string Text,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    string? SourceFileName = null);

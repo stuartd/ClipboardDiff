@@ -49,6 +49,27 @@ public sealed class ExternalDiffWorkspaceTests
     }
 
     [TestMethod]
+    public void FileBackedValuesUseTheirSourceFileNames()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var workspace = new ExternalDiffWorkspace(root);
+
+            var files = workspace.Create("old", "new", "same name.cs", "same name.cs");
+
+            Assert.AreEqual("same name.cs", Path.GetFileName(files.PreviousPath));
+            Assert.AreEqual("same name.cs", Path.GetFileName(files.CurrentPath));
+            Assert.AreEqual("Previous", Path.GetFileName(Path.GetDirectoryName(files.PreviousPath)));
+            Assert.AreEqual("Current", Path.GetFileName(Path.GetDirectoryName(files.CurrentPath)));
+        }
+        finally
+        {
+            ExternalDiffWorkspace.TryDelete(root);
+        }
+    }
+
+    [TestMethod]
     public void CleanupRemovesReadOnlyActiveAndStaleComparisonDirectories()
     {
         var root = CreateTemporaryDirectory();

@@ -134,9 +134,19 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="#" Padding="8,7" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="1" Text="Previous" Padding="6,7" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding PreviousLabel}"
+                               Padding="6,7"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               ToolTip="{Binding PreviousLabel}" />
                     <TextBlock Grid.Column="2" Text="#" Padding="8,7" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="3" Text="Current" Padding="6,7" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="3"
+                               Text="{Binding CurrentLabel}"
+                               Padding="6,7"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               ToolTip="{Binding CurrentLabel}" />
                 </Grid>
                 <ListBox Grid.Row="1"
                          ItemsSource="{Binding Rows}"

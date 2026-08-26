@@ -55,6 +55,17 @@ public sealed class ExplorerCommandTests
     }
 
     [TestMethod]
+    public void ExplorerItemIncludesOnlyTheCurrentSourceFileName()
+    {
+        Assert.AreEqual(
+            "Compare with current ClipDiff capture",
+            ExplorerContextCommandLine.BuildDisplayName(null));
+        Assert.AreEqual(
+            "Compare with current ClipDiff capture — current.cs",
+            ExplorerContextCommandLine.BuildDisplayName(@"C:\Work files\current.cs"));
+    }
+
+    [TestMethod]
     public async Task PipeProtocolRoundTripsUnicodePath()
     {
         const string expected = @"C:\Résumé files\雪.txt";

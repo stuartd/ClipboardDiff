@@ -3,6 +3,7 @@ namespace ClipDiff.Windows.Explorer;
 internal static class ExplorerContextCommandLine
 {
     public const string CompareWithCurrentSwitch = "--compare-with-current";
+    public const string DefaultDisplayName = "Compare with current ClipDiff capture";
 
     public static bool TryGetSelectedFile(IReadOnlyList<string> arguments, out string filePath)
     {
@@ -33,6 +34,22 @@ internal static class ExplorerContextCommandLine
         }
 
         return $"{command} {CompareWithCurrentSwitch} \"%1\"";
+    }
+
+    public static string BuildDisplayName(string? currentSourceFileName)
+    {
+        if (string.IsNullOrWhiteSpace(currentSourceFileName))
+        {
+            return DefaultDisplayName;
+        }
+
+        var separatorIndex = Math.Max(
+            currentSourceFileName.LastIndexOf('/'),
+            currentSourceFileName.LastIndexOf('\\'));
+        var fileName = currentSourceFileName[(separatorIndex + 1)..];
+        return fileName.Length == 0
+            ? DefaultDisplayName
+            : $"{DefaultDisplayName} — {fileName}";
     }
 
     private static bool IsDotnetHost(string processPath)

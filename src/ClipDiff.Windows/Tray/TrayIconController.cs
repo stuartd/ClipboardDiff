@@ -99,8 +99,8 @@ internal sealed class TrayIconController : IDisposable
     {
         _statusItem.Text = status;
         _shortcutItem.Text = hotKeyAvailable ? "Shortcut: Ctrl+Alt+D" : "Shortcut unavailable";
-        _currentItem.Text = "Current: " + (current is null ? "None" : TextLines.Preview(current.Text));
-        _previousItem.Text = "Previous: " + (previous is null ? "None" : TextLines.Preview(previous.Text));
+        _currentItem.Text = "Current: " + EntryPreview(current);
+        _previousItem.Text = "Previous: " + EntryPreview(previous);
         _showDiffItem.Enabled = current is not null && previous is not null;
         _monitorItem.Checked = monitoring;
         _clearItem.Enabled = current is not null;
@@ -122,6 +122,16 @@ internal sealed class TrayIconController : IDisposable
     }
 
     private static Forms.ToolStripMenuItem DisabledItem(string text) => new(text) { Enabled = false };
+
+    private static string EntryPreview(ClipboardEntry? entry)
+    {
+        if (entry is null)
+        {
+            return "None";
+        }
+
+        return TextLines.EntryPreview(entry);
+    }
 
     private static Drawing.Icon? TryLoadApplicationIcon()
     {

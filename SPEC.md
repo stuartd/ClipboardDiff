@@ -123,9 +123,12 @@ Each accepted entry contains:
 public sealed record ClipboardEntry(
     Guid Id,
     string Text,
-    DateTimeOffset CapturedAt
+    DateTimeOffset CapturedAt,
+    string? SourceFileName
 );
 ```
+
+`SourceFileName` is the basename for a value obtained from a copied or directly selected file, and is null for ordinary clipboard text. Do not retain the full source path in history.
 
 ### 6.1 Initial startup
 
@@ -186,9 +189,11 @@ If a clipboard object contains both rich content and Unicode text, capturing its
 
 If CF_HDROP contains one copied file, inspect privacy markers before obtaining the path, release the clipboard before file I/O, and convert the file to one text value. Known binary executable/package extensions, binary-looking content, directories, empty files, missing or unreadable files, and files larger than 16 MiB contribute the filename with a parenthetical reason appended: (binary file), (directory), (empty file), (file not found), (file unreadable), or (file too large), as appropriate. Otherwise decode and capture the complete text contents. Support UTF-8, BOM-marked UTF-16 and UTF-32, common BOM-less UTF-16, and Windows-1252. Text scripts such as BAT, CMD, and PowerShell files therefore contribute their contents, while EXE, COM, DLL, MSI, and similar binary types contribute their filename followed by (binary file).
 
+Every file-backed value must retain its source filename separately from its converted text. Show that filename in the notification-area current/previous item and in every diff presentation, even when the file was successfully decoded and its contents form the comparison value. Retain only the basename, never the full source path.
+
 If exactly two files are copied together, convert each independently using the single-file rules above and atomically replace the comparison pair. The first path in CF_HDROP order is the previous value and the second is the current value. Ignore copies containing more than two files; never create a comparison value from a file list. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.
 
-While monitoring is active and at least one captured entry exists, register a per-user Explorer context-menu command named **Compare with current ClipDiff capture** for individual files. Invoking it must convert the directly selected file with the same single-file rules, insert its result as the new current entry, move the former current entry to previous, evict any older entry, and immediately invoke the ordinary **Show Diff** workflow. It must not modify the Windows clipboard or its sequence baseline, and the direct entry must not be eligible for the recent clipboard-clear heuristic. If monitoring is paused or there is no current entry, do not read the selected file or alter history.
+While monitoring is active and at least one captured entry exists, register a per-user Explorer context-menu command named **Compare with current ClipDiff capture** for individual files. When the current capture is file-backed, append ` — <filename>` to the command label so Explorer identifies the comparison source. Invoking it must convert the directly selected file with the same single-file rules, insert its result as the new current entry, move the former current entry to previous, evict any older entry, and immediately invoke the ordinary **Show Diff** workflow. It must not modify the Windows clipboard or its sequence baseline, and the direct entry must not be eligible for the recent clipboard-clear heuristic. If monitoring is paused or there is no current entry, do not read the selected file or alter history.
 
 The Explorer command may pass the directly selected path on its process command line and through same-user local IPC to the existing ClipDiff instance. Do not pass the copied file's path or contents, any decoded text, or any diff on a command line. Do not persist or log either file path. Multiple Explorer selections are not supported by this command.
 
@@ -531,6 +536,13 @@ Current: <preview or None>
 Previous: <preview or None>
 ```
 
+For file-backed entries, prefix the preview with the filename:
+
+```
+Current: <filename> — <preview>
+Previous: <filename> — <preview>
+```
+
 If practical, also show:
 
 ```
@@ -661,12 +673,14 @@ Changed rows are highlighted at the line level only.
 
 Generate a compact readable diff, not necessarily a complete patch format.
 
-The first two lines are exactly:
+For ordinary clipboard text, the first two lines are exactly:
 
 ```
 --- Previous clipboard
 +++ Current clipboard
 ```
+
+For a file-backed side, append ` — <filename>` to that side's header. This makes the source filename part of the built-in unified view and the copied diff output.
 
 For each row:
 
@@ -811,6 +825,8 @@ Layout:
 └──────────────────────────┴───────────────────────────┘
 ```
 
+When a side is file-backed, its heading must include the filename, for example `Previous clipboard — old.cs`.
+
 Requirements:
 
 - Old content on the left.
@@ -870,7 +886,7 @@ Known command profiles must be provided for SourceGear DiffMerge, WinMerge, Meld
 
 Before the first external comparison for a user profile, show one modal privacy warning. It must state that the clipboard may contain passwords, tokens, or other secrets; external comparison requires temporary plaintext files; a crash or power loss can leave them behind; and the selected program may retain its own copies. The user may cancel. Cancelling must create no files and must open the built-in viewer. Remember only successful acknowledgement, so the warning is normally shown once.
 
-After acknowledgement, create a unique per-comparison directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Write the values exactly as UTF-8 text to `Previous clipboard.txt` and `Current clipboard.txt`. Mark both files read-only and temporary. The files are the only permitted disk persistence of captured clipboard values. Do not reuse a directory between comparisons.
+After acknowledgement, create a unique per-comparison directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Write ordinary clipboard values exactly as UTF-8 text to `Previous clipboard.txt` and `Current clipboard.txt`. For a file-backed value, use its source filename within a `Previous` or `Current` child directory so external viewers that expose only basenames still show the filename. Also use filename-aware side titles for viewers that support them. Mark both files read-only and temporary. The files are the only permitted disk persistence of captured clipboard values. Do not reuse a directory between comparisons.
 
 Track the process returned by the launch. Attempt to delete the comparison directory after that process exits, allowing a short grace period for handoff; when ClipDiff exits; and on ClipDiff's next startup to remove stale directories. Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.
 
@@ -1082,7 +1098,9 @@ At minimum:
 
 Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and reason-labelled filename fallback for directories, empty, missing, unreadable, oversized, and binary files.
 
-Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, direct insertion as current with the former current moved to previous, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic.
+They must also cover retaining the source filename independently from decoded text, showing it in current/previous previews and built-in diff headers, and passing filename-aware labels and basenames to external viewers.
+
+Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, filename-aware command labels that exclude the full source path, direct insertion as current with the former current moved to previous, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic.
 
 ### 21.2 Line-splitting tests
 

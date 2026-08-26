@@ -37,6 +37,18 @@ public sealed class CopiedFileTextReaderTests
     }
 
     [TestMethod]
+    public async Task TextFileResultRetainsItsFileNameSeparatelyFromItsContents()
+    {
+        var path = await WriteTextFileAsync("source file.txt", "file contents");
+
+        var result = await new CopiedFileTextReader().ReadFileAsync(path);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("file contents", result.Text);
+        Assert.AreEqual("source file.txt", result.FileName);
+    }
+
+    [TestMethod]
     public async Task PeExecutableReturnsOnlyItsFileName()
     {
         var path = Path.Combine(_testDirectory, "ClipDiff.exe");
@@ -104,7 +116,10 @@ public sealed class CopiedFileTextReaderTests
 
         CollectionAssert.AreEqual(
             new[] { "first contents", "second contents" },
-            result.ToArray());
+            result.Select(value => value.Text).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "first.bat", "second.txt" },
+            result.Select(value => value.FileName).ToArray());
     }
 
     [TestMethod]
@@ -118,7 +133,7 @@ public sealed class CopiedFileTextReaderTests
 
         CollectionAssert.AreEqual(
             new[] { "first.exe (binary file)", "second.txt (file not found)" },
-            result.ToArray());
+            result.Select(value => value.Text).ToArray());
     }
 
     [TestMethod]

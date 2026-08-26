@@ -2,6 +2,9 @@ namespace ClipDiff;
 
 public static class DiffFormatting
 {
+    public const string DefaultPreviousLabel = "Previous clipboard";
+    public const string DefaultCurrentLabel = "Current clipboard";
+
     public static string Summary(DiffSummary summary)
     {
         ArgumentNullException.ThrowIfNull(summary);
@@ -18,8 +21,8 @@ public static class DiffFormatting
         ArgumentNullException.ThrowIfNull(document);
         var lines = new List<string>(document.Rows.Count * 2 + 2)
         {
-            "--- Previous clipboard",
-            "+++ Current clipboard"
+            "--- " + PreviousLabel(document.Previous),
+            "+++ " + CurrentLabel(document.Current)
         };
 
         foreach (var row in document.Rows)
@@ -45,6 +48,20 @@ public static class DiffFormatting
         }
 
         return string.Join('\n', lines);
+    }
+
+    public static string PreviousLabel(ClipboardEntry entry) =>
+        EntryLabel(DefaultPreviousLabel, entry);
+
+    public static string CurrentLabel(ClipboardEntry entry) =>
+        EntryLabel(DefaultCurrentLabel, entry);
+
+    private static string EntryLabel(string defaultLabel, ClipboardEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return string.IsNullOrWhiteSpace(entry.SourceFileName)
+            ? defaultLabel
+            : $"{defaultLabel} — {entry.SourceFileName}";
     }
 
     private static void Add(List<string> parts, int count, string label)

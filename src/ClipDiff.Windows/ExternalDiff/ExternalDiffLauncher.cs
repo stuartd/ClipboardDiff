@@ -33,14 +33,22 @@ internal sealed class ExternalDiffLauncher : IDisposable
         ActiveComparison? comparison = null;
         try
         {
-            files = _workspace.Create(previous.Text, current.Text);
+            files = _workspace.Create(
+                previous.Text,
+                current.Text,
+                previous.SourceFileName,
+                current.SourceFileName);
             var startInfo = new ProcessStartInfo
             {
                 FileName = choice.ExecutablePath,
                 UseShellExecute = false,
                 WorkingDirectory = files.DirectoryPath
             };
-            foreach (var argument in choice.Tool.BuildArguments(files.PreviousPath, files.CurrentPath))
+            foreach (var argument in choice.Tool.BuildArguments(
+                         files.PreviousPath,
+                         files.CurrentPath,
+                         DiffFormatting.PreviousLabel(previous),
+                         DiffFormatting.CurrentLabel(current)))
             {
                 startInfo.ArgumentList.Add(argument);
             }

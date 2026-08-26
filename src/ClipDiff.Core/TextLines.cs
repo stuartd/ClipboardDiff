@@ -47,4 +47,14 @@ public static class TextLines
 
         return builder.ToString();
     }
+
+    public static string EntryPreview(ClipboardEntry entry, int characterLimit = PreviewCharacterLimit)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var preview = Preview(entry.Text, characterLimit);
+        return string.IsNullOrWhiteSpace(entry.SourceFileName)
+            ? preview
+            : $"{entry.SourceFileName} — {preview}";
+    }
 }

@@ -60,6 +60,30 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
+    public void FileNamesAreRetainedWithSingleAndPairedFileValues()
+    {
+        var history = CreateHistory();
+        history.Apply(ClipboardObservation.TextValue(
+            1,
+            Start,
+            "single contents",
+            "single.txt"));
+
+        Assert.AreEqual("single.txt", history.Current?.SourceFileName);
+
+        history.Apply(ClipboardObservation.TextPair(
+            2,
+            Start.AddSeconds(1),
+            "old contents",
+            "new contents",
+            "old.cs",
+            "new.cs"));
+
+        Assert.AreEqual("old.cs", history.Previous?.SourceFileName);
+        Assert.AreEqual("new.cs", history.Current?.SourceFileName);
+    }
+
+    [TestMethod]
     public void DirectTextActsLikeANewCopyWithoutChangingTheClipboardSequence()
     {
         var history = CreateHistory();
@@ -75,6 +99,18 @@ public sealed class ClipboardHistoryTests
         Assert.IsFalse(history.Entries.Any(entry => entry.Text == "older contents"));
         Assert.AreEqual((uint)7, history.LastSequenceNumber);
         Assert.AreEqual("Ready to diff", history.Status);
+    }
+
+    [TestMethod]
+    public void DirectFileRetainsItsFileName()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "copied contents"));
+
+        history.AcceptDirectText("selected contents", Start.AddSeconds(1), "selected.txt");
+
+        Assert.AreEqual("selected.txt", history.Current?.SourceFileName);
+        Assert.IsNull(history.Previous?.SourceFileName);
     }
 
     [TestMethod]

@@ -30,6 +30,14 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     public string Summary => _document is null ? string.Empty : DiffFormatting.Summary(_document.Summary);
 
+    public string PreviousLabel => _document is null
+        ? DiffFormatting.DefaultPreviousLabel
+        : DiffFormatting.PreviousLabel(_document.Previous);
+
+    public string CurrentLabel => _document is null
+        ? DiffFormatting.DefaultCurrentLabel
+        : DiffFormatting.CurrentLabel(_document.Current);
+
     public Visibility EmptyVisibility => _document is null ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility SideBySideVisibility => _document is not null && _selectedViewIndex == 0
@@ -104,6 +112,8 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(Rows));
         OnPropertyChanged(nameof(UnifiedLines));
         OnPropertyChanged(nameof(Summary));
+        OnPropertyChanged(nameof(PreviousLabel));
+        OnPropertyChanged(nameof(CurrentLabel));
         OnPropertyChanged(nameof(EmptyVisibility));
         OnPropertyChanged(nameof(SideBySideVisibility));
         OnPropertyChanged(nameof(UnifiedVisibility));

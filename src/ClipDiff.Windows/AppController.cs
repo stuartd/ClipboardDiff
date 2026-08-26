@@ -235,10 +235,10 @@ internal sealed class AppController : IDisposable
                 return;
             }
 
-            var selectedText = await _copiedFileTextReader.ReadAsync(
-                [fullPath],
+            var selectedValue = await _copiedFileTextReader.ReadFileAsync(
+                fullPath,
                 _shutdown.Token).ConfigureAwait(false);
-            if (selectedText is null)
+            if (selectedValue is null)
             {
                 await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
                 return;
@@ -257,7 +257,10 @@ internal sealed class AppController : IDisposable
                     return;
                 }
 
-                _history.AcceptDirectText(selectedText, DateTimeOffset.Now);
+                _history.AcceptDirectText(
+                    selectedValue.Text,
+                    DateTimeOffset.Now,
+                    selectedValue.FileName);
                 UpdatePresentation();
                 ShowDiff();
             }).Task.ConfigureAwait(false);
@@ -352,6 +355,7 @@ internal sealed class AppController : IDisposable
             _history.Previous);
         _viewModel.SetCanClear(_history.Current is not null);
         _explorerContextMenuRegistration.SetEnabled(
-            _history.IsMonitoring && _history.Current is not null);
+            _history.IsMonitoring && _history.Current is not null,
+            _history.Current?.SourceFileName);
     }
 }

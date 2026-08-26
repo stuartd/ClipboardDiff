@@ -14,7 +14,7 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
-The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
+The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
 
 ## Copied files
 
@@ -26,9 +26,11 @@ When Explorer places files on the clipboard, ClipDiff checks the same privacy ma
 
 The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename.
 
+ClipDiff retains the source basename separately from the converted text. The filename is always shown on the corresponding side of the built-in diff, in unified/copied diff headers, in the notification-area current/previous item, and in external-viewer labels. Full source paths are not retained in history.
+
 When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
 
-After ClipDiff has captured at least one value, and while clipboard monitoring is active, it adds **Compare with current ClipDiff capture** to the Explorer context menu for individual files. Choosing it reads the selected file with the same conversion rules, promotes that result to **Current**, moves the former **Current** entry to **Previous**, and immediately uses the normal **Show Diff** workflow. It does not change the Windows clipboard. On Windows 11, this classic context-menu command may appear under **Show more options**.
+After ClipDiff has captured at least one value, and while clipboard monitoring is active, it adds **Compare with current ClipDiff capture** to the Explorer context menu for individual files. If the current capture came from a file, the command appends that filename so the comparison source is visible before it is invoked. Choosing it reads the selected file with the same conversion rules, promotes that result to **Current**, moves the former **Current** entry to **Previous**, and immediately uses the normal **Show Diff** workflow. It does not change the Windows clipboard. On Windows 11, this classic context-menu command may appear under **Show more options**.
 
 The context-menu registration is per-user, requires no administrator access, and is present only while ClipDiff is running with a usable current capture. Clearing the capture, pausing monitoring, or quitting removes it; a later ClipDiff start cleans up a registration left by an abnormal exit. The registration contains only the ClipDiff command, never captured text or a selected path.
 
@@ -59,7 +61,7 @@ ClipDiff checks Windows App Paths, `PATH`, and the programs' usual install locat
 
 ClipDiff captures only future, non-empty text values (including the copied-file conversion above) and retains at most two accepted values in process memory. Consecutive copies of identical text are accepted as separate entries, allowing ClipDiff to report **No differences**. Unsupported non-text clipboard changes do not alter the entries. **Clear Captured Text** removes the in-memory entries and active diff without changing the Windows clipboard. ClipDiff never logs, uploads, or transmits captured text or file contents.
 
-The built-in viewer keeps captured text in memory only. An external program cannot compare in-memory strings directly, so selecting an external viewer creates an explicit exception: after a one-time warning is accepted, ClipDiff writes the two values as UTF-8 plaintext files named `Previous clipboard.txt` and `Current clipboard.txt` in a unique directory below `%LOCALAPPDATA%\ClipDiff\Temp`. The files are marked read-only. ClipDiff attempts to remove that directory after the launched process exits, when ClipDiff exits, and during its next startup.
+The built-in viewer keeps captured text in memory only. An external program cannot compare in-memory strings directly, so selecting an external viewer creates an explicit exception: after a one-time warning is accepted, ClipDiff writes the two values as UTF-8 plaintext files in a unique directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Ordinary text uses `Previous clipboard.txt` and `Current clipboard.txt`; file-backed values use their source basename within separate `Previous` and `Current` child directories so even positional-only viewers expose the filename. The files are marked read-only. ClipDiff attempts to remove that directory after the launched process exits, when ClipDiff exits, and during its next startup.
 
 This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files.
 
@@ -135,6 +137,7 @@ On a Windows desktop, verify:
 - clipboard text that existed before startup is not captured;
 - two future text copies, including identical text, or one exact-two-file copy produce **Ready to diff** and `Ctrl+Alt+D` opens the window;
 - side-by-side rows remain aligned, unified output is exact, and long lines wrap;
+- copied and directly selected files show their source filename in the tray item and on the corresponding diff side, including unified output and external viewers;
 - the built-in viewer is selected by default, detected external programs appear under **Diff viewer**, and **Choose program...** accepts another executable;
 - selecting an external viewer shows the privacy warning once; cancelling uses the built-in viewer without creating plaintext files;
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;
@@ -145,7 +148,7 @@ On a Windows desktop, verify:
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
 - exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
-- after one capture, right-clicking a second file offers **Compare with current ClipDiff capture**, makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
+- after one capture, right-clicking a second file offers **Compare with current ClipDiff capture** (including the current filename when file-backed), makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
 - pausing, clearing, and quitting remove the Explorer command, and Windows 11 exposes it under **Show more options** when it is not in the primary menu;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;

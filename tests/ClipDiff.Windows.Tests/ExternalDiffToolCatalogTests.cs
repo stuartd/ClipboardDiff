@@ -156,6 +156,21 @@ public sealed class ExternalDiffToolCatalogTests
             Arguments("examdiff"));
     }
 
+    [TestMethod]
+    public void FileSourceLabelsArePassedToExternalViewerProfiles()
+    {
+        var tool = ExternalDiffToolCatalog.Tools.Single(tool => tool.Id == "winmerge");
+
+        var arguments = tool.BuildArguments(
+            Previous,
+            Current,
+            "Previous clipboard — before.cs",
+            "Current clipboard — after.cs");
+
+        CollectionAssert.Contains(arguments.ToArray(), "Previous clipboard — before.cs");
+        CollectionAssert.Contains(arguments.ToArray(), "Current clipboard — after.cs");
+    }
+
     private static string[] Arguments(string id) =>
         ExternalDiffToolCatalog.Tools.Single(tool => tool.Id == id).BuildArguments(Previous, Current).ToArray();
 }

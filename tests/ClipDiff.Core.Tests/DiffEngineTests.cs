@@ -154,6 +154,21 @@ public sealed class DiffEngineTests
         Assert.IsFalse(output.EndsWith('\n'));
     }
 
+    [TestMethod]
+    public void FileNamesAppearInDiffLabelsAndUnifiedOutput()
+    {
+        var time = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var previous = new ClipboardEntry(Guid.NewGuid(), "old", time, "before.cs");
+        var current = new ClipboardEntry(Guid.NewGuid(), "new", time, "after.cs");
+        var document = new DiffEngine().Compare(previous, current, time);
+
+        Assert.AreEqual("Previous clipboard — before.cs", DiffFormatting.PreviousLabel(previous));
+        Assert.AreEqual("Current clipboard — after.cs", DiffFormatting.CurrentLabel(current));
+        Assert.IsTrue(DiffFormatting.Unified(document).StartsWith(
+            "--- Previous clipboard — before.cs\n+++ Current clipboard — after.cs\n",
+            StringComparison.Ordinal));
+    }
+
     private static DiffDocument Compare(string previous, string current)
     {
         var time = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);

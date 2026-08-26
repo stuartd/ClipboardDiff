@@ -18,7 +18,11 @@ internal sealed class ExternalDiffWorkspace
             "Temp");
     }
 
-    public ExternalDiffFiles Create(string previousText, string currentText)
+    public ExternalDiffFiles Create(
+        string previousText,
+        string currentText,
+        string? previousSourceFileName = null,
+        string? currentSourceFileName = null)
     {
         ArgumentNullException.ThrowIfNull(previousText);
         ArgumentNullException.ThrowIfNull(currentText);
@@ -27,10 +31,18 @@ internal sealed class ExternalDiffWorkspace
         var directory = Path.Combine(_rootDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
 
-        var previousPath = Path.Combine(directory, "Previous clipboard.txt");
-        var currentPath = Path.Combine(directory, "Current clipboard.txt");
         try
         {
+            var previousPath = CreateSidePath(
+                directory,
+                "Previous",
+                "Previous clipboard.txt",
+                previousSourceFileName);
+            var currentPath = CreateSidePath(
+                directory,
+                "Current",
+                "Current clipboard.txt",
+                currentSourceFileName);
             File.WriteAllText(previousPath, previousText, Utf8WithByteOrderMark);
             File.WriteAllText(currentPath, currentText, Utf8WithByteOrderMark);
             File.SetAttributes(previousPath, FileAttributes.ReadOnly | FileAttributes.Temporary);
@@ -42,6 +54,33 @@ internal sealed class ExternalDiffWorkspace
             TryDelete(directory);
             throw;
         }
+    }
+
+    private static string CreateSidePath(
+        string comparisonDirectory,
+        string side,
+        string defaultFileName,
+        string? sourceFileName)
+    {
+        if (string.IsNullOrWhiteSpace(sourceFileName))
+        {
+            return Path.Combine(comparisonDirectory, defaultFileName);
+        }
+
+        var sideDirectory = Path.Combine(comparisonDirectory, side);
+        Directory.CreateDirectory(sideDirectory);
+        return Path.Combine(sideDirectory, SanitizeFileName(sourceFileName, defaultFileName));
+    }
+
+    private static string SanitizeFileName(string fileName, string fallback)
+    {
+        var separatorIndex = fileName.LastIndexOfAny(['\\', '/']);
+        var name = separatorIndex >= 0 ? fileName[(separatorIndex + 1)..] : fileName;
+        var sanitized = new string(name
+            .Select(character => character < ' ' || "<>:\"/\\|?*".Contains(character) ? '_' : character)
+            .ToArray())
+            .TrimEnd(' ', '.');
+        return sanitized.Length == 0 ? fallback : sanitized;
     }
 
     public void CleanupStaleDirectories()

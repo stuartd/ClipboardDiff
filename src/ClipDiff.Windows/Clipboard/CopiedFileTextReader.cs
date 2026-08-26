@@ -4,6 +4,8 @@ using System.Text;
 
 namespace ClipDiff.Windows.Clipboard;
 
+public sealed record CopiedFileText(string Text, string FileName);
+
 public sealed class CopiedFileTextReader
 {
     public const long DefaultMaximumTextFileBytes = 16 * 1024 * 1024;
@@ -27,7 +29,7 @@ public sealed class CopiedFileTextReader
         _maximumTextFileBytes = maximumTextFileBytes;
     }
 
-    public async ValueTask<IReadOnlyList<string>> ReadValuesAsync(
+    public async ValueTask<IReadOnlyList<CopiedFileText>> ReadValuesAsync(
         IReadOnlyList<string> filePaths,
         CancellationToken cancellationToken = default)
     {
@@ -40,15 +42,20 @@ public sealed class CopiedFileTextReader
 
         if (filePaths.Count == 2)
         {
-            var previousText = await ReadAsync([filePaths[0]], cancellationToken);
-            var currentText = await ReadAsync([filePaths[1]], cancellationToken);
-            return previousText is null || currentText is null
+            var previous = await ReadFileAsync(filePaths[0], cancellationToken);
+            var current = await ReadFileAsync(filePaths[1], cancellationToken);
+            return previous is null || current is null
                 ? []
-                : [previousText, currentText];
+                : [previous, current];
         }
 
-        var text = await ReadAsync(filePaths, cancellationToken);
-        return text is null ? [] : [text];
+        if (filePaths.Count == 1)
+        {
+            var value = await ReadFileAsync(filePaths[0], cancellationToken);
+            return value is null ? [] : [value];
+        }
+
+        return [];
     }
 
     public async ValueTask<string?> ReadAsync(
@@ -57,36 +64,46 @@ public sealed class CopiedFileTextReader
     {
         ArgumentNullException.ThrowIfNull(filePaths);
 
-        var names = filePaths
-            .Select(GetDisplayName)
-            .Where(name => name.Length > 0)
-            .ToArray();
-
         if (filePaths.Count != 1)
         {
+            var names = filePaths
+                .Select(GetDisplayName)
+                .Where(name => name.Length > 0)
+                .ToArray();
             return names.Length == 0 ? null : string.Join('\n', names);
         }
 
-        var fallbackName = names.FirstOrDefault();
-        if (fallbackName is null)
+        return (await ReadFileAsync(filePaths[0], cancellationToken))?.Text;
+    }
+
+    public async ValueTask<CopiedFileText?> ReadFileAsync(
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
         {
             return null;
         }
 
-        var path = filePaths[0];
+        var fileName = GetDisplayName(filePath);
+        if (fileName.Length == 0)
+        {
+            return null;
+        }
+
         try
         {
-            if (KnownBinaryExecutableExtensions.Contains(Path.GetExtension(path)))
+            if (KnownBinaryExecutableExtensions.Contains(Path.GetExtension(filePath)))
             {
-                return AnnotateFallback(fallbackName, "binary file");
+                return CreateFallback(fileName, "binary file");
             }
 
-            if (Directory.Exists(path))
+            if (Directory.Exists(filePath))
             {
-                return AnnotateFallback(fallbackName, "directory");
+                return CreateFallback(fileName, "directory");
             }
 
-            await using var stream = new FileStream(path, new FileStreamOptions
+            await using var stream = new FileStream(filePath, new FileStreamOptions
             {
                 Mode = FileMode.Open,
                 Access = FileAccess.Read,
@@ -96,24 +113,24 @@ public sealed class CopiedFileTextReader
 
             if (stream.Length == 0)
             {
-                return AnnotateFallback(fallbackName, "empty file");
+                return CreateFallback(fileName, "empty file");
             }
 
             if (stream.Length > _maximumTextFileBytes || stream.Length > int.MaxValue)
             {
-                return AnnotateFallback(fallbackName, "file too large");
+                return CreateFallback(fileName, "file too large");
             }
 
             var bytes = new byte[checked((int)stream.Length)];
             await stream.ReadExactlyAsync(bytes, cancellationToken);
             if (!TryDecodeText(bytes, out var text))
             {
-                return AnnotateFallback(fallbackName, "binary file");
+                return CreateFallback(fileName, "binary file");
             }
 
             return text.Length > 0
-                ? text
-                : AnnotateFallback(fallbackName, "empty file");
+                ? new CopiedFileText(text, fileName)
+                : CreateFallback(fileName, "empty file");
         }
         catch (OperationCanceledException)
         {
@@ -121,16 +138,17 @@ public sealed class CopiedFileTextReader
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
-            return AnnotateFallback(fallbackName, "file not found");
+            return CreateFallback(fileName, "file not found");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
                                           ArgumentException or NotSupportedException or SecurityException)
         {
-            return AnnotateFallback(fallbackName, "file unreadable");
+            return CreateFallback(fileName, "file unreadable");
         }
     }
 
-    private static string AnnotateFallback(string fileName, string reason) => $"{fileName} ({reason})";
+    private static CopiedFileText CreateFallback(string fileName, string reason) =>
+        new($"{fileName} ({reason})", fileName);
 
     private static string GetDisplayName(string path)
     {

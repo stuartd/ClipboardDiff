@@ -17,6 +17,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
     private readonly string _iconPath;
     private bool _stateKnown;
     private bool _enabled;
+    private string? _displayName;
     private bool _disposed;
 
     public ExplorerContextMenuRegistration()
@@ -35,9 +36,11 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
             Environment.GetCommandLineArgs().FirstOrDefault());
     }
 
-    public void SetEnabled(bool enabled)
+    public void SetEnabled(bool enabled, string? currentSourceFileName = null)
     {
-        if (_disposed || _stateKnown && _enabled == enabled)
+        var displayName = ExplorerContextCommandLine.BuildDisplayName(currentSourceFileName);
+        if (_disposed || _stateKnown && _enabled == enabled &&
+            (!enabled || string.Equals(_displayName, displayName, StringComparison.Ordinal)))
         {
             return;
         }
@@ -45,11 +48,13 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
         _stateKnown = true;
         if (enabled)
         {
-            _enabled = TryRegister();
+            _enabled = TryRegister(displayName);
+            _displayName = _enabled ? displayName : null;
             return;
         }
 
         _enabled = false;
+        _displayName = null;
         if (TryRemoveOwnedRegistration())
         {
             NotifyShellChanged();
@@ -70,7 +75,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
         }
     }
 
-    private bool TryRegister()
+    private bool TryRegister(string displayName)
     {
         if (_commandLine.Length == 0)
         {
@@ -87,7 +92,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
             }
 
             commandKey.SetValue(null, _commandLine, RegistryValueKind.String);
-            verbKey.SetValue(null, "Compare with current ClipDiff capture", RegistryValueKind.String);
+            verbKey.SetValue(null, displayName, RegistryValueKind.String);
             verbKey.SetValue("Icon", $"{Quote(_iconPath)},0", RegistryValueKind.String);
             verbKey.SetValue("MultiSelectModel", "Single", RegistryValueKind.String);
             verbKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);

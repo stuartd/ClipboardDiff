@@ -73,7 +73,10 @@ public sealed class ClipboardHistory
         }
     }
 
-    public ClipboardHistoryChange AcceptDirectText(string text, DateTimeOffset capturedAt)
+    public ClipboardHistoryChange AcceptDirectText(
+        string text,
+        DateTimeOffset capturedAt,
+        string? sourceFileName = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -82,7 +85,11 @@ public sealed class ClipboardHistory
             return ClipboardHistoryChange.None;
         }
 
-        return InsertText(text, capturedAt, isEligibleForRecentClear: false);
+        return InsertText(
+            text,
+            capturedAt,
+            isEligibleForRecentClear: false,
+            sourceFileName: sourceFileName);
     }
 
     public void Pause()
@@ -114,15 +121,20 @@ public sealed class ClipboardHistory
             return ApplyExplicitClear(observation.ObservedAt);
         }
 
-        return InsertText(text, observation.ObservedAt, isEligibleForRecentClear: true);
+        return InsertText(
+            text,
+            observation.ObservedAt,
+            isEligibleForRecentClear: true,
+            sourceFileName: observation.SourceFileName);
     }
 
     private ClipboardHistoryChange InsertText(
         string text,
         DateTimeOffset capturedAt,
-        bool isEligibleForRecentClear)
+        bool isEligibleForRecentClear,
+        string? sourceFileName)
     {
-        var entry = new ClipboardEntry(_idFactory(), text, capturedAt);
+        var entry = new ClipboardEntry(_idFactory(), text, capturedAt, sourceFileName);
         _entries.Insert(0, entry);
         if (_entries.Count > 2)
         {
@@ -147,8 +159,16 @@ public sealed class ClipboardHistory
                 "A text-pair observation cannot contain an empty text value.", nameof(observation));
         }
 
-        var previous = new ClipboardEntry(_idFactory(), previousText, observation.ObservedAt);
-        var current = new ClipboardEntry(_idFactory(), currentText, observation.ObservedAt);
+        var previous = new ClipboardEntry(
+            _idFactory(),
+            previousText,
+            observation.ObservedAt,
+            observation.PreviousSourceFileName);
+        var current = new ClipboardEntry(
+            _idFactory(),
+            currentText,
+            observation.ObservedAt,
+            observation.SourceFileName);
         _entries.Clear();
         _entries.Add(current);
         _entries.Add(previous);
