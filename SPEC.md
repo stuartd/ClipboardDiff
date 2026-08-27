@@ -755,6 +755,7 @@ Diff viewer: Built-in               [submenu]
 Monitor Clipboard                    [checked/unchecked]
 Clear Captured Text
 ──────────────────────────────────
+About ClipDiff
 Quit ClipDiff
 ```
 
@@ -764,6 +765,7 @@ Behaviour:
 - **Diff viewer** selects the built-in viewer, a detected external program, or an executable chosen by the user.
 - **Monitor Clipboard** toggles monitoring.
 - **Clear Captured Text** is disabled when history is empty.
+- **About ClipDiff** opens a reusable native window showing the application icon, the product version and short source commit hash, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
 - **Quit ClipDiff** removes the tray icon, unregisters native listeners/hotkeys, clears references to captured text, and shuts down.
 - Double-clicking the tray icon may invoke **Show Diff** when available.
 - The ordinary native right-click context-menu behaviour is sufficient.

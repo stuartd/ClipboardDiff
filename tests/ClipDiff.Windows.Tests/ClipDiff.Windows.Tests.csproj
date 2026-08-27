@@ -20,5 +20,6 @@
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffWorkspace.cs" Link="ExternalDiffWorkspace.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerContextCommandLine.cs" Link="ExplorerContextCommandLine.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerCommandProtocol.cs" Link="ExplorerCommandProtocol.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/Views/AboutVersionFormatter.cs" Link="AboutVersionFormatter.cs" />
   </ItemGroup>
 </Project>

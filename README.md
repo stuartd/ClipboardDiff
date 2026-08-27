@@ -14,7 +14,7 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
-The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and labels the command **Show Diff (shortcut unavailable)**.
+The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring, shows short previews of the current and previous entries, and provides an **About ClipDiff** window with project links. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and labels the command **Show Diff (shortcut unavailable)**.
 
 ## Copied files
 

@@ -1,0 +1,66 @@
+<Window x:Class="ClipDiff.Windows.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="About ClipDiff"
+        Width="460"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/ClipDiff.ico"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+        Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"
+        Closing="OnClosing">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="96" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Image Grid.Row="0"
+               Grid.Column="0"
+               Width="76"
+               Height="76"
+               Margin="0,2,20,0"
+               VerticalAlignment="Top"
+               Source="/Assets/ClipDiff.ico"
+               Stretch="Uniform"
+               automation:AutomationProperties.Name="ClipDiff application icon" />
+
+        <StackPanel Grid.Row="0" Grid.Column="1">
+            <TextBlock Text="ClipDiff" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Name="VersionText"
+                       Margin="0,2,0,16"
+                       Opacity="0.72" />
+            <TextBlock Text="A tiny local clipboard comparison tool."
+                       Margin="0,0,0,16"
+                       TextWrapping="Wrap" />
+            <TextBlock Margin="0,0,0,7">
+                <Run Text="Created by " />
+                <Run Text="Stuart Dunkeld" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Margin="0,0,0,7">
+                <Hyperlink NavigateUri="https://stuartd.dev/"
+                           RequestNavigate="OnLinkRequestNavigate">stuartd.dev</Hyperlink>
+            </TextBlock>
+            <TextBlock>
+                <Hyperlink NavigateUri="https://github.com/stuartd/ClipboardDiff"
+                           RequestNavigate="OnLinkRequestNavigate">github.com/stuartd/ClipboardDiff</Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <Button Grid.Row="1"
+                Grid.Column="1"
+                Content="Close"
+                Width="82"
+                Margin="0,24,0,0"
+                Padding="12,5"
+                HorizontalAlignment="Right"
+                Click="OnCloseClick" />
+    </Grid>
+</Window>

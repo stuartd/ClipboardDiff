@@ -31,6 +31,7 @@ internal sealed class AppController : IDisposable
     private ExternalDiffSettings _externalDiffSettings;
     private IReadOnlyList<ExternalDiffToolChoice> _externalDiffTools;
     private DiffWindow? _diffWindow;
+    private AboutWindow? _aboutWindow;
     private bool _disposed;
 
     public AppController()
@@ -58,6 +59,7 @@ internal sealed class AppController : IDisposable
         _trayIcon.DiffToolSelected += OnDiffToolSelected;
         _trayIcon.ChooseDiffToolRequested += OnChooseDiffToolRequested;
         _trayIcon.ClearRequested += OnClearRequested;
+        _trayIcon.AboutRequested += OnAboutRequested;
         _trayIcon.QuitRequested += OnQuitRequested;
         UpdatePresentation();
     }
@@ -88,6 +90,7 @@ internal sealed class AppController : IDisposable
         _trayIcon.DiffToolSelected -= OnDiffToolSelected;
         _trayIcon.ChooseDiffToolRequested -= OnChooseDiffToolRequested;
         _trayIcon.ClearRequested -= OnClearRequested;
+        _trayIcon.AboutRequested -= OnAboutRequested;
         _trayIcon.QuitRequested -= OnQuitRequested;
 
         _explorerContextMenuRegistration.Dispose();
@@ -101,6 +104,13 @@ internal sealed class AppController : IDisposable
             _diffWindow.AllowClose = true;
             _diffWindow.Close();
             _diffWindow = null;
+        }
+
+        if (_aboutWindow is not null)
+        {
+            _aboutWindow.AllowClose = true;
+            _aboutWindow.Close();
+            _aboutWindow = null;
         }
 
         _viewModel.ClearDocument();
@@ -138,6 +148,18 @@ internal sealed class AppController : IDisposable
     }
 
     private void OnClearRequested(object? sender, EventArgs args) => ClearCapturedText();
+
+    private void OnAboutRequested(object? sender, EventArgs args)
+    {
+        _aboutWindow ??= new AboutWindow();
+        if (_aboutWindow.WindowState == WindowState.Minimized)
+        {
+            _aboutWindow.WindowState = WindowState.Normal;
+        }
+
+        _aboutWindow.Show();
+        _aboutWindow.Activate();
+    }
 
     private void OnDiffToolSelected(object? sender, ExternalDiffToolSelectedEventArgs args)
     {

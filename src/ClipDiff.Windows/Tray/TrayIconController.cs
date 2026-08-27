@@ -32,11 +32,13 @@ internal sealed class TrayIconController : IDisposable
         _diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
         _monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
         _clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
+        var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
 
         _showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
         _monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
         _clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
+        aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
         quitItem.Click += (_, _) => QuitRequested?.Invoke(this, EventArgs.Empty);
         SetDiffTools(diffTools, selectedDiffExecutablePath);
 
@@ -52,6 +54,7 @@ internal sealed class TrayIconController : IDisposable
             _monitorItem,
             _clearItem,
             new Forms.ToolStripSeparator(),
+            aboutItem,
             quitItem
         ]);
         DarkMenuRenderer.ApplyTo(_menu);
@@ -76,6 +79,8 @@ internal sealed class TrayIconController : IDisposable
     public event EventHandler? ChooseDiffToolRequested;
 
     public event EventHandler? ClearRequested;
+
+    public event EventHandler? AboutRequested;
 
     public event EventHandler? QuitRequested;
 

@@ -14,4 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="../ClipDiff.Core/ClipDiff.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets/ClipDiff.ico" />
+  </ItemGroup>
 </Project>
