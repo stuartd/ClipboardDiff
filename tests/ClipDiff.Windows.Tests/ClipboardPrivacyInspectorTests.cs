@@ -132,7 +132,7 @@ public sealed class ClipboardPrivacyInspectorTests
     [TestMethod]
     public void CopiedFilesAreReturnedWithoutReadingIncidentalUnicodeText()
     {
-        var clipboard = FakeClipboard.WithText("incidental path text");
+        var clipboard = FakeClipboard.WithText("\"C:\\incidental\\path.txt\"");
         clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
         clipboard.FilePaths = [@"C:\work\script.bat"];
 
@@ -164,6 +164,28 @@ public sealed class ClipboardPrivacyInspectorTests
         clipboard.FilePathReadSucceeds = false;
 
         Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
+    }
+
+    [TestMethod]
+    public void ExplorerCopyAsPathTextIsReturnedForFileConversion()
+    {
+        var clipboard = FakeClipboard.WithText("\"C:\\work\\script.bat\"");
+
+        var result = InspectRaw(clipboard);
+
+        Assert.IsInstanceOfType<ClipboardInspection.CopiedFiles>(result);
+        var copiedFiles = (ClipboardInspection.CopiedFiles)result;
+        CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
+        Assert.AreEqual(1, clipboard.TextReadCount);
+    }
+
+    [TestMethod]
+    public void OrdinaryPathTextRemainsText()
+    {
+        var result = Inspect(FakeClipboard.WithText(@"C:\work\script.bat"));
+
+        Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
+        Assert.AreEqual(@"C:\work\script.bat", result.Text);
     }
 
     private static ClipboardObservation Inspect(FakeClipboard clipboard)

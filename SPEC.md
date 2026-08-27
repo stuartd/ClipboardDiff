@@ -194,6 +194,8 @@ Every file-backed value must retain its source filename separately from its conv
 
 If exactly two files are copied together, convert each independently using the single-file rules above and atomically replace the comparison pair. The first path in CF_HDROP order is the previous value and the second is the current value. Ignore copies containing more than two files; never create a comparison value from a file list. Prefer CF_HDROP handling over incidental Unicode text exposed for the same copied-file item. File contents and paths must not be persisted or logged, and a newer clipboard sequence must supersede an in-progress file read.
 
+Treat Explorer **Copy as path** text as the equivalent file copy when the Unicode text consists solely of quoted, absolute Windows file-system paths, one per line. One or two paths use the same conversion and ordering rules as CF_HDROP; more than two are ignored. This deliberately prioritizes file comparison over the unusual case of comparing quoted path strings. Unquoted paths, relative paths, and paths embedded in other text remain ordinary clipboard text. Privacy markers must still be inspected before reading the text, and the clipboard must be released before file I/O.
+
 While monitoring is active and at least one captured entry exists, register a per-user Explorer context-menu command named **Compare with current ClipDiff capture** for individual files. When the current capture is file-backed, append ` — <filename>` to the command label so Explorer identifies the comparison source. Invoking it must convert the directly selected file with the same single-file rules, insert its result as the new current entry, move the former current entry to previous, evict any older entry, and immediately invoke the ordinary **Show Diff** workflow. It must not modify the Windows clipboard or its sequence baseline, and the direct entry must not be eligible for the recent clipboard-clear heuristic. If monitoring is paused or there is no current entry, do not read the selected file or alter history.
 
 The Explorer command may pass the directly selected path on its process command line and through same-user local IPC to the existing ClipDiff instance. Do not pass the copied file's path or contents, any decoded text, or any diff on a command line. Do not persist or log either file path. Multiple Explorer selections are not supported by this command.
@@ -745,11 +747,10 @@ Suggested menu:
 
 ```
 Ready to diff                         [disabled status]
-Shortcut: Ctrl+Alt+D                 [disabled]
 Current: <preview>                   [disabled]
 Previous: <preview>                  [disabled]
 ──────────────────────────────────
-Show Diff
+Show Diff (Ctrl-Alt-D)
 Diff viewer: Built-in               [submenu]
 Monitor Clipboard                    [checked/unchecked]
 Clear Captured Text
@@ -768,10 +769,10 @@ Behaviour:
 - The ordinary native right-click context-menu behaviour is sufficient.
 - An exact macOS-style popover is not required.
 
-If hotkey registration failed, add or replace a disabled line with:
+If hotkey registration failed, replace the Show Diff label with:
 
 ```
-Shortcut unavailable
+Show Diff (shortcut unavailable)
 ```
 
 Avoid balloon notifications except where they materially help. No routine clipboard notifications are needed.
@@ -1107,7 +1108,7 @@ At minimum:
 1. A second identical copy followed by immediate clear removes only the latest entry.
 1. Own clipboard writes never enter history.
 
-Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and reason-labelled filename fallback for directories, empty, missing, unreadable, oversized, and binary files.
+Copied-file tests must cover privacy inspection before paths, CF_HDROP preference over incidental text, Explorer **Copy as path** recognition for quoted absolute paths without reclassifying ordinary path-like text, BAT contents, PE and other known binary executable filenames, binary content with a misleading extension, supported encodings, exact-two-file previous/current pairing and independent conversion, ignoring copies containing more than two files, and reason-labelled filename fallback for directories, empty, missing, unreadable, oversized, and binary files.
 
 They must also cover retaining the source filename and memory-only full path independently from decoded text; choosing the shortest unique suffix for equal basenames on different paths; leaving different basenames and identical paths uncluttered; showing the resolved labels in current/previous previews and built-in diff headers; and passing resolved labels and source basenames to external viewers.
 

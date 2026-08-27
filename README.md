@@ -7,18 +7,18 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 ## Use
 
 1. Start `ClipDiff.exe`. It opens in the notification area
-2. Copy the older text or file.
+2. Copy the older text or file. Explorer's **Copy as path** also counts as copying the file.
 3. Either copy the newer text or file, or right-click the newer file in Explorer and choose **Compare with current ClipDiff capture**.
 4. If you copied the newer value normally, press `Ctrl+Alt+D` or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
 5. You can also copy two files at the same time—`code_old.txt` and `code.txt`, for example—and diff those immediately.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
-The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and displays **Shortcut unavailable**.
+The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring and shows short previews of the current and previous entries. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and labels the command **Show Diff (shortcut unavailable)**.
 
 ## Copied files
 
-When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. A single copied file is converted as follows:
+When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. Explorer **Copy as path** is also treated as a file copy when its text consists solely of one or two quoted absolute Windows paths. This deliberately favors the useful file-diff workflow over the unusual case of comparing the quoted paths themselves. Unquoted paths and paths embedded in other text remain ordinary text. A single copied file is converted as follows:
 
 - `.bat`, `.cmd`, `.ps1`, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute the filename with a reason, such as `program.exe (binary file)`.
@@ -150,7 +150,7 @@ On a Windows desktop, verify:
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
-- exactly two copied files become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
+- exactly two copied files—or two files copied with Explorer **Copy as path**—become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
 - after one capture, right-clicking a second file offers **Compare with current ClipDiff capture** (including the current filename when file-backed), makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
 - pausing, clearing, and quitting remove the Explorer command, and Windows 11 exposes it under **Show more options** when it is not in the primary menu;
 - pausing skips copied text and resuming establishes a new baseline;

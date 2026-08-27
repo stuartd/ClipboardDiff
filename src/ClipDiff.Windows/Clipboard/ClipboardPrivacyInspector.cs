@@ -84,9 +84,14 @@ public sealed class ClipboardPrivacyInspector
             return Completed(ClipboardObservation.InspectionFailed(sequenceNumber, observedAt));
         }
 
-        return Completed(text.Length == 0
-            ? ClipboardObservation.ExplicitClear(sequenceNumber, observedAt)
-            : ClipboardObservation.TextValue(sequenceNumber, observedAt, text));
+        if (text.Length == 0)
+        {
+            return Completed(ClipboardObservation.ExplicitClear(sequenceNumber, observedAt));
+        }
+
+        return ExplorerCopyAsPathParser.TryParse(text, out var copyAsPathFiles)
+            ? new ClipboardInspection.CopiedFiles(sequenceNumber, observedAt, copyAsPathFiles)
+            : Completed(ClipboardObservation.TextValue(sequenceNumber, observedAt, text));
     }
 
     public const uint NativeUnicodeTextFormat = 13;
