@@ -10,7 +10,6 @@ internal sealed class TrayIconController : IDisposable
     private readonly Drawing.Icon? _applicationIcon;
     private readonly Forms.ContextMenuStrip _menu;
     private readonly Forms.ToolStripMenuItem _statusItem;
-    private readonly Forms.ToolStripMenuItem _shortcutItem;
     private readonly Forms.ToolStripMenuItem _currentItem;
     private readonly Forms.ToolStripMenuItem _previousItem;
     private readonly Forms.ToolStripMenuItem _showDiffItem;
@@ -27,10 +26,9 @@ internal sealed class TrayIconController : IDisposable
         string? selectedDiffExecutablePath)
     {
         _statusItem = DisabledItem("Waiting for copied text");
-        _shortcutItem = DisabledItem("Shortcut: Ctrl+Alt+D");
         _currentItem = DisabledItem("Current: None");
         _previousItem = DisabledItem("Previous: None");
-        _showDiffItem = new Forms.ToolStripMenuItem("Show Diff");
+        _showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl-Alt-D)");
         _diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
         _monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
         _clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
@@ -46,7 +44,6 @@ internal sealed class TrayIconController : IDisposable
         _menu.Items.AddRange(
         [
             _statusItem,
-            _shortcutItem,
             _currentItem,
             _previousItem,
             new Forms.ToolStripSeparator(),
@@ -100,7 +97,9 @@ internal sealed class TrayIconController : IDisposable
     {
         var fileLabels = ClipboardEntryDisplay.ResolveFileLabels(previous, current);
         _statusItem.Text = status;
-        _shortcutItem.Text = hotKeyAvailable ? "Shortcut: Ctrl+Alt+D" : "Shortcut unavailable";
+        _showDiffItem.Text = hotKeyAvailable
+            ? "Show Diff (Ctrl-Alt-D)"
+            : "Show Diff (shortcut unavailable)";
         _currentItem.Text = "Current: " + EntryPreview(current, fileLabels.Current);
         _previousItem.Text = "Previous: " + EntryPreview(previous, fileLabels.Previous);
         _showDiffItem.Enabled = current is not null && previous is not null;
