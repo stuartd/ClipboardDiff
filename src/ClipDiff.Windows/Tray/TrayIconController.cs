@@ -57,6 +57,7 @@ internal sealed class TrayIconController : IDisposable
             new Forms.ToolStripSeparator(),
             quitItem
         ]);
+        DarkMenuRenderer.ApplyTo(_menu);
 
         _applicationIcon = TryLoadApplicationIcon();
         _notifyIcon = new Forms.NotifyIcon
@@ -183,6 +184,7 @@ internal sealed class TrayIconController : IDisposable
         var chooseProgram = new Forms.ToolStripMenuItem("Choose program...");
         chooseProgram.Click += (_, _) => ChooseDiffToolRequested?.Invoke(this, EventArgs.Empty);
         _diffViewerItem.DropDownItems.Add(chooseProgram);
+        DarkMenuRenderer.ApplyTo(_diffViewerItem.DropDown);
 
         var selected = _diffTools.FirstOrDefault(choice => string.Equals(
             choice.ExecutablePath,
