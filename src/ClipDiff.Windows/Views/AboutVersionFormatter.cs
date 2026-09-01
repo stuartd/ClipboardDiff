@@ -7,9 +7,11 @@ internal static class AboutVersionFormatter
     public static string Format(string? informationalVersion, Version? assemblyVersion)
     {
         var parts = informationalVersion?.Split('+', 2);
+
         var version = parts is { Length: > 0 } && !string.IsNullOrWhiteSpace(parts[0])
             ? parts[0]
             : assemblyVersion?.ToString(2) ?? "Unknown";
+
         if (parts is not { Length: 2 })
         {
             return version;
@@ -18,6 +20,7 @@ internal static class AboutVersionFormatter
         var commit = parts[1]
             .Split('.')
             .LastOrDefault(IsCommitHash);
+            
         return commit is null
             ? version
             : $"{version} ({commit[..ShortCommitLength]})";

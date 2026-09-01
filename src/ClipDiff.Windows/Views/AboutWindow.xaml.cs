@@ -19,9 +19,11 @@ public partial class AboutWindow : Window
     private static string GetDisplayVersion()
     {
         var assembly = typeof(AboutWindow).Assembly;
+        
         var informationalVersion = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
+
         return AboutVersionFormatter.Format(informationalVersion, assembly.GetName().Version);
     }
 

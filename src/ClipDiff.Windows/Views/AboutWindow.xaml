@@ -37,19 +37,10 @@
             <TextBlock x:Name="VersionText"
                        Margin="0,2,0,16"
                        Opacity="0.72" />
-            <TextBlock Text="A tiny local clipboard comparison tool."
+            <TextBlock Text="A minimal clipboard comparison tool."
                        Margin="0,0,0,16"
                        TextWrapping="Wrap" />
-            <TextBlock Margin="0,0,0,7">
-                <Run Text="Created by " />
-                <Run Text="Stuart Dunkeld" FontWeight="SemiBold" />
-            </TextBlock>
-            <TextBlock Margin="0,0,0,7">
-                <Hyperlink NavigateUri="https://stuartd.dev/"
-                           RequestNavigate="OnLinkRequestNavigate">stuartd.dev</Hyperlink>
-            </TextBlock>
-            <TextBlock>
-                <Hyperlink NavigateUri="https://github.com/stuartd/ClipboardDiff"
+            <Hyperlink NavigateUri="https://github.com/stuartd/ClipboardDiff"
                            RequestNavigate="OnLinkRequestNavigate">github.com/stuartd/ClipboardDiff</Hyperlink>
             </TextBlock>
         </StackPanel>
