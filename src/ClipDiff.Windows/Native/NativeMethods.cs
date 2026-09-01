@@ -6,6 +6,8 @@ internal static class NativeMethods
 {
     internal const int WmClipboardUpdate = 0x031D;
     internal const int WmHotKey = 0x0312;
+    internal const int DwmwaUseImmersiveDarkModeBefore20H1 = 19;
+    internal const int DwmwaUseImmersiveDarkMode = 20;
     internal const uint CfUnicodeText = 13;
     internal const uint CfHDrop = 15;
     internal const uint ModAlt = 0x0001;
@@ -22,6 +24,13 @@ internal static class NativeMethods
     internal const uint MbTopmost = 0x00040000;
     internal const int DialogResultOk = 1;
     internal static readonly nint HwndMessage = new(-3);
+
+    [DllImport("dwmapi.dll")]
+    internal static extern int DwmSetWindowAttribute(
+        nint hwnd,
+        int attribute,
+        ref int attributeValue,
+        int attributeSize);
 
     [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode, SetLastError = true)]
     internal static extern int ShowMessageBox(nint owner, string text, string caption, uint type);

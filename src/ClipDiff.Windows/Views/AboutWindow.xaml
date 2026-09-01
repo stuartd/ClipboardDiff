@@ -9,9 +9,30 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/ClipDiff.ico"
-        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
-        Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"
+        Background="#202020"
+        Foreground="#F5F5F5"
+        SourceInitialized="OnSourceInitialized"
         Closing="OnClosing">
+    <Window.Resources>
+        <Style TargetType="Hyperlink">
+            <Setter Property="Foreground" Value="#66B6FF" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#323232" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+            <Setter Property="BorderBrush" Value="#606060" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3D3D3D" />
+                    <Setter Property="BorderBrush" Value="#7A7A7A" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#484848" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -40,7 +61,8 @@
             <TextBlock Text="A minimal clipboard comparison tool."
                        Margin="0,0,0,16"
                        TextWrapping="Wrap" />
-            <Hyperlink NavigateUri="https://github.com/stuartd/ClipboardDiff"
+            <TextBlock>
+                <Hyperlink NavigateUri="https://github.com/stuartd/ClipboardDiff"
                            RequestNavigate="OnLinkRequestNavigate">github.com/stuartd/ClipboardDiff</Hyperlink>
             </TextBlock>
         </StackPanel>
