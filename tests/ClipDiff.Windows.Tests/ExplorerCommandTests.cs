@@ -55,6 +55,29 @@ public sealed class ExplorerCommandTests
     }
 
     [TestMethod]
+    public void ComServerCommandContainsNoSelectedFilePlaceholder()
+    {
+        var command = ExplorerContextCommandLine.BuildComServerCommand(
+            @"C:\Program Files\ClipDiff\ClipDiff.exe",
+            entryAssemblyPath: null);
+
+        Assert.AreEqual("\"C:\\Program Files\\ClipDiff\\ClipDiff.exe\"", command);
+        Assert.IsFalse(command.Contains('%'));
+    }
+
+    [TestMethod]
+    public void ComServerCommandIncludesEntryAssemblyWhenHostedByDotnet()
+    {
+        var command = ExplorerContextCommandLine.BuildComServerCommand(
+            @"C:\Program Files\dotnet\dotnet.exe",
+            @"C:\ClipDiff build\ClipDiff.dll");
+
+        Assert.AreEqual(
+            "\"C:\\Program Files\\dotnet\\dotnet.exe\" \"C:\\ClipDiff build\\ClipDiff.dll\"",
+            command);
+    }
+
+    [TestMethod]
     public void ExplorerItemIncludesOnlyTheCurrentSourceFileName()
     {
         Assert.AreEqual(
@@ -63,6 +86,29 @@ public sealed class ExplorerCommandTests
         Assert.AreEqual(
             "Compare with current ClipDiff capture — current.cs",
             ExplorerContextCommandLine.BuildDisplayName(@"C:\Work files\current.cs"));
+    }
+
+    [TestMethod]
+    public void FileSelectionAcceptsExactlyTwoPathsInExplorerOrder()
+    {
+        var result = ExplorerFileSelection.TryGetPair(
+            [@"C:\Work\old.txt", @"C:\Work\new.txt"],
+            out var previous,
+            out var current);
+
+        Assert.IsTrue(result);
+        Assert.AreEqual(@"C:\Work\old.txt", previous);
+        Assert.AreEqual(@"C:\Work\new.txt", current);
+    }
+
+    [TestMethod]
+    public void FileSelectionRejectsCountsOtherThanTwoAndInvalidPaths()
+    {
+        Assert.IsFalse(ExplorerFileSelection.TryGetPair([], out _, out _));
+        Assert.IsFalse(ExplorerFileSelection.TryGetPair(["one.txt"], out _, out _));
+        Assert.IsFalse(ExplorerFileSelection.TryGetPair(["one.txt", "two.txt", "three.txt"], out _, out _));
+        Assert.IsFalse(ExplorerFileSelection.TryGetPair(["one.txt", " "], out _, out _));
+        Assert.IsFalse(ExplorerFileSelection.TryGetPair(["one.txt", "two\0.txt"], out _, out _));
     }
 
     [TestMethod]

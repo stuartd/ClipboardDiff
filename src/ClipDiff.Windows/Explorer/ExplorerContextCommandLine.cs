@@ -4,6 +4,7 @@ internal static class ExplorerContextCommandLine
 {
     public const string CompareWithCurrentSwitch = "--compare-with-current";
     public const string DefaultDisplayName = "Compare with current ClipDiff capture";
+    public const string CompareSelectedDisplayName = "Compare two selected files with ClipDiff";
 
     public static bool TryGetSelectedFile(IReadOnlyList<string> arguments, out string filePath)
     {
@@ -34,6 +35,19 @@ internal static class ExplorerContextCommandLine
         }
 
         return $"{command} {CompareWithCurrentSwitch} \"%1\"";
+    }
+
+    public static string BuildComServerCommand(string processPath, string? entryAssemblyPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(processPath);
+
+        var command = Quote(processPath);
+        if (IsDotnetHost(processPath) && !string.IsNullOrWhiteSpace(entryAssemblyPath))
+        {
+            command += " " + Quote(entryAssemblyPath);
+        }
+
+        return command;
     }
 
     public static string BuildDisplayName(string? currentSourceFileName)

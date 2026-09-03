@@ -125,6 +125,71 @@ public sealed class ClipboardHistoryTests
     }
 
     [TestMethod]
+    public void DirectPairAtomicallyReplacesHistoryWithoutChangingClipboardSequence()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(7, "stale contents"));
+
+        var result = history.AcceptDirectPair(
+            "first selected contents",
+            "second selected contents",
+            Start.AddSeconds(1),
+            "first.txt",
+            "second.txt",
+            @"C:\selected\first.txt",
+            @"C:\selected\second.txt");
+
+        Assert.AreEqual(ClipboardHistoryChange.Accepted, result);
+        Assert.AreEqual("first selected contents", history.Previous?.Text);
+        Assert.AreEqual("second selected contents", history.Current?.Text);
+        Assert.AreEqual("first.txt", history.Previous?.SourceFileName);
+        Assert.AreEqual("second.txt", history.Current?.SourceFileName);
+        Assert.AreEqual(@"C:\selected\first.txt", history.Previous?.SourceFilePath);
+        Assert.AreEqual(@"C:\selected\second.txt", history.Current?.SourceFilePath);
+        Assert.AreEqual((uint)7, history.LastSequenceNumber);
+        Assert.AreEqual(2, history.Entries.Count);
+    }
+
+    [TestMethod]
+    public void DirectPairIsNotRemovedByAClipboardClear()
+    {
+        var history = CreateHistory();
+        history.AcceptDirectPair("first", "second", Start);
+
+        history.Apply(ClipboardObservation.ExplicitClear(1, Start.AddSeconds(1)));
+
+        Assert.AreEqual("first", history.Previous?.Text);
+        Assert.AreEqual("second", history.Current?.Text);
+    }
+
+    [TestMethod]
+    public void DirectPairIsIgnoredWhileMonitoringIsPaused()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "kept"));
+        history.Pause();
+
+        var result = history.AcceptDirectPair("first", "second", Start.AddSeconds(1));
+
+        Assert.AreEqual(ClipboardHistoryChange.None, result);
+        Assert.AreEqual("kept", history.Current?.Text);
+        Assert.IsNull(history.Previous);
+    }
+
+    [TestMethod]
+    public void DirectPairWithAnEmptyValueLeavesHistoryUntouched()
+    {
+        var history = CreateHistory();
+        history.Apply(Text(1, "kept"));
+
+        var result = history.AcceptDirectPair("", "second", Start.AddSeconds(1));
+
+        Assert.AreEqual(ClipboardHistoryChange.None, result);
+        Assert.AreEqual("kept", history.Current?.Text);
+        Assert.IsNull(history.Previous);
+    }
+
+    [TestMethod]
     public void DirectTextIsNotRemovedByAClipboardClear()
     {
         var history = CreateHistory();

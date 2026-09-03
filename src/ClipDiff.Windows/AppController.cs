@@ -26,6 +26,7 @@ internal sealed class AppController : IDisposable
     private readonly TrayIconController _trayIcon;
     private readonly DiffWindowViewModel _viewModel;
     private readonly ExplorerCommandServer _explorerCommandServer;
+    private readonly ExplorerDropTargetServer _explorerDropTargetServer;
     private readonly ExplorerContextMenuRegistration _explorerContextMenuRegistration;
     private readonly CancellationTokenSource _shutdown = new();
     private ExternalDiffSettings _externalDiffSettings;
@@ -50,6 +51,7 @@ internal sealed class AppController : IDisposable
             GetSelectedExternalDiffTool()?.ExecutablePath);
         _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText);
         _explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
+        _explorerDropTargetServer = new ExplorerDropTargetServer(OnExplorerFilesSelected);
         _explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
 
         _clipboardMonitor.ObservationReceived += OnClipboardObservation;
@@ -94,6 +96,7 @@ internal sealed class AppController : IDisposable
         _trayIcon.QuitRequested -= OnQuitRequested;
 
         _explorerContextMenuRegistration.Dispose();
+        _explorerDropTargetServer.Dispose();
         _explorerCommandServer.Dispose();
         _trayIcon.Dispose();
         _externalDiffLauncher.Dispose();
@@ -293,6 +296,72 @@ internal sealed class AppController : IDisposable
         }
     }
 
+    private void OnExplorerFilesSelected(IReadOnlyList<string> selectedFilePaths) =>
+        _ = CompareSelectedFilesAsync(selectedFilePaths);
+
+    private async Task CompareSelectedFilesAsync(IReadOnlyList<string> selectedFilePaths)
+    {
+        if (!ExplorerFileSelection.TryGetPair(
+                selectedFilePaths,
+                out var previousFilePath,
+                out var currentFilePath))
+        {
+            SystemSounds.Beep.Play();
+            return;
+        }
+
+        try
+        {
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
+            var canCompare = await dispatcher.InvokeAsync(
+                () => !_disposed && _history.IsMonitoring).Task.ConfigureAwait(false);
+            if (!canCompare)
+            {
+                await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
+                return;
+            }
+
+            var selectedValues = await _copiedFileTextReader.ReadValuesAsync(
+                [previousFilePath, currentFilePath],
+                _shutdown.Token).ConfigureAwait(false);
+            if (selectedValues.Count != 2)
+            {
+                await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
+                return;
+            }
+
+            await dispatcher.InvokeAsync(() =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                if (!_history.IsMonitoring)
+                {
+                    SystemSounds.Beep.Play();
+                    return;
+                }
+
+                var previous = selectedValues[0];
+                var current = selectedValues[1];
+                _history.AcceptDirectPair(
+                    previous.Text,
+                    current.Text,
+                    DateTimeOffset.Now,
+                    previous.FileName,
+                    current.FileName,
+                    previous.FilePath,
+                    current.FilePath);
+                UpdatePresentation();
+                ShowDiff();
+            }).Task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+        }
+    }
+
     private ExternalDiffToolChoice? GetSelectedExternalDiffTool()
     {
         if (string.IsNullOrWhiteSpace(_externalDiffSettings.SelectedExecutablePath))
@@ -377,8 +446,10 @@ internal sealed class AppController : IDisposable
             _history.Current,
             _history.Previous);
         _viewModel.SetCanClear(_history.Current is not null);
-        _explorerContextMenuRegistration.SetEnabled(
-            _history.IsMonitoring && _history.Current is not null,
+        _explorerContextMenuRegistration.SetState(
+            _history.IsMonitoring,
+            _history.Current is not null,
+            _explorerDropTargetServer.IsRegistered,
             _history.Current?.SourceFileName);
     }
 }

@@ -10,7 +10,7 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 2. Copy the older text or file. Explorer's **Copy as path** also counts as copying the file.
 3. Either copy the newer text or file, or right-click the newer file in Explorer and choose **Compare with current ClipDiff capture**.
 4. If you copied the newer value normally, press `Ctrl+Alt+D` or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
-5. You can also copy two files at the same time—`code_old.txt` and `code.txt`, for example—and diff those immediately.
+5. You can also copy two files at the same time—or select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**—to diff them immediately without an existing capture.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
@@ -32,13 +32,17 @@ The full source paths are retained only in the same two-entry in-memory history 
 
 When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
 
+While clipboard monitoring is active, selecting exactly two files in Explorer also offers **Compare two selected files with ClipDiff**. It converts both files with the same rules, atomically replaces the current comparison pair, and opens the configured viewer. Explorer's first supplied path becomes **Previous** and its second becomes **Current**. No prior capture is needed, and the Windows clipboard and ClipDiff's clipboard sequence baseline are unchanged.
+
 After ClipDiff has captured at least one value, and while clipboard monitoring is active, it adds **Compare with current ClipDiff capture** to the Explorer context menu for individual files. If the current capture came from a file, the command appends that filename so the comparison source is visible before it is invoked. Choosing it reads the selected file with the same conversion rules, promotes that result to **Current**, moves the former **Current** entry to **Previous**, and immediately uses the normal **Show Diff** workflow. It does not change the Windows clipboard. On Windows 11, this classic context-menu command may appear under **Show more options**.
 
-The context-menu registration is per-user, requires no administrator access, and is present only while ClipDiff is running with a usable current capture. Clearing the capture, pausing monitoring, or quitting removes it; a later ClipDiff start cleans up a registration left by an abnormal exit. The registration contains only the ClipDiff command, never captured text or a selected path.
+Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command is present whenever ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Clearing removes only the individual-file command, while pausing or quitting removes both. A later ClipDiff start cleans up registrations left by an abnormal exit.
+
+The two-file command receives the selection as a Windows Shell data object through ClipDiff's out-of-process COM drop target, so selected paths do not appear in a process command line or in the registry. Its registration contains only the executable command, label, icon, selection policy, and COM identifiers. Explorer's classic multi-selection model cannot hide a verb for every count except two, so the command may also be visible for another selection count; ClipDiff rejects that invocation without reading any selected file.
 
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
-File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe and retains it only with that in-memory entry for collision disambiguation; it is never logged or persisted.
+File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. For the individual-file command, Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe. For the two-file command, Explorer marshals the selection directly to the running ClipDiff process. In both cases, each path is retained only with its in-memory entry for collision disambiguation; it is never logged or persisted.
 
 ## External diff viewers
 
@@ -152,7 +156,9 @@ On a Windows desktop, verify:
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
 - exactly two copied files—or two files copied with Explorer **Copy as path**—become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
 - after one capture, right-clicking a second file offers **Compare with current ClipDiff capture** (including the current filename when file-backed), makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
-- pausing, clearing, and quitting remove the Explorer command, and Windows 11 exposes it under **Show more options** when it is not in the primary menu;
+- selecting exactly two Explorer files offers **Compare two selected files with ClipDiff** without requiring a prior capture, makes the first Shell-supplied path previous and the second current, and immediately opens the selected viewer without changing the clipboard;
+- other selection counts do not alter history or cause file reads; clearing removes the individual-file command but leaves the two-file command available;
+- pausing and quitting remove both Explorer commands, and Windows 11 exposes classic commands under **Show more options** when they are not in the primary menu;
 - pausing skips copied text and resuming establishes a new baseline;
 - clearing captured text does not modify the Windows clipboard;
 - closing the diff window leaves the tray application running;

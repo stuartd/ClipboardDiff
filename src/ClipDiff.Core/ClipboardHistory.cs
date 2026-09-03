@@ -94,6 +94,34 @@ public sealed class ClipboardHistory
             sourceFilePath: sourceFilePath);
     }
 
+    public ClipboardHistoryChange AcceptDirectPair(
+        string previousText,
+        string currentText,
+        DateTimeOffset capturedAt,
+        string? previousSourceFileName = null,
+        string? currentSourceFileName = null,
+        string? previousSourceFilePath = null,
+        string? currentSourceFilePath = null)
+    {
+        ArgumentNullException.ThrowIfNull(previousText);
+        ArgumentNullException.ThrowIfNull(currentText);
+
+        if (!IsMonitoring || previousText.Length == 0 || currentText.Length == 0)
+        {
+            return ClipboardHistoryChange.None;
+        }
+
+        return ReplacePair(
+            previousText,
+            currentText,
+            capturedAt,
+            isEligibleForRecentClear: false,
+            previousSourceFileName,
+            currentSourceFileName,
+            previousSourceFilePath,
+            currentSourceFilePath);
+    }
+
     public void Pause()
     {
         IsMonitoring = false;
@@ -168,22 +196,45 @@ public sealed class ClipboardHistory
                 "A text-pair observation cannot contain an empty text value.", nameof(observation));
         }
 
+        return ReplacePair(
+            previousText,
+            currentText,
+            observation.ObservedAt,
+            isEligibleForRecentClear: true,
+            observation.PreviousSourceFileName,
+            observation.SourceFileName,
+            observation.PreviousSourceFilePath,
+            observation.SourceFilePath);
+    }
+
+    private ClipboardHistoryChange ReplacePair(
+        string previousText,
+        string currentText,
+        DateTimeOffset capturedAt,
+        bool isEligibleForRecentClear,
+        string? previousSourceFileName,
+        string? currentSourceFileName,
+        string? previousSourceFilePath,
+        string? currentSourceFilePath)
+    {
         var previous = new ClipboardEntry(
             _idFactory(),
             previousText,
-            observation.ObservedAt,
-            observation.PreviousSourceFileName,
-            observation.PreviousSourceFilePath);
+            capturedAt,
+            previousSourceFileName,
+            previousSourceFilePath);
         var current = new ClipboardEntry(
             _idFactory(),
             currentText,
-            observation.ObservedAt,
-            observation.SourceFileName,
-            observation.SourceFilePath);
+            capturedAt,
+            currentSourceFileName,
+            currentSourceFilePath);
         _entries.Clear();
         _entries.Add(current);
         _entries.Add(previous);
-        _clearEligibility = new(current.Id, observation.ObservedAt);
+        _clearEligibility = isEligibleForRecentClear
+            ? new(current.Id, capturedAt)
+            : null;
         return ClipboardHistoryChange.Accepted;
     }
 
