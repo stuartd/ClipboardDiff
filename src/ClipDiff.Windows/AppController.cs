@@ -6,6 +6,7 @@ using ClipDiff.Windows.ExternalDiff;
 using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Hotkeys;
 using ClipDiff.Windows.Native;
+using ClipDiff.Windows.Settings;
 using ClipDiff.Windows.Tray;
 using ClipDiff.Windows.ViewModels;
 using ClipDiff.Windows.Views;
@@ -15,7 +16,7 @@ namespace ClipDiff.Windows;
 internal sealed class AppController : IDisposable
 {
     private readonly DiffEngine _diffEngine = new();
-    private readonly ExternalDiffSettingsStore _externalDiffSettingsStore;
+    private readonly ClipDiffSettingsStore _settingsStore;
     private readonly ExternalDiffLauncher _externalDiffLauncher;
     private readonly NativeMessageWindow _messageWindow;
     private readonly ClipboardMonitor _clipboardMonitor;
@@ -29,10 +30,11 @@ internal sealed class AppController : IDisposable
     private readonly ExplorerDropTargetServer _explorerDropTargetServer;
     private readonly ExplorerContextMenuRegistration _explorerContextMenuRegistration;
     private readonly CancellationTokenSource _shutdown = new();
-    private ExternalDiffSettings _externalDiffSettings;
+    private ClipDiffSettings _settings;
     private IReadOnlyList<ExternalDiffToolChoice> _externalDiffTools;
     private DiffWindow? _diffWindow;
     private AboutWindow? _aboutWindow;
+    private ShortcutWindow? _shortcutWindow;
     private bool _disposed;
 
     public AppController()
@@ -41,10 +43,10 @@ internal sealed class AppController : IDisposable
         _clipboardMonitor = new ClipboardMonitor(_messageWindow);
         _clipboardWriter = new ClipboardWriter(_messageWindow.Handle);
         _history = new ClipboardHistory(_clipboardMonitor.BaselineSequence);
-        _hotKey = new GlobalHotKey(_messageWindow);
-        _externalDiffSettingsStore = new ExternalDiffSettingsStore();
-        _externalDiffSettings = _externalDiffSettingsStore.Load();
-        _externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(_externalDiffSettings.SelectedExecutablePath);
+        _settingsStore = new ClipDiffSettingsStore();
+        _settings = _settingsStore.Load();
+        _hotKey = new GlobalHotKey(_messageWindow, HotKeyGesture.Normalize(_settings.HotKey));
+        _externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(_settings.SelectedExecutablePath);
         _externalDiffLauncher = new ExternalDiffLauncher();
         _trayIcon = new TrayIconController(
             _externalDiffTools,
@@ -57,6 +59,7 @@ internal sealed class AppController : IDisposable
         _clipboardMonitor.ObservationReceived += OnClipboardObservation;
         _hotKey.Pressed += OnShowDiffRequested;
         _trayIcon.ShowDiffRequested += OnShowDiffRequested;
+        _trayIcon.ShortcutRequested += OnShortcutRequested;
         _trayIcon.ToggleMonitoringRequested += OnToggleMonitoringRequested;
         _trayIcon.DiffToolSelected += OnDiffToolSelected;
         _trayIcon.ChooseDiffToolRequested += OnChooseDiffToolRequested;
@@ -88,6 +91,7 @@ internal sealed class AppController : IDisposable
         _clipboardMonitor.ObservationReceived -= OnClipboardObservation;
         _hotKey.Pressed -= OnShowDiffRequested;
         _trayIcon.ShowDiffRequested -= OnShowDiffRequested;
+        _trayIcon.ShortcutRequested -= OnShortcutRequested;
         _trayIcon.ToggleMonitoringRequested -= OnToggleMonitoringRequested;
         _trayIcon.DiffToolSelected -= OnDiffToolSelected;
         _trayIcon.ChooseDiffToolRequested -= OnChooseDiffToolRequested;
@@ -102,6 +106,12 @@ internal sealed class AppController : IDisposable
         _externalDiffLauncher.Dispose();
         _hotKey.Dispose();
         _clipboardMonitor.Dispose();
+        if (_shortcutWindow is not null)
+        {
+            _shortcutWindow.Close();
+            _shortcutWindow = null;
+        }
+
         if (_diffWindow is not null)
         {
             _diffWindow.AllowClose = true;
@@ -164,13 +174,62 @@ internal sealed class AppController : IDisposable
         _aboutWindow.Activate();
     }
 
+    private void OnShortcutRequested(object? sender, EventArgs args)
+    {
+        if (_shortcutWindow is not null)
+        {
+            _shortcutWindow.Activate();
+            return;
+        }
+
+        var window = new ShortcutWindow(_hotKey.Gesture, TryChangeHotKey);
+        _shortcutWindow = window;
+        try
+        {
+            window.ShowDialog();
+        }
+        finally
+        {
+            if (ReferenceEquals(_shortcutWindow, window))
+            {
+                _shortcutWindow = null;
+            }
+        }
+    }
+
+    private HotKeyChangeResult TryChangeHotKey(HotKeyGesture gesture)
+    {
+        if (_disposed)
+        {
+            return HotKeyChangeResult.Unavailable;
+        }
+
+        var previousGesture = _hotKey.Gesture;
+        if (!_hotKey.TryChange(gesture))
+        {
+            return HotKeyChangeResult.Unavailable;
+        }
+
+        var updatedSettings = _settings with { HotKey = gesture };
+        if (!_settingsStore.TrySave(updatedSettings))
+        {
+            _hotKey.TryChange(previousGesture);
+            UpdatePresentation();
+            return HotKeyChangeResult.SaveFailed;
+        }
+
+        _settings = updatedSettings;
+        UpdatePresentation();
+        return HotKeyChangeResult.Success;
+    }
+
     private void OnDiffToolSelected(object? sender, ExternalDiffToolSelectedEventArgs args)
     {
-        _externalDiffSettings = _externalDiffSettings with
+        _settings = _settings with
         {
             SelectedExecutablePath = args.Choice?.ExecutablePath
         };
-        _externalDiffSettingsStore.TrySave(_externalDiffSettings);
+        _settingsStore.TrySave(_settings);
         _trayIcon.SetDiffTools(_externalDiffTools, args.Choice?.ExecutablePath);
     }
 
@@ -364,20 +423,20 @@ internal sealed class AppController : IDisposable
 
     private ExternalDiffToolChoice? GetSelectedExternalDiffTool()
     {
-        if (string.IsNullOrWhiteSpace(_externalDiffSettings.SelectedExecutablePath))
+        if (string.IsNullOrWhiteSpace(_settings.SelectedExecutablePath))
         {
             return null;
         }
 
         return _externalDiffTools.FirstOrDefault(choice => string.Equals(
             choice.ExecutablePath,
-            _externalDiffSettings.SelectedExecutablePath,
+            _settings.SelectedExecutablePath,
             StringComparison.OrdinalIgnoreCase));
     }
 
     private bool ConfirmExternalDiffRisk()
     {
-        if (_externalDiffSettings.PlaintextWarningAcknowledged)
+        if (_settings.PlaintextWarningAcknowledged)
         {
             return true;
         }
@@ -402,8 +461,8 @@ internal sealed class AppController : IDisposable
             return false;
         }
 
-        _externalDiffSettings = _externalDiffSettings with { PlaintextWarningAcknowledged = true };
-        _externalDiffSettingsStore.TrySave(_externalDiffSettings);
+        _settings = _settings with { PlaintextWarningAcknowledged = true };
+        _settingsStore.TrySave(_settings);
         return true;
     }
 
@@ -442,6 +501,7 @@ internal sealed class AppController : IDisposable
         _trayIcon.Update(
             status,
             _hotKey.IsRegistered,
+            _hotKey.Gesture.DisplayText,
             _history.IsMonitoring,
             _history.Current,
             _history.Previous);

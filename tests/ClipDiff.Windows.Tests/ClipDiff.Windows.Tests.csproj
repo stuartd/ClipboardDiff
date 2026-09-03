@@ -16,7 +16,8 @@
     <Compile Include="../../src/ClipDiff.Windows/Clipboard/ExplorerCopyAsPathParser.cs" Link="ExplorerCopyAsPathParser.cs" />
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffTool.cs" Link="ExternalDiffTool.cs" />
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffToolCatalog.cs" Link="ExternalDiffToolCatalog.cs" />
-    <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffSettingsStore.cs" Link="ExternalDiffSettingsStore.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/Hotkeys/HotKeyGesture.cs" Link="HotKeyGesture.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/Settings/ClipDiffSettingsStore.cs" Link="ClipDiffSettingsStore.cs" />
     <Compile Include="../../src/ClipDiff.Windows/ExternalDiff/ExternalDiffWorkspace.cs" Link="ExternalDiffWorkspace.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerContextCommandLine.cs" Link="ExplorerContextCommandLine.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerFileSelection.cs" Link="ExplorerFileSelection.cs" />

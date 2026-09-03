@@ -115,7 +115,7 @@
                         VerticalAlignment="Center"
                         TextBlock.TextAlignment="Center">
                 <TextBlock Text="No Diff" FontSize="24" FontWeight="SemiBold" />
-                <TextBlock Text="Copy two text values, then press Ctrl+Alt+D."
+                <TextBlock Text="Copy two text values, then use Show Diff."
                            Margin="0,8,0,0"
                            FontSize="14" />
             </StackPanel>

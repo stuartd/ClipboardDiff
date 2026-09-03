@@ -14,6 +14,7 @@ internal sealed class TrayIconController : IDisposable
     private readonly Forms.ToolStripMenuItem _previousItem;
     private readonly Forms.ToolStripMenuItem _showDiffItem;
     private readonly Forms.ToolStripMenuItem _diffViewerItem;
+    private readonly Forms.ToolStripMenuItem _shortcutItem;
     private readonly Forms.ToolStripMenuItem _monitorItem;
     private readonly Forms.ToolStripMenuItem _clearItem;
     private bool _disposed;
@@ -28,14 +29,16 @@ internal sealed class TrayIconController : IDisposable
         _statusItem = DisabledItem("Waiting for copied text");
         _currentItem = DisabledItem("Current: None");
         _previousItem = DisabledItem("Previous: None");
-        _showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl-Alt-D)");
+        _showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl+Alt+D)");
         _diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
+        _shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
         _monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
         _clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
         var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
 
         _showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
+        _shortcutItem.Click += (_, _) => ShortcutRequested?.Invoke(this, EventArgs.Empty);
         _monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
         _clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
         aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
@@ -51,6 +54,7 @@ internal sealed class TrayIconController : IDisposable
             new Forms.ToolStripSeparator(),
             _showDiffItem,
             _diffViewerItem,
+            _shortcutItem,
             _monitorItem,
             _clearItem,
             new Forms.ToolStripSeparator(),
@@ -74,6 +78,8 @@ internal sealed class TrayIconController : IDisposable
 
     public event EventHandler? ToggleMonitoringRequested;
 
+    public event EventHandler? ShortcutRequested;
+
     public event EventHandler<ExternalDiffToolSelectedEventArgs>? DiffToolSelected;
 
     public event EventHandler? ChooseDiffToolRequested;
@@ -96,6 +102,7 @@ internal sealed class TrayIconController : IDisposable
     public void Update(
         string status,
         bool hotKeyAvailable,
+        string hotKeyDisplayText,
         bool monitoring,
         ClipboardEntry? current,
         ClipboardEntry? previous)
@@ -103,7 +110,7 @@ internal sealed class TrayIconController : IDisposable
         var fileLabels = ClipboardEntryDisplay.ResolveFileLabels(previous, current);
         _statusItem.Text = status;
         _showDiffItem.Text = hotKeyAvailable
-            ? "Show Diff (Ctrl-Alt-D)"
+            ? $"Show Diff ({hotKeyDisplayText})"
             : "Show Diff (shortcut unavailable)";
         _currentItem.Text = "Current: " + EntryPreview(current, fileLabels.Current);
         _previousItem.Text = "Previous: " + EntryPreview(previous, fileLabels.Previous);

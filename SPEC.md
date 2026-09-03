@@ -8,7 +8,7 @@ The intended workflow is:
 
 1. Copy the older text or file.
 1. Copy the newer text or file.
-1. Press `Ctrl+Alt+D`, or select **Show Diff** from the notification-area menu.
+1. Press `Ctrl+Alt+D` (or the user-selected replacement), or select **Show Diff** from the notification-area menu.
 1. Read the difference in a native Windows window.
 1. Optionally copy a readable unified diff back to the clipboard.
 
@@ -105,7 +105,7 @@ The application must not:
 - Add accounts or cloud services.
 - Add a clipboard-history browser.
 - Retain more than the two values needed for the comparison.
-- Add settings or onboarding beyond the external-viewer executable path and warning acknowledgement, or add a complex preferences interface.
+- Add settings or onboarding beyond the external-viewer executable path, warning acknowledgement, and global keyboard shortcut, or add a complex preferences interface.
 - Add document-management features or file access beyond the copied-file conversion and explicit Explorer actions in section 6.4.
 - Use a terminal window or embedded web UI for the diff.
 - Require an installer for the initial personal release.
@@ -393,7 +393,7 @@ Do not poll the clipboard on a timer unless a specific Windows defect forces a f
 
 ### 9.2 Global hotkey
 
-Register:
+Register this default:
 
 ```
 Ctrl+Alt+D
@@ -405,22 +405,30 @@ Use Win32:
 - `UnregisterHotKey`
 - `WM_HOTKEY`
 
-Modifiers:
+Default modifiers:
 
 ```
 MOD_CONTROL | MOD_ALT | MOD_NOREPEAT
 ```
 
-Key:
+Default key:
 
 ```
 D
 ```
 
+For a configured replacement, map the stored Ctrl, Alt, and optional Shift flags to the corresponding `RegisterHotKey` modifiers, add `MOD_NOREPEAT`, and use the stored virtual-key code.
+
 If registration succeeds:
 
 - The shortcut invokes **Show Diff** globally.
 - Holding the keys must not repeatedly reopen or recompute the window.
+
+The notification-area menu must include **Keyboard shortcut...**, which opens a small recorder window. The window shows the configured shortcut, focuses a capture box, and lets the user press a replacement combination before choosing **Save**. A shortcut must contain Ctrl or Alt, may also contain Shift, and must include one non-modifier key. Windows-key combinations and `Alt+F4` are not supported. Provide **Reset to Ctrl+Alt+D** and **Cancel** commands.
+
+Keep the existing registered shortcut active while testing a replacement. Only switch and persist the replacement after `RegisterHotKey` succeeds. If Windows rejects it because it is reserved or already owned, leave the recorder open with concise feedback and keep the previous shortcut active. If settings persistence fails after registration, attempt to restore the previous shortcut and report the save failure. The current shortcut may change during the process lifetime without restarting ClipDiff.
+
+Persist only the shortcut's modifier flags and virtual-key code in the existing settings file. Missing or invalid persisted shortcut data falls back to `Ctrl+Alt+D`. If the configured shortcut cannot be registered at startup, preserve the configured value and expose **Shortcut unavailable** as described below rather than silently choosing another combination.
 
 If registration fails because another application owns the combination:
 
@@ -754,8 +762,9 @@ Ready to diff                         [disabled status]
 Current: <preview>                   [disabled]
 Previous: <preview>                  [disabled]
 ──────────────────────────────────
-Show Diff (Ctrl-Alt-D)
+Show Diff (Ctrl+Alt+D)
 Diff viewer: Built-in               [submenu]
+Keyboard shortcut...
 Monitor Clipboard                    [checked/unchecked]
 Clear Captured Text
 ──────────────────────────────────
@@ -767,6 +776,7 @@ Behaviour:
 
 - **Show Diff** is disabled until two entries are available.
 - **Diff viewer** selects the built-in viewer, a detected external program, or an executable chosen by the user.
+- **Keyboard shortcut...** opens the shortcut recorder without changing the active shortcut unless Save succeeds.
 - **Monitor Clipboard** toggles monitoring.
 - **Clear Captured Text** is disabled when history is empty.
 - **About ClipDiff** opens a reusable native window showing the application icon, the product version and short source commit hash, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
@@ -775,7 +785,7 @@ Behaviour:
 - The ordinary native right-click context-menu behaviour is sufficient.
 - An exact macOS-style popover is not required.
 
-If hotkey registration failed, replace the Show Diff label with:
+Show the active configured shortcut in the **Show Diff** label, using readable notation such as `Ctrl+Alt+6`. If hotkey registration failed, replace the Show Diff label with:
 
 ```
 Show Diff (shortcut unavailable)
@@ -891,7 +901,7 @@ Ordinarily, the window is not shown until a diff is available. If its data is cl
 ```
 No Diff
 
-Copy two text values, then press Ctrl+Alt+D.
+Copy two text values, then use Show Diff.
 ```
 
 ### 16.5 External diff viewers
@@ -908,7 +918,7 @@ After acknowledgement, create a unique per-comparison directory below `%LOCALAPP
 
 Track the process returned by the launch. Attempt to delete the comparison directory after that process exits, allowing a short grace period for handoff; when ClipDiff exits; and on ClipDiff's next startup to remove stale directories. Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.
 
-Persist external-viewer state in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path and the one-time-warning acknowledgement. It must never contain clipboard text, previews, diffs, or temporary-file contents. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
+Persist application preferences in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path, the one-time-warning acknowledgement, and the global-shortcut modifier/virtual-key values. It must never contain clipboard text, previews, diffs, temporary-file contents, or selected-file paths. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
 
 ## 17. Suggested solution structure
 
@@ -1238,6 +1248,8 @@ An unknown executable receives two positional paths.
 
 Settings round-trip the path and acknowledgement, while missing or malformed settings use built-in-safe defaults and serialized settings contain no clipboard content.
 
+Shortcut tests must cover the default `Ctrl+Alt+D`, readable display text, top-row versus numeric-keypad digits, modifier requirements, rejected modifier-only/Windows-key/`Alt+F4` combinations, invalid persisted values falling back to the default, and settings round-trip without disturbing external-viewer preferences.
+
 Temporary workspaces use unique directories, preserve exact Unicode and line endings, mark files read-only, and remove stale read-only directories.
 
 ### 21.6 Windows integration/manual tests
@@ -1267,6 +1279,9 @@ On Windows:
 1. Quit ClipDiff and restart it; confirm no previous text returns.
 1. Run a second instance and confirm it exits cleanly.
 1. Deliberately occupy `Ctrl+Alt+D` with another program and verify menu operation still works.
+1. Open **Keyboard shortcut...**, press `Ctrl+Alt+6`, save it, and confirm the tray label changes and the new combination opens the diff while the old combination no longer does.
+1. Attempt to save a combination already owned by another application and confirm the recorder stays open, explains the conflict, and the previous ClipDiff shortcut still works.
+1. Reset the shortcut to `Ctrl+Alt+D`, restart ClipDiff, and confirm the saved combination is restored. Confirm missing or invalid shortcut settings fall back safely to the default.
 1. Test a privacy-marked sample clipboard item and confirm its text is never requested/captured.
 1. Test an unmarked value followed by an immediate clipboard clear and confirm the latest captured item is removed.
 1. Test under Remote Desktop if Windows Server 2022 is the intended machine.
@@ -1278,7 +1293,7 @@ On Windows:
 1. Confirm the per-comparison directory and its two read-only files are removed after the launched process exits and when ClipDiff exits.
 1. Leave a simulated stale comparison directory and confirm the next ClipDiff start removes it.
 1. Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.
-1. Inspect settings.json and confirm it contains only the selected path and acknowledgement, never captured text or previews.
+1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, and shortcut codes, never captured text or previews.
 1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
 1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. With no captured value required, select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**; confirm the first Explorer-supplied path becomes previous, the second becomes current, and the configured viewer opens immediately without changing the clipboard.
@@ -1386,6 +1401,7 @@ The README should explain:
 - How copied files are converted to text or filenames, including limits and privacy behavior.
 - How both Explorer comparison actions behave, when each is registered, and their Windows 11 placement.
 - `Ctrl+Alt+D`.
+- How to record, validate, reset, and persist a replacement global shortcut.
 - Notification-area commands.
 - The memory-only built-in privacy model and the explicit temporary-plaintext exception for external viewers.
 - Supported external viewers, fallback behavior, one-time warning, temporary-file locations, cleanup limits, and minimal stored preference data.
@@ -1412,11 +1428,12 @@ The first release is complete when all of these are true:
 - It honours all three agreed Windows privacy formats.
 - It removes a recently captured item when the clipboard is immediately auto-cleared.
 - `Ctrl+Alt+D` opens the diff.
+- A replacement Ctrl/Alt shortcut can be recorded from the tray, validated before replacing the active shortcut, persisted, and reset to `Ctrl+Alt+D`.
 - The menu command still works if hotkey registration fails.
 - The built-in viewer is the default; supported external viewers can be selected or browsed for and the selection is remembered.
 - External comparison shows the one-time secret-aware warning before writing and falls back to the built-in viewer on cancellation or failure.
 - External comparison uses unique read-only temporary files and attempts cleanup after process exit, application exit, and next startup.
-- Persisted external-viewer settings never contain clipboard content.
+- Persisted application settings never contain clipboard content.
 - Side-by-side mode is readable and correctly aligned.
 - Unified mode is readable.
 - File-backed sides show their basenames, using shortest unique path suffixes only when equal basenames need disambiguation.

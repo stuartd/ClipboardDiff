@@ -9,12 +9,14 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 1. Start `ClipDiff.exe`. It opens in the notification area
 2. Copy the older text or file. Explorer's **Copy as path** also counts as copying the file.
 3. Either copy the newer text or file, or right-click the newer file in Explorer and choose **Compare with current ClipDiff capture**.
-4. If you copied the newer value normally, press `Ctrl+Alt+D` or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
+4. If you copied the newer value normally, press `Ctrl+Alt+D` (or your chosen replacement) or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
 5. You can also copy two files at the same time—or select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**—to diff them immediately without an existing capture.
 
 The built-in viewer is the default. Its reusable window opens in 'Side by Side' mode but can switch to 'Unified', copy the unified difference as ordinary Unicode text, or clear the captured values. Closing the window hides it; **Quit ClipDiff** in the notification-area menu exits the application.
 
-The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. The menu also lets you pause/resume monitoring, shows short previews of the current and previous entries, and provides an **About ClipDiff** window with project links. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns `Ctrl+Alt+D`, ClipDiff continues to work through its notification-area menu and labels the command **Show Diff (shortcut unavailable)**.
+The menu's **Diff viewer** submenu lists supported programs found on the machine, provides **Choose program...** for another executable, and lets you return to the built-in viewer. The selection is remembered. **Keyboard shortcut...** opens a small recorder: click the capture box, press a combination containing Ctrl or Alt (with optional Shift), then choose **Save**. ClipDiff tests the replacement before releasing the current shortcut, reports conflicts in the recorder, and provides **Reset to Ctrl+Alt+D**. Windows-key shortcuts and `Alt+F4` are not accepted.
+
+The menu also lets you pause/resume monitoring, shows short previews of the current and previous entries, and provides an **About ClipDiff** window with project links. A file-backed entry always includes its filename before the preview. Resuming starts from the clipboard's then-current sequence and does not import text copied while paused. If another application owns the configured shortcut, ClipDiff continues to work through its notification-area menu and labels the command **Show Diff (shortcut unavailable)**.
 
 ## Copied files
 
@@ -71,7 +73,7 @@ The built-in viewer keeps captured text in memory only. An external program cann
 
 This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files.
 
-ClipDiff stores only the selected executable path and the one-time-warning acknowledgement in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
+ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, and the chosen shortcut's modifier/key codes in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
 
 Before reading text, ClipDiff inspects and honours these advisory [clipboard formats](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-formats):
 
@@ -150,7 +152,8 @@ On a Windows desktop, verify:
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;
 - external comparison files appear only below `%LOCALAPPDATA%\ClipDiff\Temp`, contain the exact text, and are removed after the launched process exits, on ClipDiff exit, or on the next start;
 - removing or renaming the selected viewer executable causes **Show Diff** to fall back to the built-in viewer;
-- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference and warning acknowledgement, never clipboard content;
+- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, and shortcut codes, never clipboard content;
+- **Keyboard shortcut...** records a replacement such as `Ctrl+Alt+6`, keeps the old shortcut active when the replacement is already in use, updates the tray label after success, persists across restart, and resets to `Ctrl+Alt+D`;
 - **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;

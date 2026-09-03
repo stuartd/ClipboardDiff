@@ -1,18 +1,20 @@
 using System.IO;
 using System.Text.Json;
+using ClipDiff.Windows.Hotkeys;
 
-namespace ClipDiff.Windows.ExternalDiff;
+namespace ClipDiff.Windows.Settings;
 
-internal sealed record ExternalDiffSettings(
+internal sealed record ClipDiffSettings(
     string? SelectedExecutablePath = null,
-    bool PlaintextWarningAcknowledged = false);
+    bool PlaintextWarningAcknowledged = false,
+    HotKeyGesture? HotKey = null);
 
-internal sealed class ExternalDiffSettingsStore
+internal sealed class ClipDiffSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly string _settingsPath;
 
-    public ExternalDiffSettingsStore(string? settingsPath = null)
+    public ClipDiffSettingsStore(string? settingsPath = null)
     {
         _settingsPath = settingsPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -20,12 +22,12 @@ internal sealed class ExternalDiffSettingsStore
             "settings.json");
     }
 
-    public ExternalDiffSettings Load()
+    public ClipDiffSettings Load()
     {
         try
         {
             return File.Exists(_settingsPath)
-                ? JsonSerializer.Deserialize<ExternalDiffSettings>(File.ReadAllText(_settingsPath), JsonOptions) ?? new()
+                ? JsonSerializer.Deserialize<ClipDiffSettings>(File.ReadAllText(_settingsPath), JsonOptions) ?? new()
                 : new();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -34,7 +36,7 @@ internal sealed class ExternalDiffSettingsStore
         }
     }
 
-    public bool TrySave(ExternalDiffSettings settings)
+    public bool TrySave(ClipDiffSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
