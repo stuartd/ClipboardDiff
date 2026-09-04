@@ -22,7 +22,7 @@ The menu also lets you pause/resume monitoring, shows short previews of the curr
 
 When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. Explorer **Copy as path** is also treated as a file copy when its text consists solely of one or two quoted absolute Windows paths. This deliberately favors the useful file-diff workflow over the unusual case of comparing the quoted paths themselves. Unquoted paths and paths embedded in other text remain ordinary text. A single copied file is converted as follows:
 
-- `.bat`, `.cmd`, `.ps1`, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
+- `.bat`, `.cmd`, `.ps1`, terminal captures containing ANSI escape sequences, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute the filename with a reason, such as `program.exe (binary file)`.
 - Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute the filename with `(binary file)`, `(empty file)`, `(file not found)`, `(file unreadable)`, `(directory)`, or `(file too large)` appended as appropriate.
 

@@ -21,6 +21,24 @@ public sealed class CopiedFileTextReader
         ".appx", ".appxbundle", ".class", ".com", ".cpl", ".dll", ".drv", ".efi", ".exe", ".jar",
         ".msi", ".msix", ".msixbundle", ".msp", ".mst", ".mui", ".ocx", ".scr", ".sys"
     };
+    private static readonly byte[][] KnownBinarySignatures =
+    [
+        [0x25, 0x50, 0x44, 0x46, 0x2D],                         // PDF
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],       // PNG
+        [0xFF, 0xD8, 0xFF],                                     // JPEG
+        [0x47, 0x49, 0x46, 0x38, 0x37, 0x61],                   // GIF87a
+        [0x47, 0x49, 0x46, 0x38, 0x39, 0x61],                   // GIF89a
+        [0x50, 0x4B, 0x03, 0x04],                               // ZIP
+        [0x50, 0x4B, 0x05, 0x06],                               // Empty ZIP
+        [0x50, 0x4B, 0x07, 0x08],                               // Spanned ZIP
+        [0x1F, 0x8B],                                           // GZip
+        [0x42, 0x5A, 0x68],                                     // BZip2
+        [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C],                   // 7-Zip
+        [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07],                   // RAR
+        [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1],       // OLE compound document
+        [0x7F, 0x45, 0x4C, 0x46],                               // ELF
+        [0xCA, 0xFE, 0xBA, 0xBE]                                // Java class
+    ];
     private readonly long _maximumTextFileBytes;
 
     public CopiedFileTextReader(long maximumTextFileBytes = DefaultMaximumTextFileBytes)
@@ -191,6 +209,12 @@ public sealed class CopiedFileTextReader
             return IsTextLike(text);
         }
 
+        if (HasKnownBinarySignature(bytes))
+        {
+            text = string.Empty;
+            return false;
+        }
+
         if (TryDetectBomlessUtf16(bytes, out var utf16Encoding))
         {
             return TryDecode(utf16Encoding, bytes, 0, out text) && IsTextLike(text);
@@ -208,6 +232,20 @@ public sealed class CopiedFileTextReader
         }
 
         return TryDecode(Windows1252, bytes, 0, out text) && IsTextLike(text);
+    }
+
+    private static bool HasKnownBinarySignature(byte[] bytes)
+    {
+        var contents = bytes.AsSpan();
+        foreach (var signature in KnownBinarySignatures)
+        {
+            if (contents.StartsWith(signature))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryDecodeBom(byte[] bytes, out string text)
@@ -292,7 +330,7 @@ public sealed class CopiedFileTextReader
                 return true;
             }
 
-            if (value < 0x20 && value is not (0x09 or 0x0A or 0x0D) || value == 0x7F)
+            if ((value < 0x20 && !IsAllowedTextControl((char)value)) || value == 0x7F)
             {
                 suspiciousControls++;
             }
@@ -304,9 +342,12 @@ public sealed class CopiedFileTextReader
     private static bool IsTextLike(string text)
     {
         var suspiciousControls = text.Count(character =>
-            char.IsControl(character) && character is not ('\t' or '\n' or '\r'));
+            char.IsControl(character) && !IsAllowedTextControl(character));
         return !text.Contains('\0') && suspiciousControls <= Math.Max(1, text.Length / 100);
     }
+
+    private static bool IsAllowedTextControl(char character) =>
+        character is '\b' or '\t' or '\n' or '\r' or '\u001B';
 
     private static bool TryDecode(Encoding encoding, byte[] bytes, int offset, out string text)
     {

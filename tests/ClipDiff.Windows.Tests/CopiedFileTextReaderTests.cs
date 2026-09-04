@@ -37,6 +37,25 @@ public sealed class CopiedFileTextReaderTests
     }
 
     [TestMethod]
+    public async Task ContextSelectedTerminalOutputsWithAnsiControlsRemainText()
+    {
+        const string previousContents =
+            "\u001b[32m127.0.0.1:51842\u001b[0m: GET https://example.test/one\n" +
+            "\u001b[36m<< 200 OK\u001b[0m 12b\n";
+        const string currentContents =
+            "\u001b[32m127.0.0.1:51842\u001b[0m: GET https://example.test/two\n" +
+            "\u001b[33m<< 404 Not Found\u001b[0m 18b\n";
+        var previousPath = await WriteTextFileAsync("previous-mitmdump.txt", previousContents);
+        var currentPath = await WriteTextFileAsync("current-mitmdump.txt", currentContents);
+
+        var result = await new CopiedFileTextReader().ReadValuesAsync([previousPath, currentPath]);
+
+        Assert.AreEqual(2, result.Count);
+        Assert.AreEqual(previousContents, result[0].Text);
+        Assert.AreEqual(currentContents, result[1].Text);
+    }
+
+    [TestMethod]
     public async Task TextFileResultRetainsItsFileNameSeparatelyFromItsContents()
     {
         var path = await WriteTextFileAsync("source file.txt", "file contents");
@@ -80,6 +99,52 @@ public sealed class CopiedFileTextReaderTests
         var result = await new CopiedFileTextReader().ReadAsync([path]);
 
         Assert.AreEqual("misleading.txt (binary file)", result);
+    }
+
+    [TestMethod]
+    public async Task KnownBinarySignatureIsNotDecodedAsTextWithMisleadingExtension()
+    {
+        const string printablePdf = "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF";
+        var path = await WriteTextFileAsync("misleading.txt", printablePdf);
+
+        var result = await new CopiedFileTextReader().ReadAsync([path]);
+
+        Assert.AreEqual("misleading.txt (binary file)", result);
+    }
+
+    [TestMethod]
+    public async Task KnownBinarySignatureMakesClassificationIndependentOfPayload()
+    {
+        var path = Path.Combine(_testDirectory, "image.data");
+        await File.WriteAllBytesAsync(path, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+
+        var result = await new CopiedFileTextReader().ReadAsync([path]);
+
+        Assert.AreEqual("image.data (binary file)", result);
+    }
+
+    [TestMethod]
+    public async Task OrdinaryTextWithShortMagicLookingPrefixRemainsText()
+    {
+        const string contents = "MZ is the DOS executable signature.";
+        var path = await WriteTextFileAsync("notes.txt", contents);
+
+        var result = await new CopiedFileTextReader().ReadAsync([path]);
+
+        Assert.AreEqual(contents, result);
+    }
+
+    [TestMethod]
+    public async Task TextBomTakesPrecedenceOverAContainedBinarySignature()
+    {
+        const string contents = "%PDF- is the prefix used by PDF files.";
+        var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        var path = Path.Combine(_testDirectory, "notes.txt");
+        await File.WriteAllBytesAsync(path, encoding.GetPreamble().Concat(encoding.GetBytes(contents)).ToArray());
+
+        var result = await new CopiedFileTextReader().ReadAsync([path]);
+
+        Assert.AreEqual(contents, result);
     }
 
     [TestMethod]
