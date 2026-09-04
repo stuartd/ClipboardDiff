@@ -250,10 +250,14 @@ internal sealed class AppController : IDisposable
         var choice = new ExternalDiffToolChoice(
             ExternalDiffToolCatalog.MatchExecutable(dialog.FileName),
             Path.GetFullPath(dialog.FileName));
-        _externalDiffTools = _externalDiffTools
-            .Where(existing => !string.Equals(existing.ExecutablePath, choice.ExecutablePath, StringComparison.OrdinalIgnoreCase))
-            .Append(choice)
-            .ToArray();
+        _externalDiffTools =
+        [
+            .. _externalDiffTools
+                .Where(existing => !string.Equals(existing.ExecutablePath, choice.ExecutablePath,
+                    StringComparison.OrdinalIgnoreCase)),
+
+            choice
+        ];
         OnDiffToolSelected(this, new ExternalDiffToolSelectedEventArgs(choice));
     }
 

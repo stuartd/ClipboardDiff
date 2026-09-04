@@ -95,15 +95,18 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
     private static IReadOnlyList<UnifiedLineViewModel> CreateUnifiedLines(DiffDocument document)
     {
         var outputLines = DiffFormatting.Unified(document).Split('\n');
-        return outputLines.Select((text, index) => new UnifiedLineViewModel(
-            text,
-            index < 2
-                ? UnifiedLineKind.Header
-                : text.StartsWith("- ", StringComparison.Ordinal)
-                    ? UnifiedLineKind.Removed
-                    : text.StartsWith("+ ", StringComparison.Ordinal)
-                        ? UnifiedLineKind.Inserted
-                        : UnifiedLineKind.Equal)).ToArray();
+        return
+        [
+            .. outputLines.Select((text, index) => new UnifiedLineViewModel(
+                text,
+                index < 2
+                    ? UnifiedLineKind.Header
+                    : text.StartsWith("- ", StringComparison.Ordinal)
+                        ? UnifiedLineKind.Removed
+                        : text.StartsWith("+ ", StringComparison.Ordinal)
+                            ? UnifiedLineKind.Inserted
+                            : UnifiedLineKind.Equal))
+        ];
     }
 
     private void RaiseDocumentProperties()

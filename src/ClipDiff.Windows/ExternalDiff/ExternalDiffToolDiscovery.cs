@@ -151,11 +151,13 @@ internal static class ExternalDiffToolDiscovery
     }
 
     private static string[] UnderProgramFiles(string programFiles, string programFilesX86, params string[] relativePaths) =>
-        relativePaths.SelectMany(relativePath => new[]
+    [
+        .. relativePaths.SelectMany(relativePath => new[]
         {
             Path.Combine(programFiles, relativePath),
             Path.Combine(programFilesX86, relativePath)
-        }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        }).Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
 
     private static IEnumerable<string> VisualStudioCandidates(string programFiles, string programFilesX86)
     {

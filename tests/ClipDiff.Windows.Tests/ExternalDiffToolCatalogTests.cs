@@ -172,5 +172,5 @@ public sealed class ExternalDiffToolCatalogTests
     }
 
     private static string[] Arguments(string id) =>
-        ExternalDiffToolCatalog.Tools.Single(tool => tool.Id == id).BuildArguments(Previous, Current).ToArray();
+        [.. ExternalDiffToolCatalog.Tools.Single(tool => tool.Id == id).BuildArguments(Previous, Current)];
 }

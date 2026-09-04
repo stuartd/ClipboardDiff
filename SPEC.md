@@ -41,6 +41,7 @@ Use:
 
 - C#
 - .NET 10
+- Use modern .NET idioms like collection expressions
 - WPF for the diff window
 - Windows Forms `NotifyIcon` for the notification-area icon and native context menu
 - Win32 APIs through small, explicit P/Invoke wrappers

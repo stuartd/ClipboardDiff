@@ -118,7 +118,7 @@ internal sealed class ExternalDiffLauncher : IDisposable
             }
 
             _disposed = true;
-            comparisons = _activeComparisons.Values.ToList();
+            comparisons = [.. _activeComparisons.Values];
             _activeComparisons.Clear();
         }
 

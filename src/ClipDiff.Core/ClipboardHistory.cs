@@ -22,7 +22,7 @@ public sealed class ClipboardHistory
 
     public bool IsMonitoring { get; private set; } = true;
 
-    public IReadOnlyList<ClipboardEntry> Entries => _entries.ToArray();
+    public IReadOnlyList<ClipboardEntry> Entries => [.. _entries];
 
     public ClipboardEntry? Current => _entries.Count > 0 ? _entries[0] : null;
 

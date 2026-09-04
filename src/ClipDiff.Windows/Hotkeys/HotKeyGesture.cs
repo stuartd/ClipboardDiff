@@ -59,6 +59,9 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
     {
         get
         {
+            if (!IsValid)
+                return "Unassigned";
+
             var parts = new List<string>(4);
             if ((Modifiers & HotKeyModifiers.Control) != 0)
             {
@@ -75,13 +78,17 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
                 parts.Add("Shift");
             }
 
+            // If no modifiers and VirtualKey is 0, treat as invalid for display purposes
+            if (parts.Count == 0 && VirtualKey == 0)
+                return "Unassigned";
+
             parts.Add(FormatVirtualKey(VirtualKey));
             return string.Join('+', parts);
         }
     }
 
     public static HotKeyGesture Normalize(HotKeyGesture? gesture) =>
-        gesture is { IsValid: true } ? gesture : Default;
+        gesture is { IsValid: true } valid ? valid : Default;
 
     private static string FormatVirtualKey(uint virtualKey)
     {
