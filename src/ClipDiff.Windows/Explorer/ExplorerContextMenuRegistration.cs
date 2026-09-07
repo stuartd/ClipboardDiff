@@ -172,6 +172,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
             verbKey.SetValue(null, ExplorerContextCommandLine.CompareSelectedDisplayName, RegistryValueKind.String);
             verbKey.SetValue("Icon", $"{Quote(_iconPath)},0", RegistryValueKind.String);
             verbKey.SetValue("MultiSelectModel", "Player", RegistryValueKind.String);
+            verbKey.SetValue("CommandStateHandler", ClassIdText, RegistryValueKind.String);
             verbKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
             dropTargetKey.SetValue("Clsid", ClassIdText, RegistryValueKind.String);
             classKey.SetValue(null, "ClipDiff Explorer comparison", RegistryValueKind.String);

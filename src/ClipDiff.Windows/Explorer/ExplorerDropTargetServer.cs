@@ -1,11 +1,13 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Versioning;
 using System.Text;
 using ClipDiff.Windows.Native;
 using ComDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
 
 namespace ClipDiff.Windows.Explorer;
 
+[SupportedOSPlatform("windows")]
 internal sealed class ExplorerDropTargetServer : IDisposable
 {
     internal static readonly Guid ClassId = new("4D22FA39-9E5D-42BD-BF0A-8AE885704EC7");
@@ -20,10 +22,11 @@ internal sealed class ExplorerDropTargetServer : IDisposable
     private bool _uninitializeCom;
     private bool _disposed;
 
-    public ExplorerDropTargetServer(Action<IReadOnlyList<string>> selectedFilesHandler)
+    public ExplorerDropTargetServer(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
         ArgumentNullException.ThrowIfNull(selectedFilesHandler);
-        _classFactory = new ExplorerDropTargetClassFactory(selectedFilesHandler);
+        ArgumentNullException.ThrowIfNull(canCompare);
+        _classFactory = new ExplorerDropTargetClassFactory(selectedFilesHandler, canCompare);
 
         var initializeResult = CoInitializeEx(nint.Zero, CoinitApartmentThreaded);
         if (initializeResult >= 0)
@@ -123,15 +126,18 @@ public interface IClassFactory
 
 [ComVisible(true)]
 [ClassInterface(ClassInterfaceType.None)]
+[SupportedOSPlatform("windows")]
 public sealed class ExplorerDropTargetClassFactory : IClassFactory
 {
     private const int ClassENoAggregation = unchecked((int)0x80040110);
     private const int ENoInterface = unchecked((int)0x80004002);
     private readonly Action<IReadOnlyList<string>> _selectedFilesHandler;
+    private readonly Func<bool> _canCompare;
 
-    internal ExplorerDropTargetClassFactory(Action<IReadOnlyList<string>> selectedFilesHandler)
+    internal ExplorerDropTargetClassFactory(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
         _selectedFilesHandler = selectedFilesHandler;
+        _canCompare = canCompare;
     }
 
     public int CreateInstance(nint outer, ref Guid interfaceId, out nint createdObject)
@@ -142,7 +148,7 @@ public sealed class ExplorerDropTargetClassFactory : IClassFactory
             return ClassENoAggregation;
         }
 
-        var dropTarget = new ExplorerDropTarget(_selectedFilesHandler);
+        var dropTarget = new ExplorerDropTarget(_selectedFilesHandler, _canCompare);
         var unknown = Marshal.GetIUnknownForObject(dropTarget);
         try
         {
@@ -197,24 +203,32 @@ public readonly struct NativePoint
 
 [ComVisible(true)]
 [ClassInterface(ClassInterfaceType.None)]
-public sealed class ExplorerDropTarget : IExplorerDropTarget
+public sealed class ExplorerDropTarget : IExplorerDropTarget, IExplorerCommandState
 {
     private const uint DropEffectNone = 0;
     private const uint DropEffectCopy = 1;
     private const int DvAspectContent = 1;
     private readonly Action<IReadOnlyList<string>> _selectedFilesHandler;
+    private readonly Func<bool> _canCompare;
     private bool _canDrop;
 
-    internal ExplorerDropTarget(Action<IReadOnlyList<string>> selectedFilesHandler)
+    internal ExplorerDropTarget(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
         _selectedFilesHandler = selectedFilesHandler;
+        _canCompare = canCompare;
+    }
+
+    public int GetState(IShellItemArray? selection, bool okToBeSlow, out uint state)
+    {
+        state = ExplorerCommandState.GetState(selection, _canCompare());
+        return 0;
     }
 
     public int DragEnter(ComDataObject dataObject, uint keyState, NativePoint point, ref uint effect)
     {
         try
         {
-            _canDrop = ContainsExactFilePair(dataObject);
+            _canDrop = _canCompare() && ContainsExactFilePair(dataObject);
         }
         catch (Exception exception) when (IsDataObjectException(exception))
         {
@@ -227,7 +241,7 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget
 
     public int DragOver(uint keyState, NativePoint point, ref uint effect)
     {
-        effect = _canDrop ? DropEffectCopy : DropEffectNone;
+        effect = _canCompare() && _canDrop ? DropEffectCopy : DropEffectNone;
         return 0;
     }
 
@@ -241,7 +255,7 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget
     {
         try
         {
-            var filePaths = ReadFilePaths(dataObject);
+            var filePaths = _canCompare() ? ReadFilePaths(dataObject) : [];
             effect = filePaths.Count == 2 ? DropEffectCopy : DropEffectNone;
             if (filePaths.Count == 2)
             {

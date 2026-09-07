@@ -53,7 +53,9 @@ internal sealed class AppController : IDisposable
             GetSelectedExternalDiffTool()?.ExecutablePath);
         _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText);
         _explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
-        _explorerDropTargetServer = new ExplorerDropTargetServer(OnExplorerFilesSelected);
+        _explorerDropTargetServer = new ExplorerDropTargetServer(
+            OnExplorerFilesSelected,
+            () => !_disposed && _history.IsMonitoring);
         _explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
 
         _clipboardMonitor.ObservationReceived += OnClipboardObservation;
