@@ -203,7 +203,7 @@ public readonly struct NativePoint
 
 [ComVisible(true)]
 [ClassInterface(ClassInterfaceType.None)]
-public sealed class ExplorerDropTarget : IExplorerDropTarget, IExplorerCommandState
+public sealed class ExplorerDropTarget : IExplorerDropTarget
 {
     private const uint DropEffectNone = 0;
     private const uint DropEffectCopy = 1;
@@ -216,12 +216,6 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget, IExplorerCommandSt
     {
         _selectedFilesHandler = selectedFilesHandler;
         _canCompare = canCompare;
-    }
-
-    public int GetState(IShellItemArray? selection, bool okToBeSlow, out uint state)
-    {
-        state = ExplorerCommandState.GetState(selection, _canCompare());
-        return 0;
     }
 
     public int DragEnter(ComDataObject dataObject, uint keyState, NativePoint point, ref uint effect)

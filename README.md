@@ -40,7 +40,7 @@ After ClipDiff has captured at least one value, and while clipboard monitoring i
 
 Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command appears only when exactly two files are selected and ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Clearing removes only the individual-file command, while pausing or quitting removes both. A later ClipDiff start cleans up registrations left by an abnormal exit.
 
-The two-file command receives the selection as a Windows Shell data object through ClipDiff's out-of-process COM drop target, so selected paths do not appear in a process command line or in the registry. Its registration contains only the executable command, label, icon, selection policy, and COM identifiers. An out-of-process [Windows command-state handler](https://learn.microsoft.com/en-us/windows/win32/shell/shell-and-managed-code#acceptable-uses-of-managed-code-and-other-runtimes) checks the selection count and Shell attributes to hide the command for other counts, folders, or non-file items, without obtaining paths or reading file contents. ClipDiff also rejects invalid invocations without reading any selected file.
+The two-file command uses a small native `ClipDiff.ShellExtension.dll` beside the executable. Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive while monitoring is paused or ClipDiff has exited.
 
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
@@ -152,7 +152,16 @@ dotnet test tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj
 
 The Windows project has `EnableWindowsTargeting=true`, which permits cross-compilation where Microsoft targeting packs are available. A successful macOS compile is not a functional Windows test. Clipboard formats, notification-area behaviour, global hotkeys, WPF presentation, and native cleanup still require Windows verification.
 
-GitHub Actions also restores, tests, and builds the full Release solution on `windows-latest` for every push and pull request. It can be run manually from the repository's **Actions** tab as well.
+Build the native menu extension on Windows with Visual Studio C++ build tools (the **Desktop development with C++** workload and a Windows SDK):
+
+```powershell
+./scripts/build-shell-extension.ps1 -Test
+dotnet build ClipDiff.Windows.sln --configuration Release
+```
+
+The .NET build copies the built DLL beside the application. The native tests ask Windows to construct the context menu using real Shell selections, then verify visibility and COM delivery. They use temporary registry keys and test files, and require ClipDiff to be closed. The two-file Explorer menu is unavailable when the DLL is missing; clipboard and tray comparison remain available.
+
+GitHub Actions also builds and tests the native DLL, then tests and builds the .NET Release solution on `windows-latest` for every push and pull request. It can be run manually from the repository's **Actions** tab as well. Actual Explorer desktop interaction remains a separate manual check.
 
 ## Local release
 
@@ -162,7 +171,9 @@ On Windows PowerShell, from the repository root:
 .\scripts\create-local-release.ps1
 ```
 
-The script runs tests and publishes a self-contained, single-file, untrimmed `win-x64` build to the gitignored `releases/win-x64` directory. Pass `-Launch` to start it after publishing. The personal build is unsigned, so Windows SmartScreen may warn before first launch.
+The script builds/tests the native extension and publishes a self-contained, untrimmed `win-x64` application to the gitignored `releases/win-x64` directory. Distribute **both `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`** together; the .NET portion is bundled into the executable. Pass `-Launch` to start it after publishing. The personal build is unsigned, so Windows SmartScreen may warn before first launch.
+
+Quit ClipDiff before upgrading. Explorer may keep the DLL loaded; use a new release directory if Windows refuses to replace it, and restart Explorer or sign out if an old handler remains loaded. Starting the new version removes the obsolete two-file static menu registration automatically.
 
 If PowerShell reports that script execution is disabled, allow the checked-out
 script for this process only, then run it again:

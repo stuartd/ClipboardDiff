@@ -47,6 +47,8 @@ Use:
 - Win32 APIs through small, explicit P/Invoke wrappers
 - PowerShell for local build/release scripts
 
+The two-file Explorer menu additionally uses a small native C++17 `ClipDiff.ShellExtension.dll`, built with the Visual Studio C++ toolset and Windows SDK. This is the approved exception to the C#-only, single-executable design: only selection/menu handling runs in Explorer, with a statically linked C++ runtime and no third-party runtime dependencies. File conversion and comparison remain in the C# application.
+
 The Windows application project should target:
 
 ```
@@ -203,7 +205,7 @@ While monitoring is active and at least one captured entry exists, register a pe
 
 While monitoring is active, also register a per-user Explorer context-menu command named **Compare two selected files with ClipDiff**. It must accept exactly two directly selected files without requiring an existing capture, convert both independently using the same single-file rules, atomically replace the history with the resulting pair, and immediately invoke the ordinary **Show Diff** workflow. The first path in Explorer's supplied selection order is previous and the second is current. Neither direct entry is eligible for the recent clipboard-clear heuristic. If monitoring is paused, or the invocation does not contain exactly two usable file-system paths, do not read a selected file or alter history.
 
-The individual-file command may pass its selected path on its process command line and through same-user local IPC to the existing ClipDiff instance. The two-file command must instead receive the complete selection through an out-of-process Shell drop-target/COM data object so neither selected path appears on a command line. Do not pass copied file paths or contents, decoded text, or a diff on a command line. Do not persist or log any selected file path. The individual-file command does not support multiple selections. The two-file command must be hidden unless exactly two file-system files are selected and monitoring is active. Supplement the classic Shell `Player` selection model with an out-of-process `IExplorerCommandState` handler registered as `CommandStateHandler` on the same verb. Check only the selection count and Shell attributes, without obtaining selected paths or reading file contents. Hide the command if selection inspection fails. Invalid invocations must still be rejected without file I/O.
+The individual-file command may pass its selected path on its process command line and through same-user local IPC to the existing ClipDiff instance. The two-file command must instead receive the complete selection through a Shell data object and pass it to the existing out-of-process COM drop target, so neither selected path appears on a command line. Do not pass copied file paths or contents, decoded text, or a diff on a command line. Do not persist or log any selected file path. The individual-file command does not support multiple selections. The two-file command must be hidden unless exactly two file-system files are selected and monitoring is active. Use a native `IShellExtInit`/`IContextMenu` handler, whose initialization data object represents the complete selection. Do not use `IExplorerCommandState` for this count check: its documented array contains only one item. Check only selection count and Shell attributes, without requesting display names or reading file contents. The Shell selection data object may be referenced transiently for the menu's lifetime and must be released on invocation, reinitialization, or handler destruction. Hide the command if selection inspection fails. Invalid invocations must still be rejected without file I/O.
 
 ### 6.5 Empty clipboard changes
 
@@ -458,9 +460,9 @@ If a second instance starts:
 
 ### 9.4 Explorer context menu
 
-Use ordinary per-user file-shell verbs below `HKCU\Software\Classes`; do not require administrator access, an installer, or an in-process Explorer extension. Register the individual-file verb only while monitoring is active and a current entry exists. Register the two-file verb while monitoring is active, using an out-of-process local COM drop target so Explorer supplies the selection as one data object. Remove the individual verb when captured text is cleared, and remove both verbs when monitoring is paused or ClipDiff exits. Remove owned stale verb and COM-server registrations at the next start. The registry values may contain only the executable command, label, icon, selection policy, COM class identifier, and local-server command—never captured text, previews, selected paths, or diffs.
+Use per-user registration below `HKCU\Software\Classes`; do not require administrator access or an installer. Register the individual-file static verb only while monitoring is active and a current entry exists. Register the two-file native context-menu handler under `*\shellex\ContextMenuHandlers` while monitoring is active and the native DLL and local COM drop target are available. Register the DLL's separate CLSID with `InprocServer32` and `ThreadingModel=Apartment`. This narrowly scoped native menu handler is the approved exception to avoiding in-process Explorer extensions; never load the CLR or perform file conversion inside Explorer. Remove the individual verb when captured text is cleared, and remove both menu registrations when monitoring is paused or ClipDiff exits. Remove owned stale registrations, including the obsolete two-file static verb and its `CommandStateHandler`, at the next start. The registry values may contain only executable/DLL paths, labels, icons, selection policy, COM identifiers, threading model, ownership markers, and server commands—never captured text, previews, selected paths, or diffs.
 
-On Windows 11 the classic verbs may appear below **Show more options**. Forward individual-file invocations to the existing per-session instance through a local pipe restricted to the current user; deliver two-file invocations directly through the registered COM class factory. The same COM class must expose `IExplorerCommandState` to show the two-file verb only for exactly two selected files while monitoring is active, including when Explorer reuses an existing handler after pause or resume. A failure to register a verb or deliver a command is nonfatal and must not impair clipboard monitoring or tray operation.
+On Windows 11 these classic commands may appear below **Show more options**. Forward individual-file invocations to the existing per-session instance through a local pipe restricted to the current user; deliver two-file invocations through the registered COM drop target. A per-session, default-user-access named event, `Local\ClipDiff.ExplorerPairReady`, signals that the application is alive, monitoring, and has completed registration. Reset it before pausing or cleanup and close it on exit. The DLL must check it before menu display and invocation, including for cached handlers; it must not launch or contact the application merely to open a menu. A failure to register a handler or deliver a command is nonfatal and must not impair clipboard monitoring or tray operation. A missing DLL must leave no broken two-file menu entry.
 
 ## 10. Status and presentation models
 
@@ -1129,7 +1131,7 @@ Copied-file tests must cover privacy inspection before paths, CF_HDROP preferenc
 
 They must also cover retaining the source filename and memory-only full path independently from decoded text; choosing the shortest unique suffix for equal basenames on different paths; leaving different basenames and identical paths uncluttered; showing the resolved labels in current/previous previews and built-in diff headers; and passing resolved labels and source basenames to external viewers.
 
-Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, filename-aware command labels that exclude the full source path, direct insertion as current with the former current moved to previous, exact-two-file validation and ordering, direct-pair atomic replacement, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic. The two-file COM server command must contain no selected-file placeholder or path. Command-state tests must cover zero, one, two, and more than two selected items; folders and non-file selections; failed selection inspection; pause/resume on an existing handler; and no selected-path or file-content reads during state queries. On Windows, verify that the COM class exposes both the command-state and drop-target interfaces.
+Explorer-command tests must cover exact single-file argument parsing, paths containing spaces and Unicode, command quoting, filename-aware command labels that exclude the full source path, direct insertion as current with the former current moved to previous, exact-two-file validation and ordering, direct-pair atomic replacement, unchanged clipboard sequence state, paused-monitoring rejection, and direct-entry immunity from the recent clipboard-clear heuristic. The two-file COM server command must contain no selected-file placeholder or path. Native Windows tests must use real Shell selection data and the Shell's default context-menu implementation to discover and initialize the DLL, covering one, two, and more than two files, mixed file types, folders, pause/resume, default-action exclusion, command identifiers, and ordered Unicode selection delivery to a COM drop receiver. Empty/unsupported selections must not create a command. Test the actual Explorer menu manually before claiming the integration is verified on a supported Windows desktop.
 
 ### 21.2 Line-splitting tests
 
@@ -1299,6 +1301,7 @@ On Windows:
 1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. With no captured value required, select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**; confirm the first Explorer-supplied path becomes previous, the second becomes current, and the configured viewer opens immediately without changing the clipboard.
 1. Confirm the two-file command uses the same binary/encoding/fallback rules, is hidden for one file, three or more files, folders, and mixed file/folder selections, and rejects invalid invocations without reading files. Confirm it remains available for exactly two files after clearing captured text, disappears while monitoring is paused and on quit, reappears for exactly two files after resuming, and is under **Show more options** on Windows 11 when not shown in the primary menu.
+1. Upgrade from the old static verb, including a simulated abnormal exit, and confirm there is only one two-file command and no obsolete `CommandStateHandler` registration. Remove the native DLL before starting ClipDiff and confirm clipboard/tray workflows remain usable with no broken two-file menu. Restore the DLL and restart before testing the Explorer command again.
 1. Compare two files with the same basename from different directories and confirm the tray, built-in views, copied diff, and supported external-viewer titles use the shortest unique path suffixes.
 1. Start ClipDiff after a simulated abnormal exit and confirm it removes an owned stale Explorer registration when there is no captured entry.
 
@@ -1312,9 +1315,11 @@ scripts/create-local-release.ps1
 
 It should:
 
+1. Build and test the native Explorer DLL with Visual Studio C++ build tools and the Windows SDK.
 1. Run core tests.
 1. Publish a Release build.
 1. Place output in a gitignored `releases/` directory.
+1. Place `ClipDiff.ShellExtension.dll` alongside `ClipDiff.exe`; keep the DLL outside the .NET single-file bundle.
 1. Optionally launch the resulting executable.
 
 Suggested publish properties:
@@ -1328,6 +1333,8 @@ Suggested publish properties:
 ```
 
 Do not enable trimming for the initial WPF build.
+
+The native projects are built separately with `scripts/build-shell-extension.ps1 -Test`, so macOS can still compile and test the .NET solution. The release script runs this native build first. Distribute the executable and DLL together. Explorer can keep a loaded DLL locked after ClipDiff quits; updating into a new directory avoids overwriting a loaded DLL, and restarting Explorer or signing out may be needed to unload an older handler. Do not restart Explorer automatically.
 
 A typical command is:
 

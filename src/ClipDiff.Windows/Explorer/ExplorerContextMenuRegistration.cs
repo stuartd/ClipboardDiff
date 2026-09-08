@@ -10,7 +10,11 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
     private const string SingleVerbKeyPath = @"Software\Classes\*\shell\ClipDiff.CompareWithCurrent";
     private const string SingleCommandKeyPath = SingleVerbKeyPath + @"\command";
     private const string PairVerbKeyPath = @"Software\Classes\*\shell\ClipDiff.CompareSelected";
-    private const string PairDropTargetKeyPath = PairVerbKeyPath + @"\DropTarget";
+    private const string PairHandlerKeyPath = @"Software\Classes\*\shellex\ContextMenuHandlers\ClipDiff.CompareSelected";
+    private const string ExtensionClassId = "{6B46A974-40E2-4AD4-9F68-E534202B11E8}";
+    private const string ExtensionClassKeyPath = @"Software\Classes\CLSID\" + ExtensionClassId;
+    private const string ExtensionServerKeyPath = ExtensionClassKeyPath + @"\InprocServer32";
+    private const string ReadyEventName = @"Local\ClipDiff.ExplorerPairReady";
     private const string OwnerValueName = "ClipDiffOwner";
     private const string OwnerValue = "ClipDiff.ExplorerContextMenu.v1";
     private const uint ShcneAssocChanged = 0x08000000;
@@ -21,6 +25,8 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
     private readonly string _singleCommandLine;
     private readonly string _comServerCommandLine;
     private readonly string _iconPath;
+    private readonly string _extensionPath = Path.Combine(AppContext.BaseDirectory, "ClipDiff.ShellExtension.dll");
+    private readonly EventWaitHandle? _pairReady;
     private bool _singleStateKnown;
     private bool _singleEnabled;
     private string? _singleDisplayName;
@@ -43,6 +49,16 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
         _iconPath = processPath;
         _singleCommandLine = ExplorerContextCommandLine.BuildShellCommand(processPath, entryAssemblyPath);
         _comServerCommandLine = ExplorerContextCommandLine.BuildComServerCommand(processPath, entryAssemblyPath);
+        try
+        {
+            _pairReady = new EventWaitHandle(false, EventResetMode.ManualReset, ReadyEventName);
+            _pairReady.Reset();
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException or
+                                          WaitHandleCannotBeOpenedException or PlatformNotSupportedException)
+        {
+            // The clipboard/tray workflows remain available if native integration is unavailable.
+        }
     }
 
     public void SetState(
@@ -59,7 +75,11 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
         var changed = UpdateSingleVerb(
             monitoringEnabled && hasCurrentCapture,
             ExplorerContextCommandLine.BuildDisplayName(currentSourceFileName));
-        changed |= UpdatePairVerb(monitoringEnabled && pairHandlerAvailable);
+        var pairEnabled = monitoringEnabled && pairHandlerAvailable && _pairReady is not null;
+        if (!pairEnabled) _pairReady?.Reset();
+        changed |= UpdatePairVerb(pairEnabled);
+        if (_pairEnabled) _pairReady?.Set();
+        else _pairReady?.Reset();
         if (changed)
         {
             NotifyShellChanged();
@@ -74,6 +94,8 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
         }
 
         _disposed = true;
+        _pairReady?.Reset();
+        _pairReady?.Dispose();
         var changed = TryRemoveOwnedSingleRegistration();
         changed |= TryRemoveOwnedPairRegistration();
         if (changed)
@@ -110,15 +132,18 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
             return false;
         }
 
+        // Remove the obsolete static verb (including CommandStateHandler) on upgrade, even
+        // when the previous process crashed or the new native DLL is missing.
+        var changed = !_pairStateKnown && TryRemoveOwnedPairRegistration();
         _pairStateKnown = true;
         if (enabled)
         {
             _pairEnabled = TryRegisterPair();
-            return _pairEnabled;
+            return changed || _pairEnabled;
         }
 
         _pairEnabled = false;
-        return TryRemoveOwnedPairRegistration();
+        return TryRemoveOwnedPairRegistration() || changed;
     }
 
     private bool TryRegisterSingle(string displayName)
@@ -153,31 +178,29 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 
     private bool TryRegisterPair()
     {
-        if (_comServerCommandLine.Length == 0)
+        if (_comServerCommandLine.Length == 0 || !File.Exists(_extensionPath) || !Environment.Is64BitProcess)
         {
             return false;
         }
 
         try
         {
-            using var verbKey = Registry.CurrentUser.CreateSubKey(PairVerbKeyPath, writable: true);
-            using var dropTargetKey = Registry.CurrentUser.CreateSubKey(PairDropTargetKeyPath, writable: true);
             using var classKey = Registry.CurrentUser.CreateSubKey(ClassKeyPath, writable: true);
-            using var localServerKey = Registry.CurrentUser.CreateSubKey(LocalServerKeyPath, writable: true);
-            if (verbKey is null || dropTargetKey is null || classKey is null || localServerKey is null)
-            {
-                return false;
-            }
-
-            verbKey.SetValue(null, ExplorerContextCommandLine.CompareSelectedDisplayName, RegistryValueKind.String);
-            verbKey.SetValue("Icon", $"{Quote(_iconPath)},0", RegistryValueKind.String);
-            verbKey.SetValue("MultiSelectModel", "Player", RegistryValueKind.String);
-            verbKey.SetValue("CommandStateHandler", ClassIdText, RegistryValueKind.String);
-            verbKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
-            dropTargetKey.SetValue("Clsid", ClassIdText, RegistryValueKind.String);
-            classKey.SetValue(null, "ClipDiff Explorer comparison", RegistryValueKind.String);
             classKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
+            using var localServerKey = Registry.CurrentUser.CreateSubKey(LocalServerKeyPath, writable: true);
+            classKey.SetValue(null, "ClipDiff Explorer comparison", RegistryValueKind.String);
             localServerKey.SetValue(null, _comServerCommandLine, RegistryValueKind.String);
+
+            using var extensionClassKey = Registry.CurrentUser.CreateSubKey(ExtensionClassKeyPath, writable: true);
+            extensionClassKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
+            extensionClassKey.SetValue(null, "ClipDiff selection menu", RegistryValueKind.String);
+            using var extensionServerKey = Registry.CurrentUser.CreateSubKey(ExtensionServerKeyPath, writable: true);
+            extensionServerKey.SetValue(null, _extensionPath, RegistryValueKind.String);
+            extensionServerKey.SetValue("ThreadingModel", "Apartment", RegistryValueKind.String);
+
+            using var handlerKey = Registry.CurrentUser.CreateSubKey(PairHandlerKeyPath, writable: true);
+            handlerKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
+            handlerKey.SetValue(null, ExtensionClassId, RegistryValueKind.String);
             return true;
         }
         catch (Exception exception) when (IsRegistryException(exception))
@@ -229,43 +252,27 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
             return false;
         }
 
+        var changed = TryRemoveOwnedKey(PairVerbKeyPath);
+        changed |= TryRemoveOwnedKey(PairHandlerKeyPath);
+        changed |= TryRemoveOwnedKey(ExtensionClassKeyPath);
+        changed |= TryRemoveOwnedKey(ClassKeyPath, LocalServerKeyPath, _comServerCommandLine);
+        return changed;
+    }
+
+    private static bool TryRemoveOwnedKey(string keyPath, string? commandKeyPath = null, string? currentCommand = null)
+    {
         try
         {
-            var changed = false;
-            using (var verbKey = Registry.CurrentUser.OpenSubKey(PairVerbKeyPath, writable: false))
-            {
-                if (string.Equals(
-                        verbKey?.GetValue(OwnerValueName) as string,
-                        OwnerValue,
-                        StringComparison.Ordinal))
-                {
-                    verbKey!.Close();
-                    Registry.CurrentUser.DeleteSubKeyTree(PairVerbKeyPath, throwOnMissingSubKey: false);
-                    changed = true;
-                }
-            }
-
-            using (var classKey = Registry.CurrentUser.OpenSubKey(ClassKeyPath, writable: false))
-            using (var localServerKey = Registry.CurrentUser.OpenSubKey(LocalServerKeyPath, writable: false))
-            {
-                var hasOwnerMarker = string.Equals(
-                    classKey?.GetValue(OwnerValueName) as string,
-                    OwnerValue,
-                    StringComparison.Ordinal);
-                var hasCurrentCommand = string.Equals(
-                    localServerKey?.GetValue(null) as string,
-                    _comServerCommandLine,
-                    StringComparison.Ordinal);
-                if (hasOwnerMarker || hasCurrentCommand)
-                {
-                    classKey?.Close();
-                    localServerKey?.Close();
-                    Registry.CurrentUser.DeleteSubKeyTree(ClassKeyPath, throwOnMissingSubKey: false);
-                    changed = true;
-                }
-            }
-
-            return changed;
+            using var key = Registry.CurrentUser.OpenSubKey(keyPath, writable: false);
+            using var commandKey = commandKeyPath is null ? null : Registry.CurrentUser.OpenSubKey(commandKeyPath);
+            var owned = string.Equals(key?.GetValue(OwnerValueName) as string, OwnerValue, StringComparison.Ordinal);
+            var matchesCommand = currentCommand is not null &&
+                string.Equals(commandKey?.GetValue(null) as string, currentCommand, StringComparison.Ordinal);
+            if (!owned && !matchesCommand) return false;
+            key?.Close();
+            commandKey?.Close();
+            Registry.CurrentUser.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false);
+            return true;
         }
         catch (Exception exception) when (IsRegistryException(exception))
         {

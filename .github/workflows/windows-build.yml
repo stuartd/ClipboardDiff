@@ -33,6 +33,10 @@ jobs:
       - name: Restore
         run: dotnet restore ClipDiff.Windows.sln
 
+      - name: Build and test native Explorer extension
+        shell: pwsh
+        run: ./scripts/build-shell-extension.ps1 -Configuration Release -Test
+
       - name: Test
         run: dotnet test ClipDiff.Windows.sln --configuration Release --no-restore
 

@@ -17,4 +17,9 @@
   <ItemGroup>
     <Resource Include="Assets/ClipDiff.ico" />
   </ItemGroup>
+  <ItemGroup Condition="Exists('../../artifacts/native/$(Configuration)/ClipDiff.ShellExtension.dll')">
+    <Content Include="../../artifacts/native/$(Configuration)/ClipDiff.ShellExtension.dll"
+             Link="ClipDiff.ShellExtension.dll" CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
 </Project>

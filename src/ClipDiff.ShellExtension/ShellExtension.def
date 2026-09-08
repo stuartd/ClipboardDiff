@@ -1,0 +1,4 @@
+LIBRARY ClipDiff.ShellExtension
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
