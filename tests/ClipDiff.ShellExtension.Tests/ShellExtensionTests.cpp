@@ -107,15 +107,14 @@ namespace
                 IID_IDataObject, nullptr, &data), "Cannot obtain real Shell selection data.");
             return data;
         }
-        ComPtr<IContextMenu> ShellMenu(HKEY association)
+        ComPtr<IContextMenu> ShellMenu()
         {
             DEFCONTEXTMENU definition{};
             definition.pidlFolder = parentId_;
             definition.psf = folder_.Get();
             definition.cidl = static_cast<UINT>(children_.size());
             definition.apidl = children_.data();
-            definition.cKeys = 1;
-            definition.aKeys = &association;
+            // Resolve the real file associations, including the same wildcard handler used by ClipDiff.
             ComPtr<IContextMenu> menu;
             CheckHr(SHCreateDefaultContextMenu(&definition, IID_PPV_ARGS(&menu)), "Cannot create the Windows context menu.");
             return menu;
@@ -193,7 +192,7 @@ namespace
         return handler;
     }
 
-    void Verify(const fs::path& directory, IClassFactory* factory, HANDLE ready, HKEY association)
+    void Verify(const fs::path& directory, IClassFactory* factory, HANDLE ready)
     {
         struct Case { std::vector<std::wstring> names; bool visible; };
         const std::vector<Case> cases{
@@ -216,7 +215,7 @@ namespace
                 << ", direct=" << (directMenu.ClipDiffId() != 0) << std::endl;
             Check((directMenu.ClipDiffId() != 0) == test.visible, "Handler rejected the real Shell selection.");
             // Let Windows discover and initialize the DLL, rather than calling a made-up state API.
-            auto shellMenu = selection.ShellMenu(association);
+            auto shellMenu = selection.ShellMenu();
             Menu menu;
             CheckHr(shellMenu->QueryContextMenu(menu.handle, 0, 1, 0x7FFF, CMF_NORMAL), "Windows menu query failed.");
             std::cout << "Shell aggregate visible=" << (menu.ClipDiffId() != 0) << std::endl;
@@ -273,7 +272,7 @@ namespace
         try
         {
             // Invoke through Windows' aggregate menu, exercising handler discovery and command offset translation.
-            auto shellMenu = pair.ShellMenu(association);
+            auto shellMenu = pair.ShellMenu();
             Menu menu;
             CheckHr(shellMenu->QueryContextMenu(menu.handle, 0, 1, 0x7FFF, CMF_NORMAL), "Invoke menu query failed.");
             const UINT id = menu.ClipDiffId();
@@ -328,8 +327,8 @@ int wmain(int argc, wchar_t** argv)
         ComPtr<IShellExtInit> registeredHandler;
         CheckHr(CoCreateInstance(CLSID_ClipDiffShellExtension, nullptr, CLSCTX_INPROC_SERVER,
             IID_PPV_ARGS(&registeredHandler)), "Windows could not activate the per-user registered extension.");
-        RegistryFixture association(L"Software\\Classes\\ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
-        association.Set(L"shellex\\ContextMenuHandlers\\ClipDiff", nullptr, L"{6B46A974-40E2-4AD4-9F68-E534202B11E8}");
+        RegistryFixture association(L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\ClipDiff.CompareSelected");
+        association.Set(L"", nullptr, L"{6B46A974-40E2-4AD4-9F68-E534202B11E8}");
         SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
         directory = fs::temp_directory_path() / (L"ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
         Check(fs::create_directory(directory), "Test directory already exists.");
@@ -337,7 +336,7 @@ int wmain(int argc, wchar_t** argv)
         fs::create_directory(directory / L"folder");
         for (const auto name : {L"old file.txt", L"new 雪.cmd", L"third.txt"}) std::ofstream(directory / name) << "test fixture";
         SetEvent(ready);
-        Verify(directory, factory.Get(), ready, association.key);
+        Verify(directory, factory.Get(), ready);
         ResetEvent(ready);
         std::cout << "Native Shell menu discovery, selection visibility, pause/resume and COM delivery tests passed.\n";
         exitCode = 0;
