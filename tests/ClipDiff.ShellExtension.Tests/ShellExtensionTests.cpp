@@ -195,13 +195,13 @@ namespace
         IFACEMETHODIMP DragEnter(IDataObject*, DWORD, POINTL, DWORD* effect) override { *effect = DROPEFFECT_COPY; return S_OK; }
         IFACEMETHODIMP DragOver(DWORD, POINTL, DWORD* effect) override { *effect = DROPEFFECT_COPY; return S_OK; }
         IFACEMETHODIMP DragLeave() override { return S_OK; }
-        IFACEMETHODIMP Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override
+        static HRESULT ReadPaths(IDataObject* data, std::vector<std::wstring>& paths)
         {
             FORMATETC format{CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
             STGMEDIUM medium{};
             const HRESULT result = data->GetData(&format, &medium);
             if (FAILED(result)) return result;
-            received.clear();
+            paths.clear();
             const auto drop = static_cast<HDROP>(medium.hGlobal);
             const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
             for (UINT index = 0; index < count; ++index)
@@ -210,9 +210,15 @@ namespace
                 std::wstring path(length + 1, L'\0');
                 DragQueryFileW(drop, index, path.data(), length + 1);
                 path.resize(length);
-                received.push_back(std::move(path));
+                paths.push_back(std::move(path));
             }
             ReleaseStgMedium(&medium);
+            return S_OK;
+        }
+        IFACEMETHODIMP Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override
+        {
+            const HRESULT result = ReadPaths(data, received);
+            if (FAILED(result)) return result;
             ++drops;
             *effect = DROPEFFECT_COPY;
             return S_OK;
@@ -297,6 +303,12 @@ namespace
 
         Selection pair(directory, {L"old file.txt", L"new 雪.cmd"});
         auto data = pair.Data();
+        // The Shell can expand short directory names in GetTempPath's result. Verify fixture identity
+        // and then compare delivery with the exact paths/order supplied by the real Shell data object.
+        std::vector<std::wstring> suppliedPaths;
+        CheckHr(Receiver::ReadPaths(data.Get(), suppliedPaths), "Cannot read Shell fixture paths.");
+        Check(suppliedPaths.size() == 2 && fs::equivalent(suppliedPaths[0], directory / L"old file.txt") &&
+            fs::equivalent(suppliedPaths[1], directory / L"new 雪.cmd"), "Shell fixture order or identity is wrong.");
         auto handler = CreateHandler(factory, data.Get());
         ComPtr<IContextMenu> context;
         CheckHr(handler.As(&context), "Missing menu interface.");
@@ -337,8 +349,7 @@ namespace
             command.lpVerb = MAKEINTRESOURCEA(id - 1);
             CheckHr(shellMenu->InvokeCommand(&command), "Shell invocation did not reach the drop receiver.");
             Check(receiver->drops == 1, "Expected one atomic pair delivery.");
-            Check(receiver->received == std::vector<std::wstring>{(directory / L"old file.txt").wstring(),
-                (directory / L"new 雪.cmd").wstring()}, "Selection order or Unicode paths changed in transit.");
+            Check(receiver->received == suppliedPaths, "Selection order or Unicode paths changed in transit.");
 
             // Both canonical Unicode verbs and numeric offsets are part of the native contract.
             CMINVOKECOMMANDINFOEX unicode{sizeof(unicode)};
