@@ -42,3 +42,22 @@ jobs:
 
       - name: Build
         run: dotnet build ClipDiff.Windows.sln --configuration Release --no-restore
+
+      - name: Publish portable Windows build
+        shell: pwsh
+        run: |
+          dotnet publish src/ClipDiff.Windows/ClipDiff.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/portable -p:PublishSingleFile=true -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true
+          if ($LASTEXITCODE -ne 0) { throw 'ClipDiff publish failed.' }
+          foreach ($file in @('ClipDiff.exe', 'ClipDiff.ShellExtension.dll')) {
+            if (-not (Test-Path "artifacts/portable/$file" -PathType Leaf)) { throw "Missing portable build file: $file" }
+          }
+
+      - name: Upload portable Windows build
+        uses: actions/upload-artifact@v7
+        with:
+          name: ClipDiff-win-x64
+          path: |
+            artifacts/portable/ClipDiff.exe
+            artifacts/portable/ClipDiff.ShellExtension.dll
+          if-no-files-found: error
+          retention-days: 14

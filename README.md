@@ -161,7 +161,7 @@ dotnet build ClipDiff.Windows.sln --configuration Release
 
 The .NET build copies the built DLL beside the application. The native tests ask Windows to construct the context menu using real Shell selections, then verify visibility and COM delivery. They use temporary registry keys and test files, and require ClipDiff to be closed. The two-file Explorer menu is unavailable when the DLL is missing; clipboard and tray comparison remain available.
 
-GitHub Actions also builds and tests the native DLL, then tests and builds the .NET Release solution on `windows-latest` for every push and pull request. It can be run manually from the repository's **Actions** tab as well. Actual Explorer desktop interaction remains a separate manual check.
+GitHub Actions also builds and tests the native DLL, then tests and builds the .NET Release solution on `windows-latest` for every push and pull request. Each successful run provides a `ClipDiff-win-x64` artifact containing the executable and native DLL; extract both into the same directory. It can be run manually from the repository's **Actions** tab as well. Actual Explorer desktop interaction remains a separate manual check.
 
 ## Local release
 
