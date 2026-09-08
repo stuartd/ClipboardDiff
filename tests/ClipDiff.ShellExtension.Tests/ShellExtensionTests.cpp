@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -24,6 +25,59 @@ namespace
             std::cerr << "HRESULT: 0x" << std::hex << static_cast<unsigned long>(result) << std::dec << '\n';
             throw std::runtime_error(message);
         }
+    }
+
+    struct Handle
+    {
+        HANDLE value = nullptr;
+        ~Handle() { if (value && value != INVALID_HANDLE_VALUE) CloseHandle(value); }
+    };
+
+    std::optional<int> RunWithoutElevation(int argc, wchar_t** argv)
+    {
+        Handle token;
+        Check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY |
+            TOKEN_ADJUST_DEFAULT, &token.value), "Cannot inspect test process token.");
+        TOKEN_ELEVATION elevation{};
+        DWORD size = 0;
+        Check(GetTokenInformation(token.value, TokenElevation, &elevation, sizeof(elevation), &size),
+            "Cannot inspect test process elevation.");
+        if (!elevation.TokenIsElevated) return std::nullopt;
+        Check(argc == 2, "Test child must run without elevation.");
+
+        // Hosted Windows CI runs as administrator. Exercise HKCU Shell integration as a normal app.
+        // Restrict only this test child; do not change the account, UAC, or machine security settings.
+        Handle restricted;
+        Check(CreateRestrictedToken(token.value, LUA_TOKEN | DISABLE_MAX_PRIVILEGE, 0, nullptr, 0, nullptr,
+            0, nullptr, &restricted.value), "Cannot create non-administrator test token.");
+        BYTE sid[SECURITY_MAX_SID_SIZE]{};
+        DWORD sidSize = sizeof(sid);
+        Check(CreateWellKnownSid(WinMediumLabelSid, nullptr, sid, &sidSize), "Cannot create medium integrity SID.");
+        TOKEN_MANDATORY_LABEL label{};
+        label.Label.Sid = sid;
+        label.Label.Attributes = SE_GROUP_INTEGRITY;
+        Check(SetTokenInformation(restricted.value, TokenIntegrityLevel, &label,
+            static_cast<DWORD>(sizeof(label)) + sidSize), "Cannot lower test process integrity.");
+        wchar_t executable[32768]{};
+        const DWORD length = GetModuleFileNameW(nullptr, executable, 32768);
+        Check(length != 0 && length < 32768, "Cannot locate test executable.");
+        std::wstring command = L"\"" + std::wstring(executable) + L"\" \"" +
+            fs::absolute(argv[1]).wstring() + L"\" --unelevated";
+        STARTUPINFOW startup{sizeof(startup)};
+        startup.dwFlags = STARTF_USESTDHANDLES;
+        startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+        startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+        PROCESS_INFORMATION process{};
+        if (!CreateProcessAsUserW(restricted.value, executable, command.data(), nullptr, nullptr, TRUE,
+            0, nullptr, nullptr, &startup, &process))
+            CheckHr(HRESULT_FROM_WIN32(GetLastError()), "Cannot launch non-administrator Shell tests.");
+        Handle child{process.hProcess};
+        Handle thread{process.hThread};
+        Check(WaitForSingleObject(child.value, INFINITE) == WAIT_OBJECT_0, "Cannot wait for Shell tests.");
+        DWORD result = 1;
+        Check(GetExitCodeProcess(child.value, &result), "Cannot read Shell test result.");
+        return static_cast<int>(result);
     }
 
     struct RegistryFixture
@@ -300,7 +354,14 @@ namespace
 
 int wmain(int argc, wchar_t** argv)
 {
-    if (argc != 2) { std::cerr << "Supply the native extension DLL path.\n"; return 1; }
+    if (argc != 2 && !(argc == 3 && std::wstring(argv[2]) == L"--unelevated"))
+    { std::cerr << "Supply the native extension DLL path.\n"; return 1; }
+    try
+    {
+        if (const auto result = RunWithoutElevation(argc, argv)) return *result;
+        std::cout << "Running native Shell tests without elevation.\n";
+    }
+    catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     const HRESULT initialized = OleInitialize(nullptr);
     if (FAILED(initialized)) return 1;
     HANDLE ready = nullptr;
