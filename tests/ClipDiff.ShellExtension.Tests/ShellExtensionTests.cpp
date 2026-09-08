@@ -206,10 +206,20 @@ namespace
         for (const auto& test : cases)
         {
             Selection selection(directory, test.names);
+            auto data = selection.Data();
+            auto handler = CreateHandler(factory, data.Get());
+            ComPtr<IContextMenu> directContext;
+            CheckHr(handler.As(&directContext), "Missing direct menu interface.");
+            Menu directMenu;
+            CheckHr(directContext->QueryContextMenu(directMenu.handle, 0, 1, 0x7FFF, CMF_NORMAL), "Direct menu query failed.");
+            std::cout << "Selection count=" << test.names.size() << ", expected=" << test.visible
+                << ", direct=" << (directMenu.ClipDiffId() != 0) << std::endl;
+            Check((directMenu.ClipDiffId() != 0) == test.visible, "Handler rejected the real Shell selection.");
             // Let Windows discover and initialize the DLL, rather than calling a made-up state API.
             auto shellMenu = selection.ShellMenu(association);
             Menu menu;
             CheckHr(shellMenu->QueryContextMenu(menu.handle, 0, 1, 0x7FFF, CMF_NORMAL), "Windows menu query failed.");
+            std::cout << "Shell aggregate visible=" << (menu.ClipDiffId() != 0) << std::endl;
             Check((menu.ClipDiffId() != 0) == test.visible, "Windows supplied an unexpected menu visibility result.");
         }
 
@@ -306,6 +316,9 @@ int wmain(int argc, wchar_t** argv)
         RegistryFixture registration(L"Software\\Classes\\CLSID\\{6B46A974-40E2-4AD4-9F68-E534202B11E8}");
         registration.Set(L"InprocServer32", nullptr, dll.wstring());
         registration.Set(L"InprocServer32", L"ThreadingModel", L"Apartment");
+        ComPtr<IShellExtInit> registeredHandler;
+        CheckHr(CoCreateInstance(CLSID_ClipDiffShellExtension, nullptr, CLSCTX_INPROC_SERVER,
+            IID_PPV_ARGS(&registeredHandler)), "Windows could not activate the per-user registered extension.");
         RegistryFixture association(L"Software\\Classes\\ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
         association.Set(L"shellex\\ContextMenuHandlers\\ClipDiff", nullptr, L"{6B46A974-40E2-4AD4-9F68-E534202B11E8}");
         directory = fs::temp_directory_path() / (L"ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
