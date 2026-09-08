@@ -100,14 +100,14 @@ namespace
             for (const auto child : children_) CoTaskMemFree(const_cast<PUITEMID_CHILD>(child));
             CoTaskMemFree(parentId_);
         }
-        ComPtr<IDataObject> Data() const
+        ComPtr<IDataObject> Data()
         {
             ComPtr<IDataObject> data;
             CheckHr(folder_->GetUIObjectOf(nullptr, static_cast<UINT>(children_.size()), children_.data(),
                 IID_IDataObject, nullptr, &data), "Cannot obtain real Shell selection data.");
             return data;
         }
-        ComPtr<IContextMenu> ShellMenu(HKEY association) const
+        ComPtr<IContextMenu> ShellMenu(HKEY association)
         {
             DEFCONTEXTMENU definition{};
             definition.pidlFolder = parentId_;
