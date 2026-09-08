@@ -36,8 +36,7 @@ namespace
     std::optional<int> RunWithoutElevation(int argc, wchar_t** argv)
     {
         Handle token;
-        Check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY |
-            TOKEN_ADJUST_DEFAULT, &token.value), "Cannot inspect test process token.");
+        Check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token.value), "Cannot inspect test process token.");
         TOKEN_ELEVATION elevation{};
         DWORD size = 0;
         Check(GetTokenInformation(token.value, TokenElevation, &elevation, sizeof(elevation), &size),
@@ -47,8 +46,11 @@ namespace
 
         // Hosted Windows CI runs as administrator. Exercise HKCU Shell integration as a normal app.
         // Restrict only this test child; do not change the account, UAC, or machine security settings.
+        Handle source;
+        Check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY |
+            TOKEN_ADJUST_DEFAULT, &source.value), "Cannot open administrator token for restriction.");
         Handle restricted;
-        Check(CreateRestrictedToken(token.value, LUA_TOKEN | DISABLE_MAX_PRIVILEGE, 0, nullptr, 0, nullptr,
+        Check(CreateRestrictedToken(source.value, LUA_TOKEN | DISABLE_MAX_PRIVILEGE, 0, nullptr, 0, nullptr,
             0, nullptr, &restricted.value), "Cannot create non-administrator test token.");
         BYTE sid[SECURITY_MAX_SID_SIZE]{};
         DWORD sidSize = sizeof(sid);
@@ -69,6 +71,7 @@ namespace
         startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
         PROCESS_INFORMATION process{};
+        std::cout << "Launching Shell tests with reduced privileges." << std::endl;
         if (!CreateProcessAsUserW(restricted.value, executable, command.data(), nullptr, nullptr, TRUE,
             0, nullptr, nullptr, &startup, &process))
             CheckHr(HRESULT_FROM_WIN32(GetLastError()), "Cannot launch non-administrator Shell tests.");
