@@ -220,6 +220,15 @@ namespace
             Menu menu;
             CheckHr(shellMenu->QueryContextMenu(menu.handle, 0, 1, 0x7FFF, CMF_NORMAL), "Windows menu query failed.");
             std::cout << "Shell aggregate visible=" << (menu.ClipDiffId() != 0) << std::endl;
+            if ((menu.ClipDiffId() != 0) != test.visible)
+            {
+                for (int index = 0; index < GetMenuItemCount(menu.handle); ++index)
+                {
+                    wchar_t label[256]{};
+                    GetMenuStringW(menu.handle, static_cast<UINT>(index), label, 256, MF_BYPOSITION);
+                    std::wcout << L"Menu item: " << label << std::endl;
+                }
+            }
             Check((menu.ClipDiffId() != 0) == test.visible, "Windows supplied an unexpected menu visibility result.");
         }
 
@@ -321,6 +330,7 @@ int wmain(int argc, wchar_t** argv)
             IID_PPV_ARGS(&registeredHandler)), "Windows could not activate the per-user registered extension.");
         RegistryFixture association(L"Software\\Classes\\ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
         association.Set(L"shellex\\ContextMenuHandlers\\ClipDiff", nullptr, L"{6B46A974-40E2-4AD4-9F68-E534202B11E8}");
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
         directory = fs::temp_directory_path() / (L"ClipDiff.ShellTests." + std::to_wstring(GetCurrentProcessId()));
         Check(fs::create_directory(directory), "Test directory already exists.");
         ownsDirectory = true;
