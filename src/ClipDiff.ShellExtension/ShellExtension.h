@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <shellapi.h>
 #include <shlobj.h>
 
 // Keep these identifiers in sync with ExplorerContextMenuRegistration.cs and ExplorerDropTargetServer.cs.
