@@ -107,13 +107,41 @@ Windows Server Core is not supported. The initial release target is `win-x64`.
 
 ## Build and test
 
-Install the .NET 10 SDK, then run:
+### Prerequisites on Windows
+
+1. Install the **.NET 10 SDK** (not only the .NET Desktop Runtime) from the
+   [.NET 10 download page](https://dotnet.microsoft.com/download/dotnet/10.0).
+   Alternatively, install it through Visual Studio Installer by selecting the
+   **.NET desktop development** workload in a Visual Studio version that supports
+   .NET 10.
+2. Open a new PowerShell window after installation and confirm that a `10.0.x`
+   SDK is available and selected:
+
+   ```powershell
+   dotnet --list-sdks
+   dotnet --version
+   ```
+
+   If `dotnet --version` does not start with `10.`, update/install the SDK before
+   continuing. Installing only a runtime is not sufficient to build ClipDiff.
+3. Clone the repository (or open PowerShell in an extracted source directory),
+   then change to the directory containing `ClipDiff.Windows.sln`.
+
+### Build from PowerShell
+
+Restore packages, run all automated tests, and compile a Release build:
 
 ```powershell
 dotnet restore ClipDiff.Windows.sln
-dotnet test ClipDiff.Windows.sln
-dotnet build ClipDiff.Windows.sln --configuration Release
+dotnet test ClipDiff.Windows.sln --configuration Release --no-restore
+dotnet build ClipDiff.Windows.sln --configuration Release --no-restore
 ```
+
+The framework-dependent executable is then at
+`src\ClipDiff.Windows\bin\Release\net10.0-windows10.0.17763.0\ClipDiff.exe`.
+It requires the .NET 10 Windows Desktop Runtime on the computer where it runs.
+For a portable executable that includes its runtime, use the local release script
+below instead.
 
 The pure `ClipDiff.Core` project and both policy test assemblies target ordinary `net10.0`, so they can run on macOS:
 
@@ -128,13 +156,24 @@ GitHub Actions also restores, tests, and builds the full Release solution on `wi
 
 ## Local release
 
-On Windows PowerShell:
+On Windows PowerShell, from the repository root:
 
 ```powershell
-./scripts/create-local-release.ps1
+.\scripts\create-local-release.ps1
 ```
 
 The script runs tests and publishes a self-contained, single-file, untrimmed `win-x64` build to the gitignored `releases/win-x64` directory. Pass `-Launch` to start it after publishing. The personal build is unsigned, so Windows SmartScreen may warn before first launch.
+
+If PowerShell reports that script execution is disabled, allow the checked-out
+script for this process only, then run it again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\create-local-release.ps1
+```
+
+The resulting portable executable is `releases\win-x64\ClipDiff.exe`; copy that
+file to the work PC and run it without installing a separate .NET runtime.
 
 No installer, automatic updater, or code signing is included in the initial release.
 
