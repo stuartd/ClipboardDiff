@@ -10,6 +10,15 @@ $applicationProject = Join-Path $repositoryRoot 'src/ClipDiff.Windows/ClipDiff.W
 $coreTests = Join-Path $repositoryRoot 'tests/ClipDiff.Core.Tests/ClipDiff.Core.Tests.csproj'
 $privacyTests = Join-Path $repositoryRoot 'tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj'
 
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    throw 'The .NET 10 SDK is required. Install it from https://dotnet.microsoft.com/download/dotnet/10.0 and open a new PowerShell window.'
+}
+
+$sdkVersion = & dotnet --version
+if ($LASTEXITCODE -ne 0 -or -not $sdkVersion.StartsWith('10.')) {
+    throw "The .NET 10 SDK is required, but the active SDK is '$sdkVersion'. Run 'dotnet --list-sdks' to see installed SDKs."
+}
+
 Push-Location $repositoryRoot
 try {
     dotnet test $coreTests --configuration Release
