@@ -40,6 +40,15 @@ public sealed class HotKeyGestureTests
     }
 
     [TestMethod]
+    public void InvalidShortcutsDisplayAsUnassigned()
+    {
+        Assert.AreEqual("Unassigned", new HotKeyGesture(HotKeyModifiers.None, 0x44).DisplayText);
+        Assert.AreEqual("Unassigned", new HotKeyGesture(HotKeyModifiers.Control, 0).DisplayText);
+        Assert.AreEqual("Unassigned", new HotKeyGesture(HotKeyModifiers.Control, 0x11).DisplayText);
+        Assert.AreEqual("Unassigned", new HotKeyGesture(HotKeyModifiers.Alt, 0x73).DisplayText);
+    }
+
+    [TestMethod]
     public void InvalidPersistedShortcutFallsBackToDefault()
     {
         var invalid = new HotKeyGesture(HotKeyModifiers.None, 0);
