@@ -88,10 +88,6 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
                 parts.Add("Shift");
             }
 
-            // If no modifiers and VirtualKey is 0, treat as invalid for display purposes
-            if (parts.Count == 0 && VirtualKey == 0)
-                return "Unassigned";
-
             parts.Add(FormatVirtualKey(VirtualKey));
             return string.Join('+', parts);
         }
