@@ -13,21 +13,32 @@ internal enum HotKeyModifiers : uint
 
 internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
 {
+    private const uint VirtualKeyShift = 0x10;
+    private const uint VirtualKeyControl = 0x11;
+    private const uint VirtualKeyMenu = 0x12;
     private const uint VirtualKeyF4 = 0x73;
     private const uint VirtualKeyD = 0x44;
     private const uint VirtualKeyLeftWindows = 0x5B;
     private const uint VirtualKeyRightWindows = 0x5C;
+    private const uint VirtualKeyLeftShift = 0xA0;
+    private const uint VirtualKeyRightShift = 0xA1;
+    private const uint VirtualKeyLeftControl = 0xA2;
+    private const uint VirtualKeyRightControl = 0xA3;
+    private const uint VirtualKeyLeftMenu = 0xA4;
+    private const uint VirtualKeyRightMenu = 0xA5;
+
+    // Win32 calls the Alt key VK_MENU; none of these modifier keys can be a shortcut's primary key.
     private static readonly HashSet<uint> ModifierVirtualKeys =
     [
-        0x10,
-        0x11,
-        0x12,
-        0xA0,
-        0xA1,
-        0xA2,
-        0xA3,
-        0xA4,
-        0xA5
+        VirtualKeyShift,
+        VirtualKeyControl,
+        VirtualKeyMenu,
+        VirtualKeyLeftShift,
+        VirtualKeyRightShift,
+        VirtualKeyLeftControl,
+        VirtualKeyRightControl,
+        VirtualKeyLeftMenu,
+        VirtualKeyRightMenu
     ];
 
     public static HotKeyGesture Default { get; } = new(
