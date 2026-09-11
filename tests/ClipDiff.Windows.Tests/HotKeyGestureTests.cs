@@ -30,11 +30,13 @@ public sealed class HotKeyGestureTests
     [TestMethod]
     public void RejectsUnsafeOrIncompleteShortcuts()
     {
+        const HotKeyModifiers unsupportedWindowsModifier = (HotKeyModifiers)0x0008;
+
         Assert.IsFalse(new HotKeyGesture(HotKeyModifiers.None, 0x44).IsValid);
         Assert.IsFalse(new HotKeyGesture(HotKeyModifiers.Shift, 0x44).IsValid);
         Assert.IsFalse(new HotKeyGesture(HotKeyModifiers.Control, 0x11).IsValid);
         Assert.IsFalse(new HotKeyGesture(HotKeyModifiers.Alt, 0x73).IsValid);
-        Assert.IsFalse(new HotKeyGesture(HotKeyModifiers.Windows, 0x44).IsValid);
+        Assert.IsFalse(new HotKeyGesture(unsupportedWindowsModifier, 0x44).IsValid);
     }
 
     [TestMethod]
