@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$Launch
+    [switch]$Launch,
+    [switch]$SkipNativeTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,7 +22,10 @@ if ($LASTEXITCODE -ne 0 -or -not $sdkVersion.StartsWith('10.')) {
 
 Push-Location $repositoryRoot
 try {
-    & (Join-Path $PSScriptRoot 'build-shell-extension.ps1') -Configuration Release -Test
+    if ($SkipNativeTests) {
+        Write-Host 'Skipping native Explorer integration tests; the extension DLL will still be built.'
+    }
+    & (Join-Path $PSScriptRoot 'build-shell-extension.ps1') -Configuration Release -Test:(-not $SkipNativeTests)
 
     dotnet test $coreTests --configuration Release
     if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }

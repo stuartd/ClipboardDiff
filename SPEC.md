@@ -1336,6 +1336,8 @@ Do not enable trimming for the initial WPF build.
 
 The native projects are built separately with `scripts/build-shell-extension.ps1 -Test`, so macOS can still compile and test the .NET solution. The release script runs this native build first. Distribute the executable and DLL together. Explorer can keep a loaded DLL locked after ClipDiff quits; updating into a new directory avoids overwriting a loaded DLL, and restarting Explorer or signing out may be needed to unload an older handler. Do not restart Explorer automatically.
 
+For local releases, `create-local-release.ps1 -SkipNativeTests` may explicitly skip the native Explorer integration tests. It must still build and package the DLL and run the .NET tests. Native tests remain enabled by default and in CI.
+
 A typical command is:
 
 ```

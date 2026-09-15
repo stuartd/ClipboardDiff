@@ -177,6 +177,14 @@ On Windows PowerShell, from the repository root:
 
 The script builds/tests the native extension and publishes a self-contained, untrimmed `win-x64` application to the gitignored `releases/win-x64` directory. Distribute **both `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`** together; the .NET portion is bundled into the executable. Pass `-Launch` to start it after publishing. The personal build is unsigned, so Windows SmartScreen may warn before first launch.
 
+To skip the native Explorer integration tests for a local release, pass `-SkipNativeTests`:
+
+```powershell
+.\scripts\create-local-release.ps1 -SkipNativeTests
+```
+
+This still builds and packages the native DLL and runs the .NET tests. Native tests run by default and remain enabled in CI. You can combine this switch with `-Launch`.
+
 Quit ClipDiff before upgrading. Explorer may keep the DLL loaded; use a new release directory if Windows refuses to replace it, and restart Explorer or sign out if an old handler remains loaded. Starting the new version removes the obsolete two-file static menu registration automatically.
 
 If PowerShell reports that script execution is disabled, allow the checked-out
