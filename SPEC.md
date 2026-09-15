@@ -92,7 +92,7 @@ The application must:
 - Accept consecutive copies of identical text as separate entries.
 - Ignore unsupported non-text clipboard changes; handle copied file lists as defined in section 6.4.
 - Ignore privacy-marked clipboard items.
-- Avoid capturing its own **Copy diff** output.
+- Avoid capturing its own **Copy unified diff** output.
 - Continue working if global hotkey registration fails.
 - Lose all in-memory captured text when the application exits and attempt to delete all external-diff temporary files.
 - Use one notification-area icon and one reusable diff window.
@@ -356,7 +356,7 @@ A personal source denylist can be considered later if genuinely needed, but it i
 
 ## 8. ClipDiff’s own clipboard writes
 
-The **Copy diff** command writes the currently displayed unified diff to the Windows clipboard.
+The **Copy unified diff** command writes the currently displayed unified diff to the Windows clipboard.
 
 Requirements:
 
@@ -840,7 +840,7 @@ The top header contains:
 - View selector:
     - `Side by Side`
     - `Unified`
-- **Copy diff** button
+- **Copy unified diff** button
 - **Clear captured text** button
 
 The view defaults to **Side by Side** each application launch. It may remain at the user’s selected mode during the current process lifetime. It does not need to be persisted.
@@ -871,7 +871,7 @@ Requirements:
 - Missing text on one side leaves an empty cell.
 - Thin row separators.
 - Text should be selectable where reasonably possible.
-- **Copy diff** remains the reliable way to copy the entire comparison.
+- **Copy unified diff** remains the reliable way to copy the entire comparison.
 
 Backgrounds:
 
@@ -1092,7 +1092,7 @@ Handle:
 - Clipboard temporarily locked: asynchronous retry.
 - Clipboard read exhausted retries: ignore update.
 - Hotkey unavailable: tray status, menu remains functional.
-- Copy diff failure: beep or concise status.
+- Copy unified diff failure: beep or concise status.
 - No two entries: disable menu command; hotkey gives a nonmodal indication.
 - Native listener registration failure: show a concise tray status and keep the app open if manual retry is possible.
 
@@ -1448,7 +1448,7 @@ The first release is complete when all of these are true:
 - Unified mode is readable.
 - File-backed sides show their basenames, using shortest unique path suffixes only when equal basenames need disambiguation.
 - Summary counts are correct.
-- **Copy diff** produces the agreed output.
+- **Copy unified diff** produces the agreed output.
 - Copied diff output is excluded from history/cloud processing and is not recaptured.
 - **Clear Captured Text** resets state without changing the Windows clipboard.
 - Closing the diff window leaves the tray app running.
