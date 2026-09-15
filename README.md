@@ -81,7 +81,7 @@ Before reading text, ClipDiff inspects and honours these advisory [clipboard for
 - `CanIncludeInClipboardHistory` when its DWORD is zero
 - `CanUploadToCloudClipboard` when its DWORD is zero
 
-Malformed or unreadable privacy markers are excluded conservatively. **Copy diff** writes its Unicode text and all three exclusion formats in one native clipboard operation, and ClipDiff suppresses the resulting clipboard update.
+Malformed or unreadable privacy markers are excluded conservatively. **Copy unified diff** writes its Unicode text and all three exclusion formats in one native clipboard operation, and ClipDiff suppresses the resulting clipboard update.
 
 Some password managers clear an unmarked value shortly after copying it. If an accepted value is immediately followed by an explicit clipboard clear within 60 seconds, ClipDiff removes that current entry. An intervening unrelated, sensitive, or failed clipboard observation cancels this eligibility. **This is only a best-effort heuristic and does not come with a guarantee.**
 
@@ -216,7 +216,7 @@ On a Windows desktop, verify:
 - removing or renaming the selected viewer executable causes **Show Diff** to fall back to the built-in viewer;
 - `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, and shortcut codes, never clipboard content;
 - **Keyboard shortcut...** records a replacement such as `Ctrl+Alt+6`, keeps the old shortcut active when the replacement is already in use, updates the tray label after success, persists across restart, and resets to `Ctrl+Alt+D`;
-- **Copy diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
+- **Copy unified diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
 - exactly two copied files—or two files copied with Explorer **Copy as path**—become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;

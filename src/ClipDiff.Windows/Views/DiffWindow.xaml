@@ -136,7 +136,7 @@
                     <ComboBoxItem Content="Unified" />
                 </ComboBox>
                 <Button Grid.Column="3"
-                        Content="Copy diff"
+                        Content="Copy unified diff"
                         Command="{Binding CopyCommand}"
                         Padding="14,6"
                         Margin="0,0,8,0"
