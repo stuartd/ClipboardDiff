@@ -165,25 +165,54 @@ namespace
             "Cannot inspect token elevation type.");
         std::cout << "Process: bits=" << sizeof(void*) * 8 << ", elevated=" << elevation.TokenIsElevated
             << ", elevationType=" << elevationType << " (1=default, 2=full, 3=limited)\n";
-        if (!elevation.TokenIsElevated) return std::nullopt;
-        Check(argc == 2, "Test child must run without elevation.");
+        // CreateRestrictedToken can clear TokenIsElevated while retaining TokenElevationTypeFull.
+        // Do not mistake that combination for a normal unelevated Shell process.
+        if (!elevation.TokenIsElevated && elevationType != TokenElevationTypeFull) return std::nullopt;
+        Check(argc == 2, "Test child still has an elevated token. Run the release script from non-administrator PowerShell.");
 
-        // Hosted Windows CI runs as administrator. Exercise HKCU Shell integration as a normal app.
-        // Restrict only this test child; do not change the account, UAC, or machine security settings.
-        Handle source;
-        CheckWin32(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY |
-            TOKEN_ADJUST_DEFAULT, &source.value), "Cannot open administrator token for restriction.");
-        Handle restricted;
-        CheckWin32(CreateRestrictedToken(source.value, LUA_TOKEN | DISABLE_MAX_PRIVILEGE, 0, nullptr, 0, nullptr,
-            0, nullptr, &restricted.value), "Cannot create non-administrator test token.");
-        BYTE sid[SECURITY_MAX_SID_SIZE]{};
-        DWORD sidSize = sizeof(sid);
-        CheckWin32(CreateWellKnownSid(WinMediumLabelSid, nullptr, sid, &sidSize), "Cannot create medium integrity SID.");
-        TOKEN_MANDATORY_LABEL label{};
-        label.Label.Sid = sid;
-        label.Label.Attributes = SE_GROUP_INTEGRITY;
-        CheckWin32(SetTokenInformation(restricted.value, TokenIntegrityLevel, &label,
-            static_cast<DWORD>(sizeof(label)) + sidSize), "Cannot lower test process integrity.");
+        Handle launchToken;
+        if (elevationType == TokenElevationTypeFull)
+        {
+            // UAC has already created the user's standard token. Use it instead of manufacturing
+            // a restricted copy of the full token, which keeps the wrong UAC elevation type.
+            TOKEN_LINKED_TOKEN linked{};
+            CheckWin32(GetTokenInformation(token.value, TokenLinkedToken, &linked, sizeof(linked), &size),
+                "Cannot obtain the linked unelevated token. Run the release script from non-administrator PowerShell.");
+            Handle linkedToken{linked.LinkedToken};
+            CheckWin32(DuplicateTokenEx(linkedToken.value, TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY,
+                nullptr, SecurityImpersonation, TokenPrimary, &launchToken.value),
+                "Cannot prepare the linked unelevated token.");
+            std::cout << "Launching Shell tests with the linked unelevated UAC token.\n";
+        }
+        else
+        {
+            // Hosted Windows CI uses an administrator token without a UAC-linked token.
+            // Restrict only this test child; do not change account or machine security settings.
+            Handle source;
+            CheckWin32(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY |
+                TOKEN_ADJUST_DEFAULT, &source.value), "Cannot open administrator token for restriction.");
+            CheckWin32(CreateRestrictedToken(source.value, LUA_TOKEN | DISABLE_MAX_PRIVILEGE, 0, nullptr, 0, nullptr,
+                0, nullptr, &launchToken.value), "Cannot create non-administrator test token.");
+            BYTE sid[SECURITY_MAX_SID_SIZE]{};
+            DWORD sidSize = sizeof(sid);
+            CheckWin32(CreateWellKnownSid(WinMediumLabelSid, nullptr, sid, &sidSize), "Cannot create medium integrity SID.");
+            TOKEN_MANDATORY_LABEL label{};
+            label.Label.Sid = sid;
+            label.Label.Attributes = SE_GROUP_INTEGRITY;
+            CheckWin32(SetTokenInformation(launchToken.value, TokenIntegrityLevel, &label,
+                static_cast<DWORD>(sizeof(label)) + sidSize), "Cannot lower test process integrity.");
+            std::cout << "Launching Shell tests with reduced privileges (no linked UAC token).\n";
+        }
+
+        TOKEN_ELEVATION launchElevation{};
+        TOKEN_ELEVATION_TYPE launchElevationType{};
+        CheckWin32(GetTokenInformation(launchToken.value, TokenElevation, &launchElevation, sizeof(launchElevation), &size),
+            "Cannot inspect test launch token elevation.");
+        CheckWin32(GetTokenInformation(launchToken.value, TokenElevationType, &launchElevationType,
+            sizeof(launchElevationType), &size), "Cannot inspect test launch token elevation type.");
+        Check(!launchElevation.TokenIsElevated && launchElevationType != TokenElevationTypeFull &&
+            (elevationType != TokenElevationTypeFull || launchElevationType == TokenElevationTypeLimited),
+            "Test launch token is not unelevated. Run the release script from non-administrator PowerShell.");
         wchar_t executable[32768]{};
         const DWORD length = GetModuleFileNameW(nullptr, executable, 32768);
         CheckWin32(length != 0, "Cannot locate test executable.");
@@ -196,10 +225,9 @@ namespace
         startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
         PROCESS_INFORMATION process{};
-        std::cout << "Launching Shell tests with reduced privileges." << std::endl;
-        if (!CreateProcessAsUserW(restricted.value, executable, command.data(), nullptr, nullptr, TRUE,
-            0, nullptr, nullptr, &startup, &process))
-            CheckHr(HRESULT_FROM_WIN32(GetLastError()), "Cannot launch non-administrator Shell tests.");
+        CheckWin32(CreateProcessAsUserW(launchToken.value, executable, command.data(), nullptr, nullptr, TRUE,
+            0, nullptr, nullptr, &startup, &process),
+            "Cannot launch non-administrator Shell tests. Run the release script from non-administrator PowerShell.");
         Handle child{process.hProcess};
         Handle thread{process.hThread};
         CheckWin32(WaitForSingleObject(child.value, INFINITE) == WAIT_OBJECT_0, "Cannot wait for Shell tests.");
