@@ -8,15 +8,53 @@
         Height="720"
         MinWidth="760"
         MinHeight="480"
-        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
-        Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"
+        Background="#202020"
+        Foreground="#F5F5F5"
+        SourceInitialized="OnSourceInitialized"
         Closing="OnClosing">
     <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#323232" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+            <Setter Property="BorderBrush" Value="#606060" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3D3D3D" />
+                    <Setter Property="BorderBrush" Value="#7A7A7A" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#484848" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#323232" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+            <Setter Property="BorderBrush" Value="#606060" />
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#323232" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3D3D3D" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#484848" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="#202020" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+        </Style>
         <Style x:Key="ReadOnlyDiffText" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+            <Setter Property="SelectionBrush" Value="#365F91" />
             <Setter Property="FontFamily" Value="Consolas, Courier New" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="AcceptsReturn" Value="True" />
@@ -49,7 +87,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Kind}" Value="{x:Static viewModels:UnifiedLineKind.Header}">
-                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" />
+                    <Setter Property="Background" Value="#2A2A2A" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Kind}" Value="{x:Static viewModels:UnifiedLineKind.Removed}">
                     <Setter Property="Background" Value="#35FF5A5A" />
@@ -62,6 +100,8 @@
         <Style TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
         </Style>
     </Window.Resources>
 
@@ -72,7 +112,7 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                BorderBrush="#464646"
                 BorderThickness="0,0,0,1"
                 Padding="16,12">
             <Grid>
@@ -126,7 +166,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="0"
-                      Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+                      Background="#2A2A2A">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="52" />
                         <ColumnDefinition Width="*" />
@@ -156,7 +196,7 @@
                          VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                            <Border BorderBrush="#464646"
                                     BorderThickness="0,0,0,1">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -193,7 +233,7 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border Style="{StaticResource UnifiedLine}"
-                                BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                                BorderBrush="#464646"
                                 BorderThickness="0,0,0,1">
                             <TextBox Text="{Binding Text, Mode=OneWay}" Style="{StaticResource ReadOnlyDiffText}" />
                         </Border>
