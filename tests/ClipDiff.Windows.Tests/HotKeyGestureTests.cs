@@ -81,4 +81,29 @@ public sealed class HotKeyGestureTests
         Assert.AreEqual(HotKeyGesture.Default, HotKeyGesture.Normalize(invalid));
         Assert.AreEqual(HotKeyGesture.Default, HotKeyGesture.Normalize(null));
     }
+    [TestMethod]
+    public void DialogNavigationIsNotCapturedAsAnInvalidShortcut()
+    {
+        Assert.IsTrue(HotKeyGesture.IsDialogCommand(HotKeyModifiers.None, 0x0D));
+        Assert.IsTrue(HotKeyGesture.IsDialogCommand(HotKeyModifiers.None, 0x1B));
+        Assert.IsTrue(HotKeyGesture.IsDialogCommand(HotKeyModifiers.None, 0x09));
+        Assert.IsTrue(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Shift, 0x09));
+        Assert.IsTrue(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Alt, 0x73));
+        Assert.IsFalse(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Control, 0x0D));
+        Assert.IsFalse(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Control, 0x09));
+        Assert.IsFalse(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Control, 0x1B));
+        Assert.IsFalse(HotKeyGesture.IsDialogCommand(HotKeyModifiers.Control | HotKeyModifiers.Alt, 0x73));
+    }
+
+    [TestMethod]
+    public void RejectsDebuggerReservedF12AndMouseButtons()
+    {
+        foreach (uint key in new uint[] { 0x7B, 0x01, 0x02, 0x04, 0x05, 0x06 })
+        {
+            var gesture = new HotKeyGesture(HotKeyModifiers.Control, key);
+            Assert.IsFalse(gesture.IsValid);
+            Assert.AreEqual(HotKeyGesture.Default, HotKeyGesture.Normalize(gesture));
+        }
+    }
+
 }

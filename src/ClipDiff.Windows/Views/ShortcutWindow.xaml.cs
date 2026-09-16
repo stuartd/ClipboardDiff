@@ -10,6 +10,7 @@ public partial class ShortcutWindow : Window
 {
     private readonly Func<HotKeyGesture, HotKeyChangeResult> _trySave;
     private HotKeyGesture _gesture;
+    private bool _showingModifiers;
 
     internal ShortcutWindow(
         HotKeyGesture currentGesture,
@@ -46,37 +47,42 @@ public partial class ShortcutWindow : Window
 
     private void OnShortcutPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs args)
     {
-        var key = args.Key == Key.System ? args.SystemKey : args.Key;
+        var key = args.Key switch
+        {
+            Key.System => args.SystemKey,
+            Key.ImeProcessed => args.ImeProcessedKey,
+            Key.DeadCharProcessed => args.DeadCharProcessedKey,
+            _ => args.Key
+        };
         var keyboardModifiers = Keyboard.Modifiers;
-        if (key == Key.Escape && keyboardModifiers == ModifierKeys.None)
-        {
-            DialogResult = false;
-            return;
-        }
-
-        if (key == Key.Tab && keyboardModifiers == ModifierKeys.None)
-        {
-            return;
-        }
-
-        args.Handled = true;
         if ((keyboardModifiers & ModifierKeys.Windows) != 0 || key is Key.LWin or Key.RWin)
         {
+            args.Handled = true;
+            _showingModifiers = false;
             ValidationText.Text = "Windows-key shortcuts aren't supported.";
             SaveButton.IsEnabled = false;
             return;
         }
 
         var modifiers = ToHotKeyModifiers(keyboardModifiers);
+        var virtualKey = KeyInterop.VirtualKeyFromKey(key);
+        if (HotKeyGesture.IsDialogCommand(modifiers, (uint)virtualKey))
+        {
+            if (_showingModifiers) ShowGesture();
+            return;
+        }
+
+        args.Handled = true;
         if (IsModifierKey(key))
         {
+            _showingModifiers = true;
             ShortcutBox.Text = FormatIncompleteModifiers(modifiers);
             ValidationText.Text = "Press another key to complete the shortcut.";
             SaveButton.IsEnabled = false;
             return;
         }
 
-        var virtualKey = KeyInterop.VirtualKeyFromKey(key);
+        _showingModifiers = false;
         if (virtualKey <= 0)
         {
             ValidationText.Text = "That key cannot be used as a ClipDiff shortcut.";
@@ -96,6 +102,29 @@ public partial class ShortcutWindow : Window
 
         _gesture = candidate;
         ShowGesture();
+    }
+
+    private void OnPreviewKeyUp(object sender, System.Windows.Input.KeyEventArgs args)
+    {
+        // Releasing an unfinished modifier chord must not strand the valid
+        // draft with Save disabled, including after Shift-Tab moves focus.
+        if (_showingModifiers && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            ShowGesture();
+        }
+    }
+
+    internal bool TryCaptureRegisteredShortcut(HotKeyGesture gesture)
+    {
+        // RegisterHotKey consumes the key before WPF's capture box sees it.
+        if (!IsActive || !ShortcutBox.IsKeyboardFocusWithin)
+        {
+            return false;
+        }
+
+        _gesture = gesture;
+        ShowGesture();
+        return true;
     }
 
     private void OnResetClick(object sender, RoutedEventArgs args)
@@ -123,7 +152,13 @@ public partial class ShortcutWindow : Window
 
             case HotKeyChangeResult.SaveFailed:
                 ValidationText.Text =
-                    "ClipDiff couldn't save the shortcut. The change won't persist after restart.";
+                    "ClipDiff couldn't save the shortcut. The previous shortcut has been restored.";
+                ShortcutBox.Focus();
+                break;
+
+            case HotKeyChangeResult.SaveFailedAndRestoreFailed:
+                ValidationText.Text =
+                    "ClipDiff couldn't save or restore the previous shortcut. This shortcut is active for this session only.";
                 ShortcutBox.Focus();
                 break;
 
@@ -134,6 +169,7 @@ public partial class ShortcutWindow : Window
 
     private void ShowGesture()
     {
+        _showingModifiers = false;
         ShortcutBox.Text = _gesture.DisplayText;
         ValidationText.Text = string.Empty;
         SaveButton.IsEnabled = true;
