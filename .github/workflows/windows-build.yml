@@ -34,10 +34,18 @@ jobs:
         shell: pwsh
         run: ./scripts/create-local-release.ps1
 
-      - name: Upload portable Windows build
+      - name: Upload self-contained Windows build
         uses: actions/upload-artifact@v7
         with:
-          name: ClipDiff-win-x64
-          path: releases/ClipDiff-*-win-x64/
+          name: ClipDiff-win-x64-self-contained
+          path: releases/ClipDiff-*-win-x64-self-contained/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload .NET 10 Windows build
+        uses: actions/upload-artifact@v7
+        with:
+          name: ClipDiff-win-x64-net10
+          path: releases/ClipDiff-*-win-x64-net10/
           if-no-files-found: error
           retention-days: 14

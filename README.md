@@ -107,9 +107,18 @@ Windows Server Core is not supported. The initial release target is `win-x64`.
 
 ## Install or update
 
-Download the `ClipDiff-<version>-win-x64.zip` asset from the GitHub release and
-extract the whole archive into its own directory. The complete application is
-exactly these two files:
+Download one of these assets from the GitHub release and extract the whole
+archive into its own directory:
+
+- `ClipDiff-<version>-win-x64-self-contained.zip` includes its own .NET runtime
+  and works without a separately installed runtime. It is the larger download.
+- `ClipDiff-<version>-win-x64-net10.zip` is much smaller but requires the x64
+  **.NET 10 Desktop Runtime** (`Microsoft.WindowsDesktop.App`), not merely the
+  base `Microsoft.NETCore.App` runtime.
+
+Check an existing installation with `dotnet --list-runtimes`; the smaller build
+requires a `Microsoft.WindowsDesktop.App 10.x` entry for x64. Both archives
+contain exactly these two files:
 
 ```text
 ClipDiff.exe
@@ -189,10 +198,11 @@ An older test launcher could print `elevated=0, elevationType=2` after dropping 
 If the native test run fails, include the full output from `Native build:` through the final `[FAIL]` line and script error. The output identifies the test case, expected visibility, direct-handler and Windows-aggregate results, HRESULT/Win32 errors, selection counts and Shell attributes, and effective COM/menu registration. A visibility mismatch also prints menu IDs, states, separator labels, and a read-only snapshot of Shell restriction settings and ClipDiff's Approved/Blocked entries. These probes do not change policy or read clipboard contents or selected file paths. Passing the direct-handler check but failing the Windows-aggregate check narrows the problem to Shell discovery/aggregation; it does not by itself establish that a work-machine policy is responsible. Microsoft's [Shell extension approval policy documentation](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#enforceshellextensionsecurity) explains one possible restriction.
 
 GitHub Actions runs the same release script on `windows-latest` for every push
-and pull request. Each successful run provides a `ClipDiff-win-x64` artifact
-containing only the executable and native DLL; extract both into the same
-directory. It can be run manually from the repository's **Actions** tab as well.
-Actual Explorer desktop interaction remains a separate manual check.
+and pull request. Each successful run provides `ClipDiff-win-x64-self-contained`
+and `ClipDiff-win-x64-net10` artifacts. Each contains only the executable and
+native DLL; extract both into the same directory. The workflow can be run
+manually from the repository's **Actions** tab as well. Actual Explorer desktop
+interaction remains a separate manual check.
 
 ## Local release
 
@@ -208,16 +218,20 @@ output in a clean private directory, then creates both of these gitignored
 outputs:
 
 ```text
-releases\ClipDiff-<version>-win-x64\
-releases\ClipDiff-<version>-win-x64.zip
+releases\ClipDiff-<version>-win-x64-self-contained\
+releases\ClipDiff-<version>-win-x64-self-contained.zip
+releases\ClipDiff-<version>-win-x64-net10\
+releases\ClipDiff-<version>-win-x64-net10.zip
 ```
 
-The directory and ZIP are validated to contain exactly `ClipDiff.exe` and
+Both directories and ZIPs are validated to contain exactly `ClipDiff.exe` and
 `ClipDiff.ShellExtension.dll`. Those are the complete release; keep them
-together. PDB, `deps.json`, `runtimeconfig.json`, `bin`, `obj`, and the rest of
-the raw publish directory are not release payload. Pass `-Launch` to start the
-packaged executable after publishing. The personal build is unsigned, so
-Windows SmartScreen may warn before first launch.
+together. The self-contained variant bundles .NET; the `net10` variant expects
+the x64 .NET 10 Desktop Runtime on the target computer. PDB, `deps.json`,
+`runtimeconfig.json`, `bin`, `obj`, and the rest of the raw publish directories
+are not release payload. Pass `-Launch` to start the self-contained packaged
+executable after publishing. The personal builds are unsigned, so Windows
+SmartScreen may warn before first launch.
 
 To skip the native Explorer integration tests for a local release, pass `-SkipNativeTests`:
 
@@ -241,8 +255,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\create-local-release.ps1
 ```
 
-Copy the resulting ZIP to the target PC and extract both files together. No
-separate .NET runtime is required.
+Copy the chosen ZIP to the target PC and extract both files together. Choose the
+`net10` archive only when the x64 .NET 10 Desktop Runtime is already installed.
 
 No installer, automatic updater, or code signing is included in the initial release.
 
