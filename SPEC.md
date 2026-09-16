@@ -1318,9 +1318,10 @@ It should:
 1. Build and test the native Explorer DLL with Visual Studio C++ build tools and the Windows SDK.
 1. Run core tests.
 1. Publish a Release build through a clean private staging directory.
-1. Place a versioned directory and ZIP in the gitignored `releases/` directory.
-1. Place `ClipDiff.ShellExtension.dll` alongside `ClipDiff.exe`; keep the DLL outside the .NET single-file bundle.
-1. Validate that the versioned directory and ZIP contain exactly `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`, with no SDK by-products or stale files.
+1. Place versioned self-contained and .NET 10 framework-dependent directories and ZIPs in the gitignored `releases/` directory.
+1. Publish both variants as single-file applications. The framework-dependent variant requires the x64 .NET 10 Desktop Runtime.
+1. Place `ClipDiff.ShellExtension.dll` alongside `ClipDiff.exe` in both variants; keep the DLL outside the .NET single-file bundle.
+1. Validate that every versioned directory and ZIP contains exactly `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`, with no SDK by-products or stale files.
 1. Optionally launch the resulting executable.
 
 Suggested publish properties:
@@ -1337,7 +1338,7 @@ Do not enable trimming for the initial WPF build.
 
 The native projects are built separately with `scripts/build-shell-extension.ps1 -Test`, so macOS can still compile and test the .NET solution. The release script runs this native build first. Distribute the executable and DLL together. Explorer can keep a loaded DLL locked after ClipDiff quits; updating into a new directory avoids overwriting a loaded DLL, and restarting Explorer or signing out may be needed to unload an older handler. Do not restart Explorer automatically.
 
-Continuous integration must call the same release script rather than duplicate the publish commands. A semantic-version tag in the form `v1.2.3` should run the complete build and test process, then create a GitHub release containing the validated versioned ZIP.
+Continuous integration must call the same release script rather than duplicate the publish commands. A semantic-version tag in the form `v1.2.3` should run the complete build and test process, then create a GitHub release containing both validated versioned ZIPs.
 
 For local releases, `create-local-release.ps1 -SkipNativeTests` may explicitly skip the native Explorer integration tests. It must still build and package the DLL and run the .NET tests. Native tests remain enabled by default and in CI.
 

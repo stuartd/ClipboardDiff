@@ -47,5 +47,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $archive = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64.zip"
-          gh release create $env:RELEASE_TAG $archive --verify-tag --generate-notes --title "ClipDiff $env:RELEASE_TAG"
+          $selfContained = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64-self-contained.zip"
+          $net10 = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64-net10.zip"
+          gh release create $env:RELEASE_TAG $selfContained $net10 --verify-tag --generate-notes --title "ClipDiff $env:RELEASE_TAG"

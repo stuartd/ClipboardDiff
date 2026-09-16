@@ -1,7 +1,7 @@
 # Releasing ClipDiff
 
-The release contract is the ZIP, not a `bin` or raw `dotnet publish` directory.
-Every ClipDiff Windows x64 release contains exactly:
+The release contract is the ZIPs, not a `bin` or raw `dotnet publish`
+directory. Every ClipDiff Windows x64 package contains exactly:
 
 ```text
 ClipDiff.exe
@@ -23,14 +23,24 @@ On Windows, from a normal non-administrator PowerShell in the repository root:
 The script requires the .NET 10 SDK and Visual Studio C++ build tools with a
 Windows SDK. It builds and tests the native extension, runs the .NET tests,
 publishes the self-contained application in a clean staging directory, and
-validates the final folder and ZIP. Output is:
+validates both final folders and ZIPs. Output is:
 
 ```text
-releases\ClipDiff-<version>-win-x64\
+releases\ClipDiff-<version>-win-x64-self-contained\
     ClipDiff.exe
     ClipDiff.ShellExtension.dll
-releases\ClipDiff-<version>-win-x64.zip
+releases\ClipDiff-<version>-win-x64-self-contained.zip
+
+releases\ClipDiff-<version>-win-x64-net10\
+    ClipDiff.exe
+    ClipDiff.ShellExtension.dll
+releases\ClipDiff-<version>-win-x64-net10.zip
 ```
+
+The self-contained package bundles .NET. The smaller `net10` package requires
+the x64 .NET 10 Desktop Runtime and checks for `Microsoft.WindowsDesktop.App
+10.x` when documenting compatibility; the base .NET runtime alone is not
+sufficient for this WPF application.
 
 The version defaults to the `Version` property in `Directory.Build.props`. A
 specific version can be supplied when reproducing a tagged build:
@@ -55,15 +65,17 @@ a published release.
    ```
 
 The **Release** workflow validates the tag, runs the complete release script,
-and creates a GitHub release with generated notes and
-`ClipDiff-1.2.3-win-x64.zip` attached. It will not publish if any build, test, or
-payload validation fails.
+and creates a GitHub release with generated notes and both
+`ClipDiff-1.2.3-win-x64-self-contained.zip` and
+`ClipDiff-1.2.3-win-x64-net10.zip` attached. It will not publish if any build,
+test, or payload validation fails.
 
 ## Install or update the portable build
 
-Extract the whole ZIP into a directory owned by the current user and run
-`ClipDiff.exe`. Do not move the DLL elsewhere or run `regsvr32`; ClipDiff owns
-its per-user Explorer registration.
+Extract one whole ZIP into a directory owned by the current user and run
+`ClipDiff.exe`. Use the `net10` ZIP only when `dotnet --list-runtimes` contains
+an x64 `Microsoft.WindowsDesktop.App 10.x` entry. Do not move the DLL elsewhere
+or run `regsvr32`; ClipDiff owns its per-user Explorer registration.
 
 For an update, quit ClipDiff and extract the new version into a new directory.
 This avoids overwriting a DLL that Explorer may still have loaded. Update any
