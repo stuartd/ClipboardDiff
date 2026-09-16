@@ -105,6 +105,29 @@ ClipDiff does not guess whether text is sensitive from its length, punctuation, 
 
 Windows Server Core is not supported. The initial release target is `win-x64`.
 
+## Install or update
+
+Download the `ClipDiff-<version>-win-x64.zip` asset from the GitHub release and
+extract the whole archive into its own directory. The complete application is
+exactly these two files:
+
+```text
+ClipDiff.exe
+ClipDiff.ShellExtension.dll
+```
+
+They must stay beside one another. Run `ClipDiff.exe`; the application manages
+the Explorer integration per user. Do not copy the DLL to a Windows system
+directory or register it manually.
+
+ClipDiff is portable and has no installer. The directory may be anywhere the
+current user can write, for example
+`%LOCALAPPDATA%\Programs\ClipDiff\1.0.0`. To update, quit
+ClipDiff, extract the new ZIP to a new directory, and run the new executable.
+Using a new directory avoids trying to overwrite an older shell-extension DLL
+that Explorer may still have loaded. Restarting Explorer or signing out may be
+needed before the old directory can be deleted.
+
 ## Build and test
 
 ### Prerequisites on Windows
@@ -137,11 +160,11 @@ dotnet test ClipDiff.Windows.sln --configuration Release --no-restore
 dotnet build ClipDiff.Windows.sln --configuration Release --no-restore
 ```
 
-The framework-dependent executable is then at
+The framework-dependent developer executable is then at
 `src\ClipDiff.Windows\bin\Release\net10.0-windows10.0.17763.0\ClipDiff.exe`.
 It requires the .NET 10 Windows Desktop Runtime on the computer where it runs.
-For a portable executable that includes its runtime, use the local release script
-below instead.
+It is not the distributable package. For the self-contained, validated two-file
+package, use the local release script below instead.
 
 The pure `ClipDiff.Core` project and both policy test assemblies target ordinary `net10.0`, so they can run on macOS:
 
@@ -165,7 +188,11 @@ An older test launcher could print `elevated=0, elevationType=2` after dropping 
 
 If the native test run fails, include the full output from `Native build:` through the final `[FAIL]` line and script error. The output identifies the test case, expected visibility, direct-handler and Windows-aggregate results, HRESULT/Win32 errors, selection counts and Shell attributes, and effective COM/menu registration. A visibility mismatch also prints menu IDs, states, separator labels, and a read-only snapshot of Shell restriction settings and ClipDiff's Approved/Blocked entries. These probes do not change policy or read clipboard contents or selected file paths. Passing the direct-handler check but failing the Windows-aggregate check narrows the problem to Shell discovery/aggregation; it does not by itself establish that a work-machine policy is responsible. Microsoft's [Shell extension approval policy documentation](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#enforceshellextensionsecurity) explains one possible restriction.
 
-GitHub Actions also builds and tests the native DLL, then tests and builds the .NET Release solution on `windows-latest` for every push and pull request. Each successful run provides a `ClipDiff-win-x64` artifact containing the executable and native DLL; extract both into the same directory. It can be run manually from the repository's **Actions** tab as well. Actual Explorer desktop interaction remains a separate manual check.
+GitHub Actions runs the same release script on `windows-latest` for every push
+and pull request. Each successful run provides a `ClipDiff-win-x64` artifact
+containing only the executable and native DLL; extract both into the same
+directory. It can be run manually from the repository's **Actions** tab as well.
+Actual Explorer desktop interaction remains a separate manual check.
 
 ## Local release
 
@@ -175,7 +202,22 @@ On Windows PowerShell, from the repository root:
 .\scripts\create-local-release.ps1
 ```
 
-The script builds/tests the native extension and publishes a self-contained, untrimmed `win-x64` application to the gitignored `releases/win-x64` directory. Distribute **both `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`** together; the .NET portion is bundled into the executable. Pass `-Launch` to start it after publishing. The personal build is unsigned, so Windows SmartScreen may warn before first launch.
+The script builds and tests the native extension, runs the .NET tests, and
+publishes a self-contained, untrimmed `win-x64` application. It stages the SDK
+output in a clean private directory, then creates both of these gitignored
+outputs:
+
+```text
+releases\ClipDiff-<version>-win-x64\
+releases\ClipDiff-<version>-win-x64.zip
+```
+
+The directory and ZIP are validated to contain exactly `ClipDiff.exe` and
+`ClipDiff.ShellExtension.dll`. Those are the complete release; keep them
+together. PDB, `deps.json`, `runtimeconfig.json`, `bin`, `obj`, and the rest of
+the raw publish directory are not release payload. Pass `-Launch` to start the
+packaged executable after publishing. The personal build is unsigned, so
+Windows SmartScreen may warn before first launch.
 
 To skip the native Explorer integration tests for a local release, pass `-SkipNativeTests`:
 
@@ -185,7 +227,11 @@ To skip the native Explorer integration tests for a local release, pass `-SkipNa
 
 This still builds and packages the native DLL and runs the .NET tests. Native tests run by default and remain enabled in CI. You can combine this switch with `-Launch`.
 
-Quit ClipDiff before upgrading. Explorer may keep the DLL loaded; use a new release directory if Windows refuses to replace it, and restart Explorer or sign out if an old handler remains loaded. Starting the new version removes the obsolete two-file static menu registration automatically.
+Quit ClipDiff before upgrading. The versioned package directory deliberately
+makes side-by-side extraction straightforward because Explorer may keep the old
+DLL loaded. Restart Explorer or sign out if the old handler remains loaded.
+Starting the new version removes the obsolete two-file static menu registration
+automatically.
 
 If PowerShell reports that script execution is disabled, allow the checked-out
 script for this process only, then run it again:
@@ -195,10 +241,13 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\create-local-release.ps1
 ```
 
-The resulting portable executable is `releases\win-x64\ClipDiff.exe`; copy that
-file to the work PC and run it without installing a separate .NET runtime.
+Copy the resulting ZIP to the target PC and extract both files together. No
+separate .NET runtime is required.
 
 No installer, automatic updater, or code signing is included in the initial release.
+
+Maintainer instructions for publishing a tagged GitHub release are in
+[`RELEASING.md`](RELEASING.md).
 
 ## Windows verification checklist
 
