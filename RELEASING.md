@@ -8,8 +8,8 @@ ClipDiff.exe
 ClipDiff.ShellExtension.dll
 ```
 
-Both files go in the same directory. The executable is the self-contained .NET
-application; the DLL is the native two-file Explorer context-menu handler. Do
+Both files go in the same directory. The executable is the .NET application;
+the DLL is the native two-file Explorer context-menu handler. Do
 not ship either file on its own.
 
 ## Build a release locally
@@ -22,7 +22,7 @@ On Windows, from a normal non-administrator PowerShell in the repository root:
 
 The script requires the .NET 10 SDK and Visual Studio C++ build tools with a
 Windows SDK. It builds and tests the native extension, runs the .NET tests,
-publishes the self-contained application in a clean staging directory, and
+publishes both application variants in separate clean staging directories, and
 validates both final folders and ZIPs. Output is:
 
 ```text

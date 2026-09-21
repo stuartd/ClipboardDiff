@@ -213,9 +213,9 @@ On Windows PowerShell, from the repository root:
 ```
 
 The script builds and tests the native extension, runs the .NET tests, and
-publishes a self-contained, untrimmed `win-x64` application. It stages the SDK
-output in a clean private directory, then creates both of these gitignored
-outputs:
+publishes self-contained and framework-dependent, untrimmed `win-x64` applications.
+It stages each variant in a clean private directory, then creates these gitignored
+directories and ZIPs:
 
 ```text
 releases\ClipDiff-<version>-win-x64-self-contained\

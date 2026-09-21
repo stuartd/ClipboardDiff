@@ -8,13 +8,21 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $releaseRoot = Join-Path $repositoryRoot 'releases'
-$publishDirectory = Join-Path $repositoryRoot 'artifacts/release-publish/win-x64'
+$publishRoot = Join-Path $repositoryRoot 'artifacts/release-publish'
 $packageStagingRoot = Join-Path $repositoryRoot 'artifacts/release-package'
 $applicationProject = Join-Path $repositoryRoot 'src/ClipDiff.Windows/ClipDiff.Windows.csproj'
 $coreTests = Join-Path $repositoryRoot 'tests/ClipDiff.Core.Tests/ClipDiff.Core.Tests.csproj'
-$privacyTests = Join-Path $repositoryRoot 'tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj'
+$windowsTests = Join-Path $repositoryRoot 'tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj'
 $nativeDll = Join-Path $repositoryRoot 'artifacts/native/Release/ClipDiff.ShellExtension.dll'
 $requiredPayload = @('ClipDiff.exe', 'ClipDiff.ShellExtension.dll')
+
+function Assert-ReleasePayload([string]$Directory, [string]$Description) {
+    $actualPayload = @(Get-ChildItem $Directory -File | Select-Object -ExpandProperty Name | Sort-Object)
+    $unexpectedPayload = @(Compare-Object ($requiredPayload | Sort-Object) $actualPayload)
+    if ($unexpectedPayload.Count -ne 0) {
+        throw "$Description validation failed. Expected only: $($requiredPayload -join ', ')."
+    }
+}
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw 'The .NET 10 SDK is required. Install it from https://dotnet.microsoft.com/download/dotnet/10.0 and open a new PowerShell window.'
@@ -37,19 +45,28 @@ try {
         throw "Release version '$Version' is invalid. Use a version such as 1.0.0 or 1.0.0-preview.1."
     }
 
-    $packageName = "ClipDiff-$Version-win-x64"
-    $packageDirectory = Join-Path $releaseRoot $packageName
-    $archivePath = Join-Path $releaseRoot "$packageName.zip"
-    $packageStagingDirectory = Join-Path $packageStagingRoot $packageName
-    $archiveStagingPath = Join-Path $packageStagingRoot "$packageName.zip"
-
-    # dotnet publish does not clean a custom output directory. Always publish to a
-    # private, empty staging directory so stale files can never enter a release.
-    if (Test-Path $publishDirectory) { Remove-Item $publishDirectory -Recurse -Force }
-    if (Test-Path $packageStagingDirectory) { Remove-Item $packageStagingDirectory -Recurse -Force }
-    if (Test-Path $archiveStagingPath) { Remove-Item $archiveStagingPath -Force }
-    New-Item $publishDirectory -ItemType Directory -Force | Out-Null
-    New-Item $packageStagingDirectory -ItemType Directory -Force | Out-Null
+    $packages = @(
+        [pscustomobject]@{
+            Name = "ClipDiff-$Version-win-x64-self-contained"
+            SelfContained = $true
+            Requirement = 'No separately installed .NET runtime required'
+            PublishDirectory = $null
+            StagingDirectory = $null
+            StagingArchive = $null
+            ReleaseDirectory = $null
+            ReleaseArchive = $null
+        },
+        [pscustomobject]@{
+            Name = "ClipDiff-$Version-win-x64-net10"
+            SelfContained = $false
+            Requirement = 'Requires the x64 .NET 10 Desktop Runtime'
+            PublishDirectory = $null
+            StagingDirectory = $null
+            StagingArchive = $null
+            ReleaseDirectory = $null
+            ReleaseArchive = $null
+        }
+    )
 
     if ($SkipNativeTests) {
         Write-Host 'Skipping native Explorer integration tests; the extension DLL will still be built.'
@@ -59,62 +76,80 @@ try {
     dotnet test $coreTests --configuration Release
     if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
 
-    dotnet publish $applicationProject `
-        --configuration Release `
-        --runtime win-x64 `
-        --self-contained true `
-        --output $publishDirectory `
-        -p:Version=$Version `
-        -p:PublishSingleFile=true `
-        -p:PublishTrimmed=false `
-        -p:IncludeNativeLibrariesForSelfExtract=true
-    if ($LASTEXITCODE -ne 0) { throw 'ClipDiff publish failed.' }
+    dotnet test $windowsTests --configuration Release
+    if ($LASTEXITCODE -ne 0) { throw 'Windows policy tests failed.' }
 
-    foreach ($file in $requiredPayload) {
-        $source = if ($file -eq 'ClipDiff.ShellExtension.dll') { $nativeDll } else { Join-Path $publishDirectory $file }
-        if (-not (Test-Path $source -PathType Leaf)) { throw "Release payload is missing required file: $file" }
-        Copy-Item $source $packageStagingDirectory
-    }
+    # dotnet publish does not clean custom output directories. Build both variants
+    # privately and validate both before replacing any public release output.
+    foreach ($package in $packages) {
+        $package.PublishDirectory = Join-Path $publishRoot $package.Name
+        $package.StagingDirectory = Join-Path $packageStagingRoot $package.Name
+        $package.StagingArchive = Join-Path $packageStagingRoot "$($package.Name).zip"
+        $package.ReleaseDirectory = Join-Path $releaseRoot $package.Name
+        $package.ReleaseArchive = Join-Path $releaseRoot "$($package.Name).zip"
 
-    $actualPayload = @(Get-ChildItem $packageStagingDirectory -File | Select-Object -ExpandProperty Name | Sort-Object)
-    $unexpectedPayload = @(Compare-Object ($requiredPayload | Sort-Object) $actualPayload)
-    if ($unexpectedPayload.Count -ne 0) {
-        throw "Release payload validation failed. Expected only: $($requiredPayload -join ', ')."
-    }
+        foreach ($path in @($package.PublishDirectory, $package.StagingDirectory)) {
+            if (Test-Path $path) { Remove-Item $path -Recurse -Force }
+            New-Item $path -ItemType Directory -Force | Out-Null
+        }
+        if (Test-Path $package.StagingArchive) { Remove-Item $package.StagingArchive -Force }
 
-    Compress-Archive -Path (Join-Path $packageStagingDirectory '*') -DestinationPath $archiveStagingPath -CompressionLevel Optimal
+        $selfContained = $package.SelfContained.ToString().ToLowerInvariant()
+        dotnet publish $applicationProject `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained $selfContained `
+            --output $package.PublishDirectory `
+            -p:Version=$Version `
+            -p:PublishSingleFile=true `
+            -p:PublishTrimmed=false `
+            -p:IncludeNativeLibrariesForSelfExtract=true
+        if ($LASTEXITCODE -ne 0) { throw "$($package.Name) publish failed." }
 
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $archive = [System.IO.Compression.ZipFile]::OpenRead($archiveStagingPath)
-    try {
-        $archivePayload = @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) } | Select-Object -ExpandProperty FullName | Sort-Object)
-        $unexpectedArchivePayload = @(Compare-Object ($requiredPayload | Sort-Object) $archivePayload)
-        if ($unexpectedArchivePayload.Count -ne 0) {
-            throw "Release archive validation failed. Expected only: $($requiredPayload -join ', ')."
+        foreach ($file in $requiredPayload) {
+            $source = if ($file -eq 'ClipDiff.ShellExtension.dll') { $nativeDll } else { Join-Path $package.PublishDirectory $file }
+            if (-not (Test-Path $source -PathType Leaf)) { throw "$($package.Name) is missing required file: $file" }
+            Copy-Item $source $package.StagingDirectory
+        }
+
+        Assert-ReleasePayload $package.StagingDirectory "$($package.Name) directory"
+        Compress-Archive -Path (Join-Path $package.StagingDirectory '*') -DestinationPath $package.StagingArchive -CompressionLevel Optimal
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($package.StagingArchive)
+        try {
+            $archivePayload = @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) } | Select-Object -ExpandProperty FullName | Sort-Object)
+            $unexpectedArchivePayload = @(Compare-Object ($requiredPayload | Sort-Object) $archivePayload)
+            if ($unexpectedArchivePayload.Count -ne 0) {
+                throw "$($package.Name) archive validation failed. Expected only: $($requiredPayload -join ', ')."
+            }
+        }
+        finally {
+            $archive.Dispose()
         }
     }
-    finally {
-        $archive.Dispose()
+
+    # Replace public outputs only after both variants pass validation, so a failed
+    # build cannot publish mismatched or partial packages.
+    New-Item $releaseRoot -ItemType Directory -Force | Out-Null
+    foreach ($package in $packages) {
+        if (Test-Path $package.ReleaseDirectory) { Remove-Item $package.ReleaseDirectory -Recurse -Force }
+        if (Test-Path $package.ReleaseArchive) { Remove-Item $package.ReleaseArchive -Force }
+        Move-Item $package.StagingDirectory $package.ReleaseDirectory
+        Move-Item $package.StagingArchive $package.ReleaseArchive
+        Remove-Item $package.PublishDirectory -Recurse -Force
+
+        Write-Host ''
+        Write-Host "Release directory: $($package.ReleaseDirectory)"
+        Write-Host "Release archive:   $($package.ReleaseArchive)"
+        Write-Host "Runtime:           $($package.Requirement)"
     }
 
-    # Replace the public output only after the staged folder and ZIP have both
-    # passed validation, so a failed build cannot leave a partial release behind.
-    New-Item $releaseRoot -ItemType Directory -Force | Out-Null
-    if (Test-Path $packageDirectory) { Remove-Item $packageDirectory -Recurse -Force }
-    if (Test-Path $archivePath) { Remove-Item $archivePath -Force }
-    Move-Item $packageStagingDirectory $packageDirectory
-    Move-Item $archiveStagingPath $archivePath
-    Remove-Item $publishDirectory -Recurse -Force
-
-    $executable = Join-Path $packageDirectory 'ClipDiff.exe'
-    Write-Host ''
-    Write-Host "Release directory: $packageDirectory"
-    Write-Host "Release archive:   $archivePath"
     Write-Host "Payload:           $($requiredPayload -join ', ')"
-    Write-Host 'Install:           Extract both files into the same directory, then run ClipDiff.exe.'
+    Write-Host 'Install:           Extract both files from one package into the same directory, then run ClipDiff.exe.'
 
     if ($Launch) {
-        Start-Process $executable
+        Start-Process (Join-Path $packages[0].ReleaseDirectory 'ClipDiff.exe')
     }
 }
 finally {
