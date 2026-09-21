@@ -12,7 +12,8 @@
         Background="#202020"
         Foreground="#F5F5F5"
         SourceInitialized="OnSourceInitialized"
-        Loaded="OnLoaded">
+        Loaded="OnLoaded"
+        PreviewKeyUp="OnPreviewKeyUp">
     <Window.Resources>
         <Style TargetType="Button">
             <Setter Property="Background" Value="#323232" />

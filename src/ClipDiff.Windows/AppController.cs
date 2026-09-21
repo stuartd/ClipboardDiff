@@ -45,7 +45,7 @@ internal sealed class AppController : IDisposable
         _history = new ClipboardHistory(_clipboardMonitor.BaselineSequence);
         _settingsStore = new ClipDiffSettingsStore();
         _settings = _settingsStore.Load();
-        _hotKey = new GlobalHotKey(_messageWindow, HotKeyGesture.Normalize(_settings.HotKey));
+        _hotKey = new GlobalHotKey(new NativeHotKeyBackend(_messageWindow), HotKeyGesture.Normalize(_settings.HotKey));
         _externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(_settings.SelectedExecutablePath);
         _externalDiffLauncher = new ExternalDiffLauncher();
         _trayIcon = new TrayIconController(
@@ -59,7 +59,7 @@ internal sealed class AppController : IDisposable
         _explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
 
         _clipboardMonitor.ObservationReceived += OnClipboardObservation;
-        _hotKey.Pressed += OnShowDiffRequested;
+        _hotKey.Pressed += OnHotKeyPressed;
         _trayIcon.ShowDiffRequested += OnShowDiffRequested;
         _trayIcon.ShortcutRequested += OnShortcutRequested;
         _trayIcon.ToggleMonitoringRequested += OnToggleMonitoringRequested;
@@ -91,7 +91,7 @@ internal sealed class AppController : IDisposable
         _disposed = true;
         _shutdown.Cancel();
         _clipboardMonitor.ObservationReceived -= OnClipboardObservation;
-        _hotKey.Pressed -= OnShowDiffRequested;
+        _hotKey.Pressed -= OnHotKeyPressed;
         _trayIcon.ShowDiffRequested -= OnShowDiffRequested;
         _trayIcon.ShortcutRequested -= OnShortcutRequested;
         _trayIcon.ToggleMonitoringRequested -= OnToggleMonitoringRequested;
@@ -143,6 +143,16 @@ internal sealed class AppController : IDisposable
         }
 
         UpdatePresentation();
+    }
+
+    private void OnHotKeyPressed(object? sender, EventArgs args)
+    {
+        if (_shortcutWindow?.TryCaptureRegisteredShortcut(_hotKey.Gesture) == true)
+        {
+            return;
+        }
+
+        ShowDiff();
     }
 
     private void OnShowDiffRequested(object? sender, EventArgs args) => ShowDiff();
@@ -206,23 +216,16 @@ internal sealed class AppController : IDisposable
             return HotKeyChangeResult.Unavailable;
         }
 
-        var previousGesture = _hotKey.Gesture;
-        if (!_hotKey.TryChange(gesture))
-        {
-            return HotKeyChangeResult.Unavailable;
-        }
-
         var updatedSettings = _settings with { HotKey = gesture };
-        if (!_settingsStore.TrySave(updatedSettings))
+        var result = HotKeyChangeTransaction.TrySave(
+            _hotKey, gesture, () => _settingsStore.TrySave(updatedSettings));
+        if (result == HotKeyChangeResult.Success)
         {
-            _hotKey.TryChange(previousGesture);
-            UpdatePresentation();
-            return HotKeyChangeResult.SaveFailed;
+            _settings = updatedSettings;
         }
 
-        _settings = updatedSettings;
         UpdatePresentation();
-        return HotKeyChangeResult.Success;
+        return result;
     }
 
     private void OnDiffToolSelected(object? sender, ExternalDiffToolSelectedEventArgs args)

@@ -57,6 +57,8 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
             var isUsableKey = VirtualKey is > 0 and <= 0xFE &&
                               VirtualKey != VirtualKeyLeftWindows &&
                               VirtualKey != VirtualKeyRightWindows &&
+                              VirtualKey != 0x7B && // F12 is permanently reserved for the debugger.
+                              VirtualKey is not (0x01 or 0x02 or 0x04 or 0x05 or 0x06) && // Mouse buttons.
                               !ModifierVirtualKeys.Contains(VirtualKey);
             var isReservedWindowCommand =
                 (Modifiers & HotKeyModifiers.Alt) != 0 && VirtualKey == VirtualKeyF4;
@@ -92,6 +94,12 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
             return string.Join('+', parts);
         }
     }
+
+    // These unmodified/dialog combinations should reach WPF's normal controls.
+    public static bool IsDialogCommand(HotKeyModifiers modifiers, uint virtualKey) =>
+        (modifiers == HotKeyModifiers.None && virtualKey is 0x09 or 0x0D or 0x1B) ||
+        (modifiers == HotKeyModifiers.Shift && virtualKey == 0x09) ||
+        (modifiers == HotKeyModifiers.Alt && virtualKey == VirtualKeyF4);
 
     public static HotKeyGesture Normalize(HotKeyGesture? gesture) =>
         gesture is { IsValid: true } valid ? valid : Default;
@@ -160,5 +168,6 @@ internal enum HotKeyChangeResult
 {
     Success,
     Unavailable,
-    SaveFailed
+    SaveFailed,
+    SaveFailedAndRestoreFailed
 }

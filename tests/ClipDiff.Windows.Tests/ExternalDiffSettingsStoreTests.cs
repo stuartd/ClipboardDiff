@@ -80,6 +80,53 @@ public sealed class ClipDiffSettingsStoreTests
         }
     }
 
+
+    [TestMethod]
+    public void ResetPersistsWithoutChangingExternalViewerPreferences()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new ClipDiffSettingsStore(Path.Combine(directory, "settings.json"));
+            var settings = new ClipDiffSettings(@"C:\Tools\Diff.exe", true,
+                new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36));
+            Assert.IsTrue(store.TrySave(settings));
+            Assert.IsTrue(store.TrySave(settings with { HotKey = HotKeyGesture.Default }));
+            var reloaded = store.Load();
+            Assert.AreEqual(HotKeyGesture.Default, reloaded.HotKey);
+            Assert.AreEqual(settings.SelectedExecutablePath, reloaded.SelectedExecutablePath);
+            Assert.IsTrue(reloaded.PlaintextWarningAcknowledged);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [TestMethod]
+    public void FailedSaveDoesNotReplaceExistingSettings()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            var store = new ClipDiffSettingsStore(path);
+            var settings = new ClipDiffSettings(HotKey: HotKeyGesture.Default);
+            Assert.IsTrue(store.TrySave(settings));
+            // A directory at the temporary file path reliably prevents writing on every OS.
+            Directory.CreateDirectory(path + ".tmp");
+            Assert.IsFalse(store.TrySave(settings with
+            {
+                HotKey = new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36)
+            }));
+            Assert.AreEqual(settings, store.Load());
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "ClipDiff.Tests", Guid.NewGuid().ToString("N"));
