@@ -14,7 +14,14 @@ public sealed record DiffRow(
     int? NewLineNumber,
     string? OldText,
     string? NewText,
-    DiffKind Kind);
+    DiffKind Kind)
+{
+    public IReadOnlyList<HighlightRange> OldHighlights { get; init; } = [];
+    public IReadOnlyList<HighlightRange> NewHighlights { get; init; } = [];
+}
+
+/// <summary>Zero-based extended grapheme cluster offsets; End is exclusive.</summary>
+public readonly record struct HighlightRange(int Start, int End);
 
 public sealed record DiffSummary(
     int Inserted,

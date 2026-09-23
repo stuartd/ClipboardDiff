@@ -11,9 +11,12 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
     private DiffDocument? _document;
     private int _selectedViewIndex;
     private bool _canClear;
+    private bool _ignoreSpacing;
+    private readonly Action _comparisonOptionsChanged;
 
-    public DiffWindowViewModel(Action copy, Action clear)
+    public DiffWindowViewModel(Action copy, Action clear, Action comparisonOptionsChanged)
     {
+        _comparisonOptionsChanged = comparisonOptionsChanged;
         _copyCommand = new RelayCommand(copy, () => _document is not null);
         _clearCommand = new RelayCommand(clear, () => _canClear);
     }
@@ -65,6 +68,18 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IgnoreSpacing
+    {
+        get => _ignoreSpacing;
+        set
+        {
+            if (_ignoreSpacing == value) return;
+            _ignoreSpacing = value;
+            OnPropertyChanged();
+            _comparisonOptionsChanged();
+        }
+    }
+
     public RelayCommand CopyCommand => _copyCommand;
 
     public RelayCommand ClearCommand => _clearCommand;
@@ -94,19 +109,21 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     private static IReadOnlyList<UnifiedLineViewModel> CreateUnifiedLines(DiffDocument document)
     {
-        var outputLines = DiffFormatting.Unified(document).Split('\n');
-        return
-        [
-            .. outputLines.Select((text, index) => new UnifiedLineViewModel(
-                text,
-                index < 2
-                    ? UnifiedLineKind.Header
-                    : text.StartsWith("- ", StringComparison.Ordinal)
-                        ? UnifiedLineKind.Removed
-                        : text.StartsWith("+ ", StringComparison.Ordinal)
-                            ? UnifiedLineKind.Inserted
-                            : UnifiedLineKind.Equal))
-        ];
+        var lines = new List<UnifiedLineViewModel>
+        {
+            new(document.Labels.Previous, UnifiedLineKind.Header, "--- ", []),
+            new(document.Labels.Current, UnifiedLineKind.Header, "+++ ", [])
+        };
+        foreach (var row in document.Rows)
+        {
+            if (row.Kind == DiffKind.Equal)
+                lines.Add(new(row.OldText, UnifiedLineKind.Equal, "  ", []));
+            if (row.Kind is DiffKind.Removed or DiffKind.Changed)
+                lines.Add(new(row.OldText, UnifiedLineKind.Removed, "- ", row.OldHighlights));
+            if (row.Kind is DiffKind.Inserted or DiffKind.Changed)
+                lines.Add(new(row.NewText, UnifiedLineKind.Inserted, "+ ", row.NewHighlights));
+        }
+        return lines;
     }
 
     private void RaiseDocumentProperties()
@@ -135,4 +152,4 @@ internal enum UnifiedLineKind
     Inserted
 }
 
-internal sealed record UnifiedLineViewModel(string Text, UnifiedLineKind Kind);
+internal sealed record UnifiedLineViewModel(string? Text, UnifiedLineKind Kind, string Prefix, IReadOnlyList<HighlightRange> Highlights);

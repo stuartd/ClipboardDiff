@@ -16,6 +16,8 @@ namespace ClipDiff.Windows;
 internal sealed class AppController : IDisposable
 {
     private readonly DiffEngine _diffEngine = new();
+    private readonly LatestComparison _comparison = new();
+    private (ClipboardEntry Previous, ClipboardEntry Current, DiffSideLabels Labels)? _comparisonInput;
     private readonly ClipDiffSettingsStore _settingsStore;
     private readonly ExternalDiffLauncher _externalDiffLauncher;
     private readonly NativeMessageWindow _messageWindow;
@@ -51,7 +53,7 @@ internal sealed class AppController : IDisposable
         _trayIcon = new TrayIconController(
             _externalDiffTools,
             GetSelectedExternalDiffTool()?.ExecutablePath);
-        _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText);
+        _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText, Recompare);
         _explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
         _explorerDropTargetServer = new ExplorerDropTargetServer(
             OnExplorerFilesSelected,
@@ -89,6 +91,7 @@ internal sealed class AppController : IDisposable
         }
 
         _disposed = true;
+        ClearComparison();
         _shutdown.Cancel();
         _clipboardMonitor.ObservationReceived -= OnClipboardObservation;
         _hotKey.Pressed -= OnHotKeyPressed;
@@ -139,6 +142,7 @@ internal sealed class AppController : IDisposable
         var change = _history.Apply(observation);
         if (change == ClipboardHistoryChange.RemovedByRecentClear)
         {
+            ClearComparison();
             _viewModel.ClearDocument();
         }
 
@@ -280,6 +284,7 @@ internal sealed class AppController : IDisposable
             return;
         }
 
+        _comparison.Cancel();
         var selectedTool = GetSelectedExternalDiffTool();
         if (selectedTool is not null && ConfirmExternalDiffRisk() &&
             _externalDiffLauncher.TryLaunch(selectedTool, previous, current))
@@ -292,15 +297,46 @@ internal sealed class AppController : IDisposable
 
     private void ShowBuiltInDiff(ClipboardEntry previous, ClipboardEntry current)
     {
-        _viewModel.Load(_diffEngine.Compare(previous, current));
-        _diffWindow ??= new DiffWindow { DataContext = _viewModel };
-        if (_diffWindow.WindowState == WindowState.Minimized)
-        {
-            _diffWindow.WindowState = WindowState.Normal;
-        }
+        _comparisonInput = (previous with { SourceFilePath = null },
+            current with { SourceFilePath = null }, DiffFormatting.Labels(previous, current));
+        Recompare();
+    }
 
-        _diffWindow.Show();
-        _diffWindow.Activate();
+    private void Recompare()
+    {
+        if (_comparisonInput is not { } input || _disposed) return;
+        _ = CompareBuiltInAsync(input.Previous, input.Current, input.Labels);
+    }
+
+    private async Task CompareBuiltInAsync(ClipboardEntry previous, ClipboardEntry current, DiffSideLabels labels)
+    {
+        var ignoreSpacing = _viewModel.IgnoreSpacing;
+        try
+        {
+            await _comparison.RunAsync(
+                token => Task.Run(() => _diffEngine.Compare(previous, current,
+                    ignoreSpacing: ignoreSpacing, cancellationToken: token) with { Labels = labels }, token),
+                document =>
+                {
+                    _viewModel.Load(document);
+                    _diffWindow ??= new DiffWindow { DataContext = _viewModel };
+                    if (_diffWindow.WindowState == WindowState.Minimized)
+                        _diffWindow.WindowState = WindowState.Normal;
+                    _diffWindow.Show();
+                    _diffWindow.Activate();
+                });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or OverflowException)
+        {
+            // Never include input text in diagnostics or user-facing errors.
+            if (!_disposed) SystemSounds.Beep.Play();
+        }
+    }
+
+    private void ClearComparison()
+    {
+        _comparison.Cancel();
+        _comparisonInput = null;
     }
 
     private async Task CompareWithSelectedFileAsync(string selectedFilePath)
@@ -497,6 +533,7 @@ internal sealed class AppController : IDisposable
 
     private void ClearCapturedText()
     {
+        ClearComparison();
         _history.Clear();
         _viewModel.ClearDocument();
         UpdatePresentation();

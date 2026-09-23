@@ -12,15 +12,28 @@ public sealed class DiffEngine
     public DiffDocument Compare(
         ClipboardEntry previous,
         ClipboardEntry current,
-        DateTimeOffset? createdAt = null)
+        DateTimeOffset? createdAt = null,
+        bool ignoreSpacing = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previous);
         ArgumentNullException.ThrowIfNull(current);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var oldLines = TextLines.Split(previous.Text);
         var newLines = TextLines.Split(current.Text);
-        var edits = ShortestEditScript(oldLines, newLines);
-        var rows = GenerateRows(edits);
+        var oldKeys = ignoreSpacing ? oldLines.Select(InlineDiff.NormalizeSpacing).ToArray() : oldLines;
+        var newKeys = ignoreSpacing ? newLines.Select(InlineDiff.NormalizeSpacing).ToArray() : newLines;
+        var edits = ShortestEditScript(oldKeys, newKeys, cancellationToken);
+        // Restore original text after matching normalized keys; display and copy never normalize it.
+        edits = edits.Select(edit => edit with
+        {
+            OldText = edit.OldIndex < 0 ? null : oldLines[edit.OldIndex],
+            NewText = edit.NewIndex < 0 ? null : newLines[edit.NewIndex]
+        }).ToArray();
+        var inline = new InlineDiff(ignoreSpacing, cancellationToken);
+        var rows = GenerateRows(edits, cancellationToken).Select(inline.Highlight).ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
         var summary = new DiffSummary(
             rows.Count(row => row.Kind == DiffKind.Inserted),
             rows.Count(row => row.Kind == DiffKind.Removed),
@@ -38,13 +51,14 @@ public sealed class DiffEngine
             labels);
     }
 
-    private IReadOnlyList<DiffRow> GenerateRows(IReadOnlyList<Edit> edits)
+    private IReadOnlyList<DiffRow> GenerateRows(IReadOnlyList<Edit> edits, CancellationToken cancellationToken)
     {
         var rows = new List<DiffRow>();
         var index = 0;
 
         while (index < edits.Count)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (edits[index].Kind == EditKind.Equal)
             {
                 var equal = edits[index++];
@@ -113,7 +127,7 @@ public sealed class DiffEngine
         return rows;
     }
 
-    private static IReadOnlyList<Edit> ShortestEditScript(string[] oldLines, string[] newLines)
+    private static IReadOnlyList<Edit> ShortestEditScript(string[] oldLines, string[] newLines, CancellationToken cancellationToken)
     {
         var oldCount = oldLines.Length;
         var newCount = newLines.Length;
@@ -125,8 +139,10 @@ public sealed class DiffEngine
 
         for (var distance = 0; distance <= max; distance++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             for (var diagonal = -distance; diagonal <= distance; diagonal += 2)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var frontierIndex = offset + diagonal;
                 int oldIndex;
                 if (diagonal == -distance ||
@@ -151,7 +167,7 @@ public sealed class DiffEngine
                 if (oldIndex >= oldCount && newIndex >= newCount)
                 {
                     trace.Add((int[])frontier.Clone());
-                    return Backtrack(trace, distance, offset, oldLines, newLines);
+                    return Backtrack(trace, distance, offset, oldLines, newLines, cancellationToken);
                 }
             }
 
@@ -166,7 +182,8 @@ public sealed class DiffEngine
         int distance,
         int offset,
         string[] oldLines,
-        string[] newLines)
+        string[] newLines,
+        CancellationToken cancellationToken)
     {
         var edits = new List<Edit>(oldLines.Length + newLines.Length);
         var oldIndex = oldLines.Length;
@@ -174,6 +191,7 @@ public sealed class DiffEngine
 
         for (var depth = distance; depth > 0; depth--)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var previousFrontier = trace[depth - 1];
             var diagonal = oldIndex - newIndex;
             int previousDiagonal;

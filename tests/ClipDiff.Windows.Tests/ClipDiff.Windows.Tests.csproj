@@ -27,6 +27,7 @@
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerCommandProtocol.cs" Link="ExplorerCommandProtocol.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Explorer/ExplorerDropTargetServer.cs" Link="ExplorerDropTargetServer.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Native/NativeMethods.cs" Link="NativeMethods.cs" />
+    <Compile Include="../../src/ClipDiff.Windows/ViewModels/LatestComparison.cs" Link="LatestComparison.cs" />
     <Compile Include="../../src/ClipDiff.Windows/Views/AboutVersionFormatter.cs" Link="AboutVersionFormatter.cs" />
   </ItemGroup>
 </Project>
