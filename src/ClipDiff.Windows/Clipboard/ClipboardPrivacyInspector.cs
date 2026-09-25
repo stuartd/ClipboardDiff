@@ -31,18 +31,18 @@ public abstract record ClipboardInspection
 
 public sealed class ClipboardPrivacyInspector
 {
-    private readonly IClipboardDataAccess _clipboard;
-    private readonly ClipboardFormatIds _formats;
+    private readonly IClipboardDataAccess clipboard;
+    private readonly ClipboardFormatIds formats;
 
     public ClipboardPrivacyInspector(IClipboardDataAccess clipboard, ClipboardFormatIds formats)
     {
-        _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
-        _formats = formats ?? throw new ArgumentNullException(nameof(formats));
+        this.clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
+        this.formats = formats ?? throw new ArgumentNullException(nameof(formats));
     }
 
     public ClipboardInspection Inspect(uint sequenceNumber, DateTimeOffset observedAt)
     {
-        if (!_clipboard.TryHasAnyFormats(out var hasAnyFormats))
+        if (!clipboard.TryHasAnyFormats(out var hasAnyFormats))
         {
             return Completed(ClipboardObservation.InspectionFailed(sequenceNumber, observedAt));
         }
@@ -52,19 +52,19 @@ public sealed class ClipboardPrivacyInspector
             return Completed(ClipboardObservation.ExplicitClear(sequenceNumber, observedAt));
         }
 
-        if (_clipboard.IsFormatAvailable(_formats.ExcludeFromMonitor))
+        if (clipboard.IsFormatAvailable(formats.ExcludeFromMonitor))
         {
             return Completed(ClipboardObservation.Sensitive(sequenceNumber, observedAt));
         }
 
-        if (IsUnavailableOrZero(_formats.IncludeInHistory) || IsUnavailableOrZero(_formats.UploadToCloud))
+        if (IsUnavailableOrZero(formats.IncludeInHistory) || IsUnavailableOrZero(formats.UploadToCloud))
         {
             return Completed(ClipboardObservation.Sensitive(sequenceNumber, observedAt));
         }
 
-        if (_clipboard.IsFormatAvailable(NativeFileDropFormat))
+        if (clipboard.IsFormatAvailable(NativeFileDropFormat))
         {
-            if (!_clipboard.TryReadFilePaths(out var filePaths) || filePaths is null)
+            if (!clipboard.TryReadFilePaths(out var filePaths) || filePaths is null)
             {
                 return Completed(ClipboardObservation.InspectionFailed(sequenceNumber, observedAt));
             }
@@ -74,12 +74,12 @@ public sealed class ClipboardPrivacyInspector
                 : new ClipboardInspection.CopiedFiles(sequenceNumber, observedAt, filePaths);
         }
 
-        if (!_clipboard.IsFormatAvailable(NativeUnicodeTextFormat))
+        if (!clipboard.IsFormatAvailable(NativeUnicodeTextFormat))
         {
             return Completed(ClipboardObservation.NonText(sequenceNumber, observedAt));
         }
 
-        if (!_clipboard.TryReadUnicodeText(out var text) || text is null)
+        if (!clipboard.TryReadUnicodeText(out var text) || text is null)
         {
             return Completed(ClipboardObservation.InspectionFailed(sequenceNumber, observedAt));
         }
@@ -101,12 +101,12 @@ public sealed class ClipboardPrivacyInspector
 
     private bool IsUnavailableOrZero(uint format)
     {
-        if (!_clipboard.IsFormatAvailable(format))
+        if (!clipboard.IsFormatAvailable(format))
         {
             return false;
         }
 
         // A malformed or unreadable marker is excluded conservatively.
-        return !_clipboard.TryReadDword(format, out var value) || value == 0;
+        return !clipboard.TryReadDword(format, out var value) || value == 0;
     }
 }

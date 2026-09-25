@@ -6,62 +6,62 @@ namespace ClipDiff.Windows.ViewModels;
 
 internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 {
-    private readonly RelayCommand _copyCommand;
-    private readonly RelayCommand _clearCommand;
-    private DiffDocument? _document;
-    private int _selectedViewIndex;
-    private bool _canClear;
-    private bool _ignoreSpacing;
-    private readonly Action _comparisonOptionsChanged;
+    private readonly RelayCommand copyCommand;
+    private readonly RelayCommand clearCommand;
+    private DiffDocument? document;
+    private int selectedViewIndex;
+    private bool canClear;
+    private bool ignoreSpacing;
+    private readonly Action comparisonOptionsChanged;
 
     public DiffWindowViewModel(Action copy, Action clear, Action comparisonOptionsChanged)
     {
-        _comparisonOptionsChanged = comparisonOptionsChanged;
-        _copyCommand = new RelayCommand(copy, () => _document is not null);
-        _clearCommand = new RelayCommand(clear, () => _canClear);
+        this.comparisonOptionsChanged = comparisonOptionsChanged;
+        copyCommand = new RelayCommand(copy, () => document is not null);
+        clearCommand = new RelayCommand(clear, () => canClear);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public DiffDocument? Document => _document;
+    public DiffDocument? Document => document;
 
-    public IReadOnlyList<DiffRow> Rows => _document?.Rows ?? [];
+    public IReadOnlyList<DiffRow> Rows => document?.Rows ?? [];
 
-    public IReadOnlyList<UnifiedLineViewModel> UnifiedLines => _document is null
+    public IReadOnlyList<UnifiedLineViewModel> UnifiedLines => document is null
         ? []
-        : CreateUnifiedLines(_document);
+        : CreateUnifiedLines(document);
 
-    public string Summary => _document is null ? string.Empty : DiffFormatting.Summary(_document.Summary);
+    public string Summary => document is null ? string.Empty : DiffFormatting.Summary(document.Summary);
 
-    public string PreviousLabel => _document is null
+    public string PreviousLabel => document is null
         ? DiffFormatting.DefaultPreviousLabel
-        : _document.Labels.Previous;
+        : document.Labels.Previous;
 
-    public string CurrentLabel => _document is null
+    public string CurrentLabel => document is null
         ? DiffFormatting.DefaultCurrentLabel
-        : _document.Labels.Current;
+        : document.Labels.Current;
 
-    public Visibility EmptyVisibility => _document is null ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility EmptyVisibility => document is null ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility SideBySideVisibility => _document is not null && _selectedViewIndex == 0
+    public Visibility SideBySideVisibility => document is not null && selectedViewIndex == 0
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility UnifiedVisibility => _document is not null && _selectedViewIndex == 1
+    public Visibility UnifiedVisibility => document is not null && selectedViewIndex == 1
         ? Visibility.Visible
         : Visibility.Collapsed;
 
     public int SelectedViewIndex
     {
-        get => _selectedViewIndex;
+        get => selectedViewIndex;
         set
         {
-            if (_selectedViewIndex == value)
+            if (selectedViewIndex == value)
             {
                 return;
             }
 
-            _selectedViewIndex = value;
+            selectedViewIndex = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SideBySideVisibility));
             OnPropertyChanged(nameof(UnifiedVisibility));
@@ -70,41 +70,45 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     public bool IgnoreSpacing
     {
-        get => _ignoreSpacing;
+        get => ignoreSpacing;
         set
         {
-            if (_ignoreSpacing == value) return;
-            _ignoreSpacing = value;
+            if (ignoreSpacing == value)
+			{
+				return;
+			}
+
+			ignoreSpacing = value;
             OnPropertyChanged();
-            _comparisonOptionsChanged();
+            comparisonOptionsChanged();
         }
     }
 
-    public RelayCommand CopyCommand => _copyCommand;
+    public RelayCommand CopyCommand => copyCommand;
 
-    public RelayCommand ClearCommand => _clearCommand;
+    public RelayCommand ClearCommand => clearCommand;
 
     public void Load(DiffDocument document)
     {
-        _document = document ?? throw new ArgumentNullException(nameof(document));
+        this.document = document ?? throw new ArgumentNullException(nameof(document));
         RaiseDocumentProperties();
     }
 
     public void ClearDocument()
     {
-        _document = null;
+        document = null;
         RaiseDocumentProperties();
     }
 
     public void SetCanClear(bool canClear)
     {
-        if (_canClear == canClear)
+        if (this.canClear == canClear)
         {
             return;
         }
 
-        _canClear = canClear;
-        _clearCommand.RaiseCanExecuteChanged();
+        this.canClear = canClear;
+        clearCommand.RaiseCanExecuteChanged();
     }
 
     private static IReadOnlyList<UnifiedLineViewModel> CreateUnifiedLines(DiffDocument document)
@@ -117,12 +121,20 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         foreach (var row in document.Rows)
         {
             if (row.Kind == DiffKind.Equal)
-                lines.Add(new(row.OldText, UnifiedLineKind.Equal, "  ", []));
-            if (row.Kind is DiffKind.Removed or DiffKind.Changed)
-                lines.Add(new(row.OldText, UnifiedLineKind.Removed, "- ", row.OldHighlights));
-            if (row.Kind is DiffKind.Inserted or DiffKind.Changed)
-                lines.Add(new(row.NewText, UnifiedLineKind.Inserted, "+ ", row.NewHighlights));
-        }
+			{
+				lines.Add(new(row.OldText, UnifiedLineKind.Equal, "  ", []));
+			}
+
+			if (row.Kind is DiffKind.Removed or DiffKind.Changed)
+			{
+				lines.Add(new(row.OldText, UnifiedLineKind.Removed, "- ", row.OldHighlights));
+			}
+
+			if (row.Kind is DiffKind.Inserted or DiffKind.Changed)
+			{
+				lines.Add(new(row.NewText, UnifiedLineKind.Inserted, "+ ", row.NewHighlights));
+			}
+		}
         return lines;
     }
 
@@ -137,7 +149,7 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EmptyVisibility));
         OnPropertyChanged(nameof(SideBySideVisibility));
         OnPropertyChanged(nameof(UnifiedVisibility));
-        _copyCommand.RaiseCanExecuteChanged();
+        copyCommand.RaiseCanExecuteChanged();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

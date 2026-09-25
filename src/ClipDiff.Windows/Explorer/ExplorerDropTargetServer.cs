@@ -16,22 +16,22 @@ internal sealed class ExplorerDropTargetServer : IDisposable
     private const uint RegclsMultipleUse = 0x1;
     private const int CoinitApartmentThreaded = 0x2;
     private const int RpcEChangedMode = unchecked((int)0x80010106);
-    private readonly ExplorerDropTargetClassFactory _classFactory;
-    private nint _classFactoryPointer;
-    private uint _registrationCookie;
-    private bool _uninitializeCom;
-    private bool _disposed;
+    private readonly ExplorerDropTargetClassFactory classFactory;
+    private nint classFactoryPointer;
+    private uint registrationCookie;
+    private bool uninitializeCom;
+    private bool disposed;
 
     public ExplorerDropTargetServer(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
         ArgumentNullException.ThrowIfNull(selectedFilesHandler);
         ArgumentNullException.ThrowIfNull(canCompare);
-        _classFactory = new ExplorerDropTargetClassFactory(selectedFilesHandler, canCompare);
+        classFactory = new ExplorerDropTargetClassFactory(selectedFilesHandler, canCompare);
 
         var initializeResult = CoInitializeEx(nint.Zero, CoinitApartmentThreaded);
         if (initializeResult >= 0)
         {
-            _uninitializeCom = true;
+            uninitializeCom = true;
         }
         else if (initializeResult != RpcEChangedMode)
         {
@@ -41,56 +41,56 @@ internal sealed class ExplorerDropTargetServer : IDisposable
         try
         {
             var classId = ClassId;
-            _classFactoryPointer = Marshal.GetIUnknownForObject(_classFactory);
+            classFactoryPointer = Marshal.GetIUnknownForObject(classFactory);
             var registrationResult = CoRegisterClassObject(
                 ref classId,
-                _classFactoryPointer,
+                classFactoryPointer,
                 ClsctxLocalServer,
                 RegclsMultipleUse,
-                out _registrationCookie);
+                out registrationCookie);
             if (registrationResult < 0)
             {
-                _registrationCookie = 0;
-                Marshal.Release(_classFactoryPointer);
-                _classFactoryPointer = nint.Zero;
+                registrationCookie = 0;
+                Marshal.Release(classFactoryPointer);
+                classFactoryPointer = nint.Zero;
             }
         }
         catch (Exception exception) when (exception is PlatformNotSupportedException or ArgumentException)
         {
-            if (_classFactoryPointer != nint.Zero)
+            if (classFactoryPointer != nint.Zero)
             {
-                Marshal.Release(_classFactoryPointer);
-                _classFactoryPointer = nint.Zero;
+                Marshal.Release(classFactoryPointer);
+                classFactoryPointer = nint.Zero;
             }
         }
     }
 
-    public bool IsRegistered => _registrationCookie != 0;
+    public bool IsRegistered => registrationCookie != 0;
 
     public void Dispose()
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
 
-        _disposed = true;
-        if (_registrationCookie != 0)
+        disposed = true;
+        if (registrationCookie != 0)
         {
-            CoRevokeClassObject(_registrationCookie);
-            _registrationCookie = 0;
+            CoRevokeClassObject(registrationCookie);
+            registrationCookie = 0;
         }
 
-        if (_classFactoryPointer != nint.Zero)
+        if (classFactoryPointer != nint.Zero)
         {
-            Marshal.Release(_classFactoryPointer);
-            _classFactoryPointer = nint.Zero;
+            Marshal.Release(classFactoryPointer);
+            classFactoryPointer = nint.Zero;
         }
 
-        if (_uninitializeCom)
+        if (uninitializeCom)
         {
             CoUninitialize();
-            _uninitializeCom = false;
+            uninitializeCom = false;
         }
     }
 
@@ -131,13 +131,13 @@ public sealed class ExplorerDropTargetClassFactory : IClassFactory
 {
     private const int ClassENoAggregation = unchecked((int)0x80040110);
     private const int ENoInterface = unchecked((int)0x80004002);
-    private readonly Action<IReadOnlyList<string>> _selectedFilesHandler;
-    private readonly Func<bool> _canCompare;
+    private readonly Action<IReadOnlyList<string>> selectedFilesHandler;
+    private readonly Func<bool> canCompare;
 
     internal ExplorerDropTargetClassFactory(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
-        _selectedFilesHandler = selectedFilesHandler;
-        _canCompare = canCompare;
+        this.selectedFilesHandler = selectedFilesHandler;
+        this.canCompare = canCompare;
     }
 
     public int CreateInstance(nint outer, ref Guid interfaceId, out nint createdObject)
@@ -148,7 +148,7 @@ public sealed class ExplorerDropTargetClassFactory : IClassFactory
             return ClassENoAggregation;
         }
 
-        var dropTarget = new ExplorerDropTarget(_selectedFilesHandler, _canCompare);
+        var dropTarget = new ExplorerDropTarget(selectedFilesHandler, canCompare);
         var unknown = Marshal.GetIUnknownForObject(dropTarget);
         try
         {
@@ -208,40 +208,40 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget
     private const uint DropEffectNone = 0;
     private const uint DropEffectCopy = 1;
     private const int DvAspectContent = 1;
-    private readonly Action<IReadOnlyList<string>> _selectedFilesHandler;
-    private readonly Func<bool> _canCompare;
-    private bool _canDrop;
+    private readonly Action<IReadOnlyList<string>> selectedFilesHandler;
+    private readonly Func<bool> canCompare;
+    private bool canDrop;
 
     internal ExplorerDropTarget(Action<IReadOnlyList<string>> selectedFilesHandler, Func<bool> canCompare)
     {
-        _selectedFilesHandler = selectedFilesHandler;
-        _canCompare = canCompare;
+        this.selectedFilesHandler = selectedFilesHandler;
+        this.canCompare = canCompare;
     }
 
     public int DragEnter(ComDataObject dataObject, uint keyState, NativePoint point, ref uint effect)
     {
         try
         {
-            _canDrop = _canCompare() && ContainsExactFilePair(dataObject);
+            canDrop = canCompare() && ContainsExactFilePair(dataObject);
         }
         catch (Exception exception) when (IsDataObjectException(exception))
         {
-            _canDrop = false;
+            canDrop = false;
         }
 
-        effect = _canDrop ? DropEffectCopy : DropEffectNone;
+        effect = canDrop ? DropEffectCopy : DropEffectNone;
         return 0;
     }
 
     public int DragOver(uint keyState, NativePoint point, ref uint effect)
     {
-        effect = _canCompare() && _canDrop ? DropEffectCopy : DropEffectNone;
+        effect = canCompare() && canDrop ? DropEffectCopy : DropEffectNone;
         return 0;
     }
 
     public int DragLeave()
     {
-        _canDrop = false;
+        canDrop = false;
         return 0;
     }
 
@@ -249,11 +249,11 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget
     {
         try
         {
-            var filePaths = _canCompare() ? ReadFilePaths(dataObject) : [];
+            var filePaths = canCompare() ? ReadFilePaths(dataObject) : [];
             effect = filePaths.Count == 2 ? DropEffectCopy : DropEffectNone;
             if (filePaths.Count == 2)
             {
-                _selectedFilesHandler(filePaths);
+                selectedFilesHandler(filePaths);
             }
         }
         catch (Exception exception) when (IsDataObjectException(exception))
@@ -262,7 +262,7 @@ public sealed class ExplorerDropTarget : IExplorerDropTarget
         }
         finally
         {
-            _canDrop = false;
+            canDrop = false;
         }
 
         return 0;

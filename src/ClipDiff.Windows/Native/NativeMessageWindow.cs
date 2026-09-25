@@ -4,8 +4,8 @@ namespace ClipDiff.Windows.Native;
 
 internal sealed class NativeMessageWindow : IDisposable
 {
-    private readonly HwndSource _source;
-    private bool _disposed;
+    private readonly HwndSource source;
+    private bool disposed;
 
     public NativeMessageWindow()
     {
@@ -16,24 +16,24 @@ internal sealed class NativeMessageWindow : IDisposable
             Height = 0,
             WindowStyle = 0
         };
-        _source = new HwndSource(parameters);
-        _source.AddHook(WindowProcedure);
+        source = new HwndSource(parameters);
+        source.AddHook(WindowProcedure);
     }
 
     public event EventHandler<NativeMessageEventArgs>? MessageReceived;
 
-    public nint Handle => _source.Handle;
+    public nint Handle => source.Handle;
 
     public void Dispose()
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
 
-        _disposed = true;
-        _source.RemoveHook(WindowProcedure);
-        _source.Dispose();
+        disposed = true;
+        source.RemoveHook(WindowProcedure);
+        source.Dispose();
     }
 
     private nint WindowProcedure(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)

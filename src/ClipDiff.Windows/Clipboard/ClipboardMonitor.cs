@@ -13,81 +13,81 @@ internal sealed class ClipboardMonitor : IDisposable
         TimeSpan.FromMilliseconds(200)
     ];
 
-    private readonly NativeMessageWindow _messageWindow;
-    private readonly NativeClipboard _nativeClipboard;
-    private readonly ClipboardPrivacyInspector _inspector;
-    private readonly CopiedFileTextReader _copiedFileTextReader = new();
-    private readonly SemaphoreSlim _readGate = new(1, 1);
-    private CancellationTokenSource? _pendingRead;
-    private uint _baselineSequence;
-    private uint _latestRequestedSequence;
-    private uint? _ownWriteSequence;
-    private bool _enabled = true;
-    private bool _disposed;
+    private readonly NativeMessageWindow messageWindow;
+    private readonly NativeClipboard nativeClipboard;
+    private readonly ClipboardPrivacyInspector inspector;
+    private readonly CopiedFileTextReader copiedFileTextReader = new();
+    private readonly SemaphoreSlim readGate = new(1, 1);
+    private CancellationTokenSource? pendingRead;
+    private uint baselineSequence;
+    private uint latestRequestedSequence;
+    private uint? ownWriteSequence;
+    private bool enabled = true;
+    private bool disposed;
 
     public ClipboardMonitor(NativeMessageWindow messageWindow)
     {
-        _messageWindow = messageWindow ?? throw new ArgumentNullException(nameof(messageWindow));
-        _nativeClipboard = new NativeClipboard();
+        this.messageWindow = messageWindow ?? throw new ArgumentNullException(nameof(messageWindow));
+        nativeClipboard = new NativeClipboard();
         var formats = new ClipboardFormatIds(
             RegisterFormat("ExcludeClipboardContentFromMonitorProcessing"),
             RegisterFormat("CanIncludeInClipboardHistory"),
             RegisterFormat("CanUploadToCloudClipboard"));
-        _inspector = new ClipboardPrivacyInspector(_nativeClipboard, formats);
+        inspector = new ClipboardPrivacyInspector(nativeClipboard, formats);
 
-        _baselineSequence = NativeMethods.GetClipboardSequenceNumber();
-        _latestRequestedSequence = _baselineSequence;
-        _messageWindow.MessageReceived += OnMessageReceived;
-        IsRegistered = NativeMethods.AddClipboardFormatListener(_messageWindow.Handle);
+        baselineSequence = NativeMethods.GetClipboardSequenceNumber();
+        latestRequestedSequence = baselineSequence;
+        this.messageWindow.MessageReceived += OnMessageReceived;
+        IsRegistered = NativeMethods.AddClipboardFormatListener(this.messageWindow.Handle);
     }
 
     public event EventHandler<ClipboardObservation>? ObservationReceived;
 
     public bool IsRegistered { get; }
 
-    public uint BaselineSequence => _baselineSequence;
+    public uint BaselineSequence => baselineSequence;
 
     public void Pause()
     {
-        _enabled = false;
+        enabled = false;
         CancelPendingRead();
     }
 
     public uint Resume()
     {
         CancelPendingRead();
-        _baselineSequence = NativeMethods.GetClipboardSequenceNumber();
-        _latestRequestedSequence = _baselineSequence;
-        _ownWriteSequence = null;
-        _enabled = true;
-        return _baselineSequence;
+        baselineSequence = NativeMethods.GetClipboardSequenceNumber();
+        latestRequestedSequence = baselineSequence;
+        ownWriteSequence = null;
+        enabled = true;
+        return baselineSequence;
     }
 
     public void SuppressOwnWrite(uint sequenceNumber)
     {
-        _ownWriteSequence = sequenceNumber;
-        _baselineSequence = sequenceNumber;
-        _latestRequestedSequence = sequenceNumber;
+        ownWriteSequence = sequenceNumber;
+        baselineSequence = sequenceNumber;
+        latestRequestedSequence = sequenceNumber;
         CancelPendingRead();
     }
 
     public void Dispose()
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
 
-        _disposed = true;
-        _enabled = false;
+        disposed = true;
+        enabled = false;
         CancelPendingRead();
-        _messageWindow.MessageReceived -= OnMessageReceived;
+        messageWindow.MessageReceived -= OnMessageReceived;
         if (IsRegistered)
         {
-            NativeMethods.RemoveClipboardFormatListener(_messageWindow.Handle);
+            NativeMethods.RemoveClipboardFormatListener(messageWindow.Handle);
         }
 
-        _readGate.Dispose();
+        readGate.Dispose();
     }
 
     private static uint RegisterFormat(string name)
@@ -100,68 +100,68 @@ internal sealed class ClipboardMonitor : IDisposable
 
     private void OnMessageReceived(object? sender, NativeMessageEventArgs args)
     {
-        if (args.Message != NativeMethods.WmClipboardUpdate || !_enabled || _disposed)
+        if (args.Message != NativeMethods.WmClipboardUpdate || !enabled || disposed)
         {
             return;
         }
 
         args.Handled = true;
         var sequence = NativeMethods.GetClipboardSequenceNumber();
-        if (sequence == _baselineSequence || sequence == _latestRequestedSequence)
+        if (sequence == baselineSequence || sequence == latestRequestedSequence)
         {
             return;
         }
 
-        if (_ownWriteSequence == sequence)
+        if (ownWriteSequence == sequence)
         {
-            _baselineSequence = sequence;
-            _latestRequestedSequence = sequence;
-            _ownWriteSequence = null;
+            baselineSequence = sequence;
+            latestRequestedSequence = sequence;
+            ownWriteSequence = null;
             return;
         }
 
-        if (_latestRequestedSequence != _baselineSequence)
+        if (latestRequestedSequence != baselineSequence)
         {
             // A newer update superseded an item that could not be inspected. Surface only
             // the failure state so history cannot mistake a later clear as immediately
             // following an older accepted value.
-            _baselineSequence = _latestRequestedSequence;
+            baselineSequence = latestRequestedSequence;
             ObservationReceived?.Invoke(
                 this,
-                ClipboardObservation.InspectionFailed(_latestRequestedSequence, DateTimeOffset.Now));
+                ClipboardObservation.InspectionFailed(latestRequestedSequence, DateTimeOffset.Now));
         }
 
-        _latestRequestedSequence = sequence;
+        latestRequestedSequence = sequence;
         CancelPendingRead();
-        _pendingRead = new CancellationTokenSource();
-        _ = ProcessSequenceAsync(sequence, _pendingRead.Token);
+        pendingRead = new CancellationTokenSource();
+        _ = ProcessSequenceAsync(sequence, pendingRead.Token);
     }
 
     private async Task ProcessSequenceAsync(uint expectedSequence, CancellationToken cancellationToken)
     {
         try
         {
-            await _readGate.WaitAsync(cancellationToken);
+            await readGate.WaitAsync(cancellationToken);
             try
             {
                 for (var attempt = 0; attempt <= RetryDelays.Length; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (!_enabled || NativeMethods.GetClipboardSequenceNumber() != expectedSequence)
+                    if (!enabled || NativeMethods.GetClipboardSequenceNumber() != expectedSequence)
                     {
                         return;
                     }
 
                     ClipboardInspection? inspection = null;
-                    if (_nativeClipboard.TryOpen(_messageWindow.Handle))
+                    if (nativeClipboard.TryOpen(messageWindow.Handle))
                     {
                         try
                         {
-                            inspection = _inspector.Inspect(expectedSequence, DateTimeOffset.Now);
+                            inspection = inspector.Inspect(expectedSequence, DateTimeOffset.Now);
                         }
                         finally
                         {
-                            _nativeClipboard.Close();
+                            nativeClipboard.Close();
                         }
                     }
 
@@ -178,7 +178,7 @@ internal sealed class ClipboardMonitor : IDisposable
                         observation.Kind != ClipboardObservationKind.InspectionFailed &&
                         NativeMethods.GetClipboardSequenceNumber() == expectedSequence)
                     {
-                        _baselineSequence = expectedSequence;
+                        baselineSequence = expectedSequence;
                         ObservationReceived?.Invoke(this, observation);
                         return;
                     }
@@ -189,9 +189,9 @@ internal sealed class ClipboardMonitor : IDisposable
                     }
                 }
 
-                if (_enabled && NativeMethods.GetClipboardSequenceNumber() == expectedSequence)
+                if (enabled && NativeMethods.GetClipboardSequenceNumber() == expectedSequence)
                 {
-                    _baselineSequence = expectedSequence;
+                    baselineSequence = expectedSequence;
                     ObservationReceived?.Invoke(
                         this,
                         ClipboardObservation.InspectionFailed(expectedSequence, DateTimeOffset.Now));
@@ -199,14 +199,14 @@ internal sealed class ClipboardMonitor : IDisposable
             }
             finally
             {
-                _readGate.Release();
+                readGate.Release();
             }
         }
         catch (OperationCanceledException)
         {
             // A newer clipboard sequence superseded this read.
         }
-        catch (ObjectDisposedException) when (_disposed)
+        catch (ObjectDisposedException) when (disposed)
         {
         }
     }
@@ -216,7 +216,7 @@ internal sealed class ClipboardMonitor : IDisposable
         CancellationToken cancellationToken)
     {
         var readTask = Task.Run(
-            async () => await _copiedFileTextReader.ReadValuesAsync(copiedFiles.FilePaths, cancellationToken),
+            async () => await copiedFileTextReader.ReadValuesAsync(copiedFiles.FilePaths, cancellationToken),
             CancellationToken.None);
         var values = await readTask.WaitAsync(cancellationToken);
         return values.Count switch
@@ -242,8 +242,8 @@ internal sealed class ClipboardMonitor : IDisposable
 
     private void CancelPendingRead()
     {
-        var pending = _pendingRead;
-        _pendingRead = null;
+        var pending = pendingRead;
+        pendingRead = null;
         if (pending is null)
         {
             return;

@@ -6,72 +6,72 @@ namespace ClipDiff.Windows.Tray;
 
 internal sealed class TrayIconController : IDisposable
 {
-    private readonly Forms.NotifyIcon _notifyIcon;
-    private readonly Drawing.Icon? _applicationIcon;
-    private readonly Forms.ContextMenuStrip _menu;
-    private readonly Forms.ToolStripMenuItem _statusItem;
-    private readonly Forms.ToolStripMenuItem _currentItem;
-    private readonly Forms.ToolStripMenuItem _previousItem;
-    private readonly Forms.ToolStripMenuItem _showDiffItem;
-    private readonly Forms.ToolStripMenuItem _diffViewerItem;
-    private readonly Forms.ToolStripMenuItem _shortcutItem;
-    private readonly Forms.ToolStripMenuItem _monitorItem;
-    private readonly Forms.ToolStripMenuItem _clearItem;
-    private bool _disposed;
+    private readonly Forms.NotifyIcon notifyIcon;
+    private readonly Drawing.Icon? applicationIcon;
+    private readonly Forms.ContextMenuStrip menu;
+    private readonly Forms.ToolStripMenuItem statusItem;
+    private readonly Forms.ToolStripMenuItem currentItem;
+    private readonly Forms.ToolStripMenuItem previousItem;
+    private readonly Forms.ToolStripMenuItem showDiffItem;
+    private readonly Forms.ToolStripMenuItem diffViewerItem;
+    private readonly Forms.ToolStripMenuItem shortcutItem;
+    private readonly Forms.ToolStripMenuItem monitorItem;
+    private readonly Forms.ToolStripMenuItem clearItem;
+    private bool disposed;
 
-    private IReadOnlyList<ExternalDiffToolChoice> _diffTools = [];
-    private string? _selectedDiffExecutablePath;
+    private IReadOnlyList<ExternalDiffToolChoice> diffTools = [];
+    private string? selectedDiffExecutablePath;
 
     public TrayIconController(
         IReadOnlyList<ExternalDiffToolChoice> diffTools,
         string? selectedDiffExecutablePath)
     {
-        _statusItem = DisabledItem("Waiting for copied text");
-        _currentItem = DisabledItem("Current: None");
-        _previousItem = DisabledItem("Previous: None");
-        _showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl+Alt+D)");
-        _diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
-        _shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
-        _monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
-        _clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
+        statusItem = DisabledItem("Waiting for copied text");
+        currentItem = DisabledItem("Current: None");
+        previousItem = DisabledItem("Previous: None");
+        showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl+Alt+D)");
+        diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
+        shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
+        monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
+        clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
         var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
 
-        _showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
-        _shortcutItem.Click += (_, _) => ShortcutRequested?.Invoke(this, EventArgs.Empty);
-        _monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
-        _clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
+        showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
+        shortcutItem.Click += (_, _) => ShortcutRequested?.Invoke(this, EventArgs.Empty);
+        monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
+        clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
         aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
         quitItem.Click += (_, _) => QuitRequested?.Invoke(this, EventArgs.Empty);
         SetDiffTools(diffTools, selectedDiffExecutablePath);
 
-        _menu = new Forms.ContextMenuStrip();
-        _menu.Items.AddRange(
+        menu = new Forms.ContextMenuStrip();
+        menu.Items.AddRange(
         [
-            _statusItem,
-            _currentItem,
-            _previousItem,
+            statusItem,
+            currentItem,
+            previousItem,
             new Forms.ToolStripSeparator(),
-            _showDiffItem,
-            _diffViewerItem,
-            _shortcutItem,
-            _monitorItem,
-            _clearItem,
+            showDiffItem,
+            diffViewerItem,
+            shortcutItem,
+            monitorItem,
+            clearItem,
             new Forms.ToolStripSeparator(),
             aboutItem,
             quitItem
         ]);
-        DarkMenuRenderer.ApplyTo(_menu);
+        DarkMenuRenderer.ApplyTo(menu);
 
-        _applicationIcon = TryLoadApplicationIcon();
-        _notifyIcon = new Forms.NotifyIcon
+        applicationIcon = TryLoadApplicationIcon();
+        notifyIcon = new Forms.NotifyIcon
         {
             Text = "ClipDiff",
-            Icon = _applicationIcon ?? Drawing.SystemIcons.Application,
-            ContextMenuStrip = _menu,
+            Icon = applicationIcon ?? Drawing.SystemIcons.Application,
+            ContextMenuStrip = menu,
             Visible = true
         };
-        _notifyIcon.DoubleClick += OnDoubleClick;
+        notifyIcon.DoubleClick += OnDoubleClick;
     }
 
     public event EventHandler? ShowDiffRequested;
@@ -94,8 +94,8 @@ internal sealed class TrayIconController : IDisposable
         IReadOnlyList<ExternalDiffToolChoice> diffTools,
         string? selectedDiffExecutablePath)
     {
-        _diffTools = diffTools ?? throw new ArgumentNullException(nameof(diffTools));
-        _selectedDiffExecutablePath = selectedDiffExecutablePath;
+        this.diffTools = diffTools ?? throw new ArgumentNullException(nameof(diffTools));
+        this.selectedDiffExecutablePath = selectedDiffExecutablePath;
         RebuildDiffViewerMenu();
     }
 
@@ -108,30 +108,30 @@ internal sealed class TrayIconController : IDisposable
         ClipboardEntry? previous)
     {
         var fileLabels = ClipboardEntryDisplay.ResolveFileLabels(previous, current);
-        _statusItem.Text = status;
-        _showDiffItem.Text = hotKeyAvailable
+        statusItem.Text = status;
+        showDiffItem.Text = hotKeyAvailable
             ? $"Show Diff ({hotKeyDisplayText})"
             : "Show Diff (shortcut unavailable)";
-        _currentItem.Text = "Current: " + EntryPreview(current, fileLabels.Current);
-        _previousItem.Text = "Previous: " + EntryPreview(previous, fileLabels.Previous);
-        _showDiffItem.Enabled = current is not null && previous is not null;
-        _monitorItem.Checked = monitoring;
-        _clearItem.Enabled = current is not null;
+        currentItem.Text = "Current: " + EntryPreview(current, fileLabels.Current);
+        previousItem.Text = "Previous: " + EntryPreview(previous, fileLabels.Previous);
+        showDiffItem.Enabled = current is not null && previous is not null;
+        monitorItem.Checked = monitoring;
+        clearItem.Enabled = current is not null;
     }
 
     public void Dispose()
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
 
-        _disposed = true;
-        _notifyIcon.Visible = false;
-        _notifyIcon.DoubleClick -= OnDoubleClick;
-        _notifyIcon.Dispose();
-        _applicationIcon?.Dispose();
-        _menu.Dispose();
+        disposed = true;
+        notifyIcon.Visible = false;
+        notifyIcon.DoubleClick -= OnDoubleClick;
+        notifyIcon.Dispose();
+        applicationIcon?.Dispose();
+        menu.Dispose();
     }
 
     private static Forms.ToolStripMenuItem DisabledItem(string text) => new(text) { Enabled = false };
@@ -162,53 +162,53 @@ internal sealed class TrayIconController : IDisposable
 
     private void RebuildDiffViewerMenu()
     {
-        _diffViewerItem.DropDownItems.Clear();
+        diffViewerItem.DropDownItems.Clear();
 
         var builtIn = new Forms.ToolStripMenuItem("Built-in viewer")
         {
-            Checked = string.IsNullOrWhiteSpace(_selectedDiffExecutablePath)
+            Checked = string.IsNullOrWhiteSpace(selectedDiffExecutablePath)
         };
         builtIn.Click += (_, _) => DiffToolSelected?.Invoke(this, new ExternalDiffToolSelectedEventArgs(null));
-        _diffViewerItem.DropDownItems.Add(builtIn);
+        diffViewerItem.DropDownItems.Add(builtIn);
 
-        if (_diffTools.Count > 0)
+        if (diffTools.Count > 0)
         {
-            _diffViewerItem.DropDownItems.Add(new Forms.ToolStripSeparator());
-            foreach (var choice in _diffTools)
+            diffViewerItem.DropDownItems.Add(new Forms.ToolStripSeparator());
+            foreach (var choice in diffTools)
             {
                 var item = new Forms.ToolStripMenuItem(choice.DisplayName)
                 {
                     Checked = string.Equals(
                         choice.ExecutablePath,
-                        _selectedDiffExecutablePath,
+                        selectedDiffExecutablePath,
                         StringComparison.OrdinalIgnoreCase),
                     ToolTipText = choice.ExecutablePath
                 };
                 item.Click += (_, _) => DiffToolSelected?.Invoke(
                     this,
                     new ExternalDiffToolSelectedEventArgs(choice));
-                _diffViewerItem.DropDownItems.Add(item);
+                diffViewerItem.DropDownItems.Add(item);
             }
         }
 
-        _diffViewerItem.DropDownItems.Add(new Forms.ToolStripSeparator());
+        diffViewerItem.DropDownItems.Add(new Forms.ToolStripSeparator());
         var chooseProgram = new Forms.ToolStripMenuItem("Choose program...");
         chooseProgram.Click += (_, _) => ChooseDiffToolRequested?.Invoke(this, EventArgs.Empty);
-        _diffViewerItem.DropDownItems.Add(chooseProgram);
-        DarkMenuRenderer.ApplyTo(_diffViewerItem.DropDown);
+        diffViewerItem.DropDownItems.Add(chooseProgram);
+        DarkMenuRenderer.ApplyTo(diffViewerItem.DropDown);
 
-        var selected = _diffTools.FirstOrDefault(choice => string.Equals(
+        var selected = diffTools.FirstOrDefault(choice => string.Equals(
             choice.ExecutablePath,
-            _selectedDiffExecutablePath,
+            selectedDiffExecutablePath,
             StringComparison.OrdinalIgnoreCase));
-        _diffViewerItem.Text = selected is null
+        diffViewerItem.Text = selected is null
             ? "Diff viewer: Built-in"
             : $"Diff viewer: {selected.DisplayName}";
     }
 
     private void OnDoubleClick(object? sender, EventArgs args)
     {
-        if (_showDiffItem.Enabled)
+        if (showDiffItem.Enabled)
         {
             ShowDiffRequested?.Invoke(this, EventArgs.Empty);
         }

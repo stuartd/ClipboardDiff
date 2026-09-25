@@ -6,13 +6,13 @@ namespace ClipDiff.Windows.Clipboard;
 
 internal sealed class ClipboardWriter
 {
-    private readonly nint _owner;
-    private readonly ClipboardFormatIds _formats;
+    private readonly nint owner;
+    private readonly ClipboardFormatIds formats;
 
     public ClipboardWriter(nint owner)
     {
-        _owner = owner;
-        _formats = new ClipboardFormatIds(
+        this.owner = owner;
+        formats = new ClipboardFormatIds(
             RegisterFormat("ExcludeClipboardContentFromMonitorProcessing"),
             RegisterFormat("CanIncludeInClipboardHistory"),
             RegisterFormat("CanUploadToCloudClipboard"));
@@ -23,7 +23,7 @@ internal sealed class ClipboardWriter
         ArgumentNullException.ThrowIfNull(text);
         resultingSequenceNumber = 0;
 
-        if (!NativeMethods.OpenClipboard(_owner))
+        if (!NativeMethods.OpenClipboard(owner))
         {
             return false;
         }
@@ -31,9 +31,9 @@ internal sealed class ClipboardWriter
         try
         {
             if (!NativeMethods.EmptyClipboard() ||
-                !TrySetDword(_formats.ExcludeFromMonitor, 0) ||
-                !TrySetDword(_formats.IncludeInHistory, 0) ||
-                !TrySetDword(_formats.UploadToCloud, 0) ||
+                !TrySetDword(formats.ExcludeFromMonitor, 0) ||
+                !TrySetDword(formats.IncludeInHistory, 0) ||
+                !TrySetDword(formats.UploadToCloud, 0) ||
                 !TrySetUnicodeText(text))
             {
                 NativeMethods.EmptyClipboard();

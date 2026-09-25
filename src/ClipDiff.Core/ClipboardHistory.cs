@@ -4,34 +4,34 @@ public sealed class ClipboardHistory
 {
     public static readonly TimeSpan DefaultRecentClearWindow = TimeSpan.FromSeconds(60);
 
-    private readonly List<ClipboardEntry> _entries = [];
-    private readonly Func<Guid> _idFactory;
-    private readonly TimeSpan _recentClearWindow;
-    private ClearEligibility? _clearEligibility;
-    private uint _lastSequenceNumber;
+    private readonly List<ClipboardEntry> entries = [];
+    private readonly Func<Guid> idFactory;
+    private readonly TimeSpan recentClearWindow;
+    private ClearEligibility? clearEligibility;
+    private uint lastSequenceNumber;
 
     public ClipboardHistory(
         uint startupSequenceNumber = 0,
         TimeSpan? recentClearWindow = null,
         Func<Guid>? idFactory = null)
     {
-        _lastSequenceNumber = startupSequenceNumber;
-        _recentClearWindow = recentClearWindow ?? DefaultRecentClearWindow;
-        _idFactory = idFactory ?? Guid.NewGuid;
+        lastSequenceNumber = startupSequenceNumber;
+        this.recentClearWindow = recentClearWindow ?? DefaultRecentClearWindow;
+        this.idFactory = idFactory ?? Guid.NewGuid;
     }
 
     public bool IsMonitoring { get; private set; } = true;
 
-    public IReadOnlyList<ClipboardEntry> Entries => [.. _entries];
+    public IReadOnlyList<ClipboardEntry> Entries => [.. entries];
 
-    public ClipboardEntry? Current => _entries.Count > 0 ? _entries[0] : null;
+    public ClipboardEntry? Current => entries.Count > 0 ? entries[0] : null;
 
-    public ClipboardEntry? Previous => _entries.Count > 1 ? _entries[1] : null;
+    public ClipboardEntry? Previous => entries.Count > 1 ? entries[1] : null;
 
-    public uint LastSequenceNumber => _lastSequenceNumber;
+    public uint LastSequenceNumber => lastSequenceNumber;
 
     public string Status => IsMonitoring
-        ? _entries.Count switch
+        ? entries.Count switch
         {
             0 => "Waiting for copied text",
             1 => "Copy one more text value",
@@ -43,12 +43,12 @@ public sealed class ClipboardHistory
     {
         ArgumentNullException.ThrowIfNull(observation);
 
-        if (!IsMonitoring || observation.SequenceNumber == _lastSequenceNumber)
+        if (!IsMonitoring || observation.SequenceNumber == lastSequenceNumber)
         {
             return ClipboardHistoryChange.None;
         }
 
-        _lastSequenceNumber = observation.SequenceNumber;
+        lastSequenceNumber = observation.SequenceNumber;
 
         switch (observation.Kind)
         {
@@ -65,7 +65,7 @@ public sealed class ClipboardHistory
             case ClipboardObservationKind.Sensitive:
             case ClipboardObservationKind.InspectionFailed:
             case ClipboardObservationKind.OwnWrite:
-                _clearEligibility = null;
+                clearEligibility = null;
                 return ClipboardHistoryChange.None;
 
             default:
@@ -125,20 +125,20 @@ public sealed class ClipboardHistory
     public void Pause()
     {
         IsMonitoring = false;
-        _clearEligibility = null;
+        clearEligibility = null;
     }
 
     public void Resume(uint currentSequenceNumber)
     {
         IsMonitoring = true;
-        _lastSequenceNumber = currentSequenceNumber;
-        _clearEligibility = null;
+        lastSequenceNumber = currentSequenceNumber;
+        clearEligibility = null;
     }
 
     public void Clear()
     {
-        _entries.Clear();
-        _clearEligibility = null;
+        entries.Clear();
+        clearEligibility = null;
     }
 
     private ClipboardHistoryChange ApplyText(ClipboardObservation observation)
@@ -167,18 +167,18 @@ public sealed class ClipboardHistory
         string? sourceFilePath)
     {
         var entry = new ClipboardEntry(
-            _idFactory(),
+            idFactory(),
             text,
             capturedAt,
             sourceFileName,
             sourceFilePath);
-        _entries.Insert(0, entry);
-        if (_entries.Count > 2)
+        entries.Insert(0, entry);
+        if (entries.Count > 2)
         {
-            _entries.RemoveRange(2, _entries.Count - 2);
+            entries.RemoveRange(2, entries.Count - 2);
         }
 
-        _clearEligibility = isEligibleForRecentClear
+        clearEligibility = isEligibleForRecentClear
             ? new(entry.Id, capturedAt)
             : null;
         return ClipboardHistoryChange.Accepted;
@@ -218,21 +218,21 @@ public sealed class ClipboardHistory
         string? currentSourceFilePath)
     {
         var previous = new ClipboardEntry(
-            _idFactory(),
+            idFactory(),
             previousText,
             capturedAt,
             previousSourceFileName,
             previousSourceFilePath);
         var current = new ClipboardEntry(
-            _idFactory(),
+            idFactory(),
             currentText,
             capturedAt,
             currentSourceFileName,
             currentSourceFilePath);
-        _entries.Clear();
-        _entries.Add(current);
-        _entries.Add(previous);
-        _clearEligibility = isEligibleForRecentClear
+        entries.Clear();
+        entries.Add(current);
+        entries.Add(previous);
+        clearEligibility = isEligibleForRecentClear
             ? new(current.Id, capturedAt)
             : null;
         return ClipboardHistoryChange.Accepted;
@@ -240,17 +240,17 @@ public sealed class ClipboardHistory
 
     private ClipboardHistoryChange ApplyExplicitClear(DateTimeOffset observedAt)
     {
-        if (_clearEligibility is not { } eligibility ||
+        if (clearEligibility is not { } eligibility ||
             Current?.Id != eligibility.EntryId ||
             observedAt < eligibility.ObservedAt ||
-            observedAt - eligibility.ObservedAt > _recentClearWindow)
+            observedAt - eligibility.ObservedAt > recentClearWindow)
         {
-            _clearEligibility = null;
+            clearEligibility = null;
             return ClipboardHistoryChange.None;
         }
 
-        _entries.RemoveAt(0);
-        _clearEligibility = null;
+        entries.RemoveAt(0);
+        clearEligibility = null;
         return ClipboardHistoryChange.RemovedByRecentClear;
     }
 

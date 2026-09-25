@@ -12,9 +12,11 @@ public static class DiffTextFormatting
     {
         source ??= string.Empty;
         if (highlights.Count == 0)
-            return [new(source.Replace("\t", "    ", StringComparison.Ordinal), false)];
+		{
+			return [new(source.Replace("\t", "    ", StringComparison.Ordinal), false)];
+		}
 
-        var starts = StringInfo.ParseCombiningCharacters(source);
+		var starts = StringInfo.ParseCombiningCharacters(source);
         var slices = new List<DiffTextSlice>();
         var position = 0;
         foreach (var range in highlights)
@@ -31,7 +33,9 @@ public static class DiffTextFormatting
         void Add(int start, int end, bool highlighted)
         {
             if (end > start)
-                slices.Add(new(source[start..end].Replace("\t", "    ", StringComparison.Ordinal), highlighted));
-        }
+			{
+				slices.Add(new(source[start..end].Replace("\t", "    ", StringComparison.Ordinal), highlighted));
+			}
+		}
     }
 }

@@ -7,7 +7,7 @@ internal sealed class ExternalDiffLauncher : IDisposable
 {
     private static readonly TimeSpan ProcessExitCleanupDelay = TimeSpan.FromSeconds(3);
     private readonly ExternalDiffWorkspace _workspace;
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<Process, ActiveComparison> _activeComparisons = [];
     private bool _disposed;
 

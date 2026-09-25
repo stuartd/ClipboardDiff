@@ -8,11 +8,11 @@ internal sealed record ExternalDiffFiles(string DirectoryPath, string PreviousPa
 internal sealed class ExternalDiffWorkspace
 {
     private static readonly UTF8Encoding Utf8WithByteOrderMark = new(true);
-    private readonly string _rootDirectory;
+    private readonly string rootDirectory;
 
     public ExternalDiffWorkspace(string? rootDirectory = null)
     {
-        _rootDirectory = rootDirectory ?? Path.Combine(
+        this.rootDirectory = rootDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ClipDiff",
             "Temp");
@@ -27,8 +27,8 @@ internal sealed class ExternalDiffWorkspace
         ArgumentNullException.ThrowIfNull(previousText);
         ArgumentNullException.ThrowIfNull(currentText);
 
-        Directory.CreateDirectory(_rootDirectory);
-        var directory = Path.Combine(_rootDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(rootDirectory);
+        var directory = Path.Combine(rootDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
 
         try
@@ -85,14 +85,14 @@ internal sealed class ExternalDiffWorkspace
 
     public void CleanupStaleDirectories()
     {
-        if (!Directory.Exists(_rootDirectory))
+        if (!Directory.Exists(rootDirectory))
         {
             return;
         }
 
         try
         {
-            foreach (var directory in Directory.EnumerateDirectories(_rootDirectory))
+            foreach (var directory in Directory.EnumerateDirectories(rootDirectory))
             {
                 TryDelete(directory);
             }

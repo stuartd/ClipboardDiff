@@ -8,7 +8,7 @@ internal sealed class ExplorerCommandServer : IDisposable
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
     private readonly Func<string, Task> _selectedFileHandler;
     private readonly CancellationTokenSource _shutdown = new();
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Task _listenTask;
     private NamedPipeServerStream? _activePipe;
     private bool _disposed;

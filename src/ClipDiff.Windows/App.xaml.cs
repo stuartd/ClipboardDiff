@@ -6,9 +6,9 @@ namespace ClipDiff.Windows;
 
 public partial class App : System.Windows.Application
 {
-    private Mutex? _instanceMutex;
-    private AppController? _controller;
-    private bool _ownsMutex;
+    private Mutex? instanceMutex;
+    private AppController? controller;
+    private bool ownsMutex;
 
     protected override void OnStartup(StartupEventArgs args)
     {
@@ -18,40 +18,40 @@ public partial class App : System.Windows.Application
             args.Args,
             out var selectedFilePath);
 
-        _instanceMutex = new Mutex(true, @"Local\ClipDiff", out _ownsMutex);
-        if (!_ownsMutex)
+        instanceMutex = new Mutex(true, @"Local\ClipDiff", out ownsMutex);
+        if (!ownsMutex)
         {
             if (isExplorerCommand)
             {
                 ExplorerCommandClient.TrySendSelectedFile(selectedFilePath);
             }
 
-            _instanceMutex.Dispose();
-            _instanceMutex = null;
+            instanceMutex.Dispose();
+            instanceMutex = null;
             Shutdown();
             return;
         }
 
-        _controller = new AppController();
+        controller = new AppController();
         if (isExplorerCommand)
         {
-            _controller.CompareWithCurrent(selectedFilePath);
+            controller.CompareWithCurrent(selectedFilePath);
         }
     }
 
     protected override void OnExit(ExitEventArgs args)
     {
-        _controller?.Dispose();
-        _controller = null;
+        controller?.Dispose();
+        controller = null;
 
-        if (_ownsMutex)
+        if (ownsMutex)
         {
-            _instanceMutex?.ReleaseMutex();
-            _ownsMutex = false;
+            instanceMutex?.ReleaseMutex();
+            ownsMutex = false;
         }
 
-        _instanceMutex?.Dispose();
-        _instanceMutex = null;
+        instanceMutex?.Dispose();
+        instanceMutex = null;
         base.OnExit(args);
     }
 }

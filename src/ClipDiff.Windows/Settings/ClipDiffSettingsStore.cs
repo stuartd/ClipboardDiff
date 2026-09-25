@@ -12,11 +12,11 @@ internal sealed record ClipDiffSettings(
 internal sealed class ClipDiffSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    private readonly string _settingsPath;
+    private readonly string settingsPath;
 
     public ClipDiffSettingsStore(string? settingsPath = null)
     {
-        _settingsPath = settingsPath ?? Path.Combine(
+        this.settingsPath = settingsPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ClipDiff",
             "settings.json");
@@ -26,8 +26,8 @@ internal sealed class ClipDiffSettingsStore
     {
         try
         {
-            return File.Exists(_settingsPath)
-                ? JsonSerializer.Deserialize<ClipDiffSettings>(File.ReadAllText(_settingsPath), JsonOptions) ?? new()
+            return File.Exists(settingsPath)
+                ? JsonSerializer.Deserialize<ClipDiffSettings>(File.ReadAllText(settingsPath), JsonOptions) ?? new()
                 : new();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -42,11 +42,11 @@ internal sealed class ClipDiffSettingsStore
 
         try
         {
-            var directory = Path.GetDirectoryName(_settingsPath)!;
+            var directory = Path.GetDirectoryName(settingsPath)!;
             Directory.CreateDirectory(directory);
-            var temporaryPath = _settingsPath + ".tmp";
+            var temporaryPath = settingsPath + ".tmp";
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
-            File.Move(temporaryPath, _settingsPath, true);
+            File.Move(temporaryPath, settingsPath, true);
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

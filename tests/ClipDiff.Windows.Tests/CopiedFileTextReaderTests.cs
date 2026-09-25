@@ -7,21 +7,21 @@ namespace ClipDiff.Windows.Tests;
 [TestClass]
 public sealed class CopiedFileTextReaderTests
 {
-    private string _testDirectory = null!;
+    private string testDirectory = null!;
 
     [TestInitialize]
     public void Initialize()
     {
-        _testDirectory = Path.Combine(Path.GetTempPath(), "ClipDiff.CopiedFileTests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_testDirectory);
+        testDirectory = Path.Combine(Path.GetTempPath(), "ClipDiff.CopiedFileTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testDirectory);
     }
 
     [TestCleanup]
     public void Cleanup()
     {
-        if (Directory.Exists(_testDirectory))
+        if (Directory.Exists(testDirectory))
         {
-            Directory.Delete(_testDirectory, true);
+            Directory.Delete(testDirectory, true);
         }
     }
 
@@ -71,7 +71,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task PeExecutableReturnsOnlyItsFileName()
     {
-        var path = Path.Combine(_testDirectory, "ClipDiff.exe");
+        var path = Path.Combine(testDirectory, "ClipDiff.exe");
         await File.WriteAllBytesAsync(path, [0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -82,7 +82,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task KnownBinaryExecutableExtensionIsNeverDecodedAsText()
     {
-        var path = Path.Combine(_testDirectory, "tiny.com");
+        var path = Path.Combine(testDirectory, "tiny.com");
         await File.WriteAllBytesAsync(path, [0xEB, 0xFE]);
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -93,7 +93,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task BinaryContentReturnsFileNameEvenWithTextExtension()
     {
-        var path = Path.Combine(_testDirectory, "misleading.txt");
+        var path = Path.Combine(testDirectory, "misleading.txt");
         await File.WriteAllBytesAsync(path, [0x01, 0x00, 0x02, 0x03, 0x7F]);
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -115,7 +115,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task KnownBinarySignatureMakesClassificationIndependentOfPayload()
     {
-        var path = Path.Combine(_testDirectory, "image.data");
+        var path = Path.Combine(testDirectory, "image.data");
         await File.WriteAllBytesAsync(path, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -139,7 +139,7 @@ public sealed class CopiedFileTextReaderTests
     {
         const string contents = "%PDF- is the prefix used by PDF files.";
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-        var path = Path.Combine(_testDirectory, "notes.txt");
+        var path = Path.Combine(testDirectory, "notes.txt");
         await File.WriteAllBytesAsync(path, encoding.GetPreamble().Concat(encoding.GetBytes(contents)).ToArray());
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -152,7 +152,7 @@ public sealed class CopiedFileTextReaderTests
     {
         const string contents = "echo snowman \u2603";
         var bytes = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(contents)).ToArray();
-        var path = Path.Combine(_testDirectory, "unicode.cmd");
+        var path = Path.Combine(testDirectory, "unicode.cmd");
         await File.WriteAllBytesAsync(path, bytes);
 
         var result = await new CopiedFileTextReader().ReadAsync([path]);
@@ -163,7 +163,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task Windows1252TextFileIsDecoded()
     {
-        var path = Path.Combine(_testDirectory, "legacy.bat");
+        var path = Path.Combine(testDirectory, "legacy.bat");
         await File.WriteAllBytesAsync(path,
             [0x40, 0x65, 0x63, 0x68, 0x6F, 0x20, 0x63, 0x61, 0x66, 0xE9]);
 
@@ -191,9 +191,9 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task TwoCopiedFilesApplyFilenameFallbackIndependently()
     {
-        var binary = Path.Combine(_testDirectory, "first.exe");
+        var binary = Path.Combine(testDirectory, "first.exe");
         await File.WriteAllBytesAsync(binary, [0x4D, 0x5A]);
-        var missing = Path.Combine(_testDirectory, "second.txt");
+        var missing = Path.Combine(testDirectory, "second.txt");
 
         var result = await new CopiedFileTextReader().ReadValuesAsync([binary, missing]);
 
@@ -217,10 +217,10 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task EmptyMissingOrOversizedEntryIncludesFallbackReason()
     {
-        var empty = Path.Combine(_testDirectory, "empty.txt");
+        var empty = Path.Combine(testDirectory, "empty.txt");
         await File.WriteAllBytesAsync(empty, []);
         var oversized = await WriteTextFileAsync("large.txt", "five!");
-        var missing = Path.Combine(_testDirectory, "missing.txt");
+        var missing = Path.Combine(testDirectory, "missing.txt");
         var reader = new CopiedFileTextReader(maximumTextFileBytes: 4);
 
         Assert.AreEqual("empty.txt (empty file)", await reader.ReadAsync([empty]));
@@ -231,7 +231,7 @@ public sealed class CopiedFileTextReaderTests
     [TestMethod]
     public async Task CopiedDirectoryReturnsItsName()
     {
-        var directory = Path.Combine(_testDirectory, "folder");
+        var directory = Path.Combine(testDirectory, "folder");
         Directory.CreateDirectory(directory);
 
         var result = await new CopiedFileTextReader().ReadAsync([directory]);
@@ -252,7 +252,7 @@ public sealed class CopiedFileTextReaderTests
 
     private async Task<string> WriteTextFileAsync(string name, string contents)
     {
-        var path = Path.Combine(_testDirectory, name);
+        var path = Path.Combine(testDirectory, name);
         await File.WriteAllTextAsync(path, contents, new UTF8Encoding(false));
         return path;
     }

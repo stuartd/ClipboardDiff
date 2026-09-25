@@ -8,17 +8,17 @@ namespace ClipDiff.Windows.Views;
 
 public partial class ShortcutWindow : Window
 {
-    private readonly Func<HotKeyGesture, HotKeyChangeResult> _trySave;
-    private HotKeyGesture _gesture;
-    private bool _showingModifiers;
+    private readonly Func<HotKeyGesture, HotKeyChangeResult> trySave;
+    private HotKeyGesture gesture;
+    private bool showingModifiers;
 
     internal ShortcutWindow(
         HotKeyGesture currentGesture,
         Func<HotKeyGesture, HotKeyChangeResult> trySave)
     {
         ArgumentNullException.ThrowIfNull(currentGesture);
-        _trySave = trySave ?? throw new ArgumentNullException(nameof(trySave));
-        _gesture = HotKeyGesture.Normalize(currentGesture);
+        this.trySave = trySave ?? throw new ArgumentNullException(nameof(trySave));
+        gesture = HotKeyGesture.Normalize(currentGesture);
         InitializeComponent();
         ShowGesture();
     }
@@ -58,7 +58,7 @@ public partial class ShortcutWindow : Window
         if ((keyboardModifiers & ModifierKeys.Windows) != 0 || key is Key.LWin or Key.RWin)
         {
             args.Handled = true;
-            _showingModifiers = false;
+            showingModifiers = false;
             ValidationText.Text = "Windows-key shortcuts aren't supported.";
             SaveButton.IsEnabled = false;
             return;
@@ -68,21 +68,25 @@ public partial class ShortcutWindow : Window
         var virtualKey = KeyInterop.VirtualKeyFromKey(key);
         if (HotKeyGesture.IsDialogCommand(modifiers, (uint)virtualKey))
         {
-            if (_showingModifiers) ShowGesture();
-            return;
+            if (showingModifiers)
+			{
+				ShowGesture();
+			}
+
+			return;
         }
 
         args.Handled = true;
         if (IsModifierKey(key))
         {
-            _showingModifiers = true;
+            showingModifiers = true;
             ShortcutBox.Text = FormatIncompleteModifiers(modifiers);
             ValidationText.Text = "Press another key to complete the shortcut.";
             SaveButton.IsEnabled = false;
             return;
         }
 
-        _showingModifiers = false;
+        showingModifiers = false;
         if (virtualKey <= 0)
         {
             ValidationText.Text = "That key cannot be used as a ClipDiff shortcut.";
@@ -100,7 +104,7 @@ public partial class ShortcutWindow : Window
             return;
         }
 
-        _gesture = candidate;
+        gesture = candidate;
         ShowGesture();
     }
 
@@ -108,7 +112,7 @@ public partial class ShortcutWindow : Window
     {
         // Releasing an unfinished modifier chord must not strand the valid
         // draft with Save disabled, including after Shift-Tab moves focus.
-        if (_showingModifiers && Keyboard.Modifiers == ModifierKeys.None)
+        if (showingModifiers && Keyboard.Modifiers == ModifierKeys.None)
         {
             ShowGesture();
         }
@@ -122,14 +126,14 @@ public partial class ShortcutWindow : Window
             return false;
         }
 
-        _gesture = gesture;
+        this.gesture = gesture;
         ShowGesture();
         return true;
     }
 
     private void OnResetClick(object sender, RoutedEventArgs args)
     {
-        _gesture = HotKeyGesture.Default;
+        gesture = HotKeyGesture.Default;
         ShowGesture();
         ShortcutBox.Focus();
     }
@@ -138,7 +142,7 @@ public partial class ShortcutWindow : Window
 
     private void OnSaveClick(object sender, RoutedEventArgs args)
     {
-        switch (_trySave(_gesture))
+        switch (trySave(gesture))
         {
             case HotKeyChangeResult.Success:
                 DialogResult = true;
@@ -169,8 +173,8 @@ public partial class ShortcutWindow : Window
 
     private void ShowGesture()
     {
-        _showingModifiers = false;
-        ShortcutBox.Text = _gesture.DisplayText;
+        showingModifiers = false;
+        ShortcutBox.Text = gesture.DisplayText;
         ValidationText.Text = string.Empty;
         SaveButton.IsEnabled = true;
     }

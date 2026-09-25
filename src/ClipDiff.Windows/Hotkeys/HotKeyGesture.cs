@@ -72,9 +72,11 @@ internal sealed record HotKeyGesture(HotKeyModifiers Modifiers, uint VirtualKey)
         get
         {
             if (!IsValid)
-                return "Unassigned";
+			{
+				return "Unassigned";
+			}
 
-            var parts = new List<string>(4);
+			var parts = new List<string>(4);
             if ((Modifiers & HotKeyModifiers.Control) != 0)
             {
                 parts.Add("Ctrl");

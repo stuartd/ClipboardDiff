@@ -2,11 +2,11 @@ namespace ClipDiff;
 
 public sealed class DiffEngine
 {
-    private readonly Func<Guid> _idFactory;
+    private readonly Func<Guid> idFactory;
 
     public DiffEngine(Func<Guid>? idFactory = null)
     {
-        _idFactory = idFactory ?? Guid.NewGuid;
+        this.idFactory = idFactory ?? Guid.NewGuid;
     }
 
     public DiffDocument Compare(
@@ -42,7 +42,7 @@ public sealed class DiffEngine
         var labels = DiffFormatting.Labels(previous, current);
 
         return new DiffDocument(
-            _idFactory(),
+            idFactory(),
             previous with { SourceFilePath = null },
             current with { SourceFilePath = null },
             rows,
@@ -63,7 +63,7 @@ public sealed class DiffEngine
             {
                 var equal = edits[index++];
                 rows.Add(new DiffRow(
-                    _idFactory(),
+                    idFactory(),
                     equal.OldIndex + 1,
                     equal.NewIndex + 1,
                     equal.OldText,
@@ -91,7 +91,7 @@ public sealed class DiffEngine
             for (var pair = 0; pair < pairedCount; pair++)
             {
                 rows.Add(new DiffRow(
-                    _idFactory(),
+                    idFactory(),
                     removed[pair].OldIndex + 1,
                     inserted[pair].NewIndex + 1,
                     removed[pair].OldText,
@@ -103,7 +103,7 @@ public sealed class DiffEngine
             {
                 var edit = removed[oldIndex];
                 rows.Add(new DiffRow(
-                    _idFactory(),
+                    idFactory(),
                     edit.OldIndex + 1,
                     null,
                     edit.OldText,
@@ -115,7 +115,7 @@ public sealed class DiffEngine
             {
                 var edit = inserted[newIndex];
                 rows.Add(new DiffRow(
-                    _idFactory(),
+                    idFactory(),
                     null,
                     edit.NewIndex + 1,
                     null,

@@ -30,7 +30,7 @@ public sealed class GlobalHotKeyTests
         Assert.AreEqual(HotKeyGesture.Default, hotKey.Gesture);
         Assert.AreEqual(HotKeyGesture.Default, backend.Registrations.Single().Value);
         Assert.IsTrue(backend.LastModifiers.HasValue);
-        Assert.AreEqual((uint)HotKeyGesture.Default.Modifiers | NativeMethods.ModNoRepeat, backend.LastModifiers.Value);
+        Assert.AreEqual((uint)HotKeyGesture.Default.Modifiers | NativeMethods.ModNoRepeat, backend.LastModifiers!.Value);
     }
 
     [TestMethod]
@@ -184,8 +184,12 @@ internal sealed class FakeHotKeyBackend : IHotKeyBackend
         Calls.Add("register");
         LastId = id;
         LastModifiers = modifiers;
-        if (RejectRegistration) return false;
-        Registrations.Add(id, new((HotKeyModifiers)(modifiers & ~NativeMethods.ModNoRepeat), virtualKey));
+        if (RejectRegistration)
+		{
+			return false;
+		}
+
+		Registrations.Add(id, new((HotKeyModifiers)(modifiers & ~NativeMethods.ModNoRepeat), virtualKey));
         return true;
     }
 

@@ -15,61 +15,61 @@ namespace ClipDiff.Windows;
 
 internal sealed class AppController : IDisposable
 {
-    private readonly DiffEngine _diffEngine = new();
-    private readonly LatestComparison _comparison = new();
-    private (ClipboardEntry Previous, ClipboardEntry Current, DiffSideLabels Labels)? _comparisonInput;
-    private readonly ClipDiffSettingsStore _settingsStore;
-    private readonly ExternalDiffLauncher _externalDiffLauncher;
-    private readonly NativeMessageWindow _messageWindow;
-    private readonly ClipboardMonitor _clipboardMonitor;
-    private readonly ClipboardWriter _clipboardWriter;
-    private readonly CopiedFileTextReader _copiedFileTextReader = new();
-    private readonly ClipboardHistory _history;
-    private readonly GlobalHotKey _hotKey;
-    private readonly TrayIconController _trayIcon;
-    private readonly DiffWindowViewModel _viewModel;
-    private readonly ExplorerCommandServer _explorerCommandServer;
-    private readonly ExplorerDropTargetServer _explorerDropTargetServer;
-    private readonly ExplorerContextMenuRegistration _explorerContextMenuRegistration;
-    private readonly CancellationTokenSource _shutdown = new();
-    private ClipDiffSettings _settings;
-    private IReadOnlyList<ExternalDiffToolChoice> _externalDiffTools;
-    private DiffWindow? _diffWindow;
-    private AboutWindow? _aboutWindow;
-    private ShortcutWindow? _shortcutWindow;
-    private bool _disposed;
+    private readonly DiffEngine diffEngine = new();
+    private readonly LatestComparison comparison = new();
+    private (ClipboardEntry Previous, ClipboardEntry Current, DiffSideLabels Labels)? comparisonInput;
+    private readonly ClipDiffSettingsStore settingsStore;
+    private readonly ExternalDiffLauncher externalDiffLauncher;
+    private readonly NativeMessageWindow messageWindow;
+    private readonly ClipboardMonitor clipboardMonitor;
+    private readonly ClipboardWriter clipboardWriter;
+    private readonly CopiedFileTextReader copiedFileTextReader = new();
+    private readonly ClipboardHistory history;
+    private readonly GlobalHotKey hotKey;
+    private readonly TrayIconController trayIcon;
+    private readonly DiffWindowViewModel viewModel;
+    private readonly ExplorerCommandServer explorerCommandServer;
+    private readonly ExplorerDropTargetServer explorerDropTargetServer;
+    private readonly ExplorerContextMenuRegistration explorerContextMenuRegistration;
+    private readonly CancellationTokenSource shutdown = new();
+    private ClipDiffSettings settings;
+    private IReadOnlyList<ExternalDiffToolChoice> externalDiffTools;
+    private DiffWindow? diffWindow;
+    private AboutWindow? aboutWindow;
+    private ShortcutWindow? shortcutWindow;
+    private bool disposed;
 
     public AppController()
     {
-        _messageWindow = new NativeMessageWindow();
-        _clipboardMonitor = new ClipboardMonitor(_messageWindow);
-        _clipboardWriter = new ClipboardWriter(_messageWindow.Handle);
-        _history = new ClipboardHistory(_clipboardMonitor.BaselineSequence);
-        _settingsStore = new ClipDiffSettingsStore();
-        _settings = _settingsStore.Load();
-        _hotKey = new GlobalHotKey(new NativeHotKeyBackend(_messageWindow), HotKeyGesture.Normalize(_settings.HotKey));
-        _externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(_settings.SelectedExecutablePath);
-        _externalDiffLauncher = new ExternalDiffLauncher();
-        _trayIcon = new TrayIconController(
-            _externalDiffTools,
+        messageWindow = new NativeMessageWindow();
+        clipboardMonitor = new ClipboardMonitor(messageWindow);
+        clipboardWriter = new ClipboardWriter(messageWindow.Handle);
+        history = new ClipboardHistory(clipboardMonitor.BaselineSequence);
+        settingsStore = new ClipDiffSettingsStore();
+        settings = settingsStore.Load();
+        hotKey = new GlobalHotKey(new NativeHotKeyBackend(messageWindow), HotKeyGesture.Normalize(settings.HotKey));
+        externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(settings.SelectedExecutablePath);
+        externalDiffLauncher = new ExternalDiffLauncher();
+        trayIcon = new TrayIconController(
+            externalDiffTools,
             GetSelectedExternalDiffTool()?.ExecutablePath);
-        _viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText, Recompare);
-        _explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
-        _explorerDropTargetServer = new ExplorerDropTargetServer(
+        viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText, Recompare);
+        explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
+        explorerDropTargetServer = new ExplorerDropTargetServer(
             OnExplorerFilesSelected,
-            () => !_disposed && _history.IsMonitoring);
-        _explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
+            () => !disposed && history.IsMonitoring);
+        explorerContextMenuRegistration = new ExplorerContextMenuRegistration();
 
-        _clipboardMonitor.ObservationReceived += OnClipboardObservation;
-        _hotKey.Pressed += OnHotKeyPressed;
-        _trayIcon.ShowDiffRequested += OnShowDiffRequested;
-        _trayIcon.ShortcutRequested += OnShortcutRequested;
-        _trayIcon.ToggleMonitoringRequested += OnToggleMonitoringRequested;
-        _trayIcon.DiffToolSelected += OnDiffToolSelected;
-        _trayIcon.ChooseDiffToolRequested += OnChooseDiffToolRequested;
-        _trayIcon.ClearRequested += OnClearRequested;
-        _trayIcon.AboutRequested += OnAboutRequested;
-        _trayIcon.QuitRequested += OnQuitRequested;
+        clipboardMonitor.ObservationReceived += OnClipboardObservation;
+        hotKey.Pressed += OnHotKeyPressed;
+        trayIcon.ShowDiffRequested += OnShowDiffRequested;
+        trayIcon.ShortcutRequested += OnShortcutRequested;
+        trayIcon.ToggleMonitoringRequested += OnToggleMonitoringRequested;
+        trayIcon.DiffToolSelected += OnDiffToolSelected;
+        trayIcon.ChooseDiffToolRequested += OnChooseDiffToolRequested;
+        trayIcon.ClearRequested += OnClearRequested;
+        trayIcon.AboutRequested += OnAboutRequested;
+        trayIcon.QuitRequested += OnQuitRequested;
         UpdatePresentation();
     }
 
@@ -77,7 +77,7 @@ internal sealed class AppController : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(selectedFilePath);
 
-        if (!_disposed)
+        if (!disposed)
         {
             _ = CompareWithSelectedFileAsync(selectedFilePath);
         }
@@ -85,65 +85,65 @@ internal sealed class AppController : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
 
-        _disposed = true;
+        disposed = true;
         ClearComparison();
-        _shutdown.Cancel();
-        _clipboardMonitor.ObservationReceived -= OnClipboardObservation;
-        _hotKey.Pressed -= OnHotKeyPressed;
-        _trayIcon.ShowDiffRequested -= OnShowDiffRequested;
-        _trayIcon.ShortcutRequested -= OnShortcutRequested;
-        _trayIcon.ToggleMonitoringRequested -= OnToggleMonitoringRequested;
-        _trayIcon.DiffToolSelected -= OnDiffToolSelected;
-        _trayIcon.ChooseDiffToolRequested -= OnChooseDiffToolRequested;
-        _trayIcon.ClearRequested -= OnClearRequested;
-        _trayIcon.AboutRequested -= OnAboutRequested;
-        _trayIcon.QuitRequested -= OnQuitRequested;
+        shutdown.Cancel();
+        clipboardMonitor.ObservationReceived -= OnClipboardObservation;
+        hotKey.Pressed -= OnHotKeyPressed;
+        trayIcon.ShowDiffRequested -= OnShowDiffRequested;
+        trayIcon.ShortcutRequested -= OnShortcutRequested;
+        trayIcon.ToggleMonitoringRequested -= OnToggleMonitoringRequested;
+        trayIcon.DiffToolSelected -= OnDiffToolSelected;
+        trayIcon.ChooseDiffToolRequested -= OnChooseDiffToolRequested;
+        trayIcon.ClearRequested -= OnClearRequested;
+        trayIcon.AboutRequested -= OnAboutRequested;
+        trayIcon.QuitRequested -= OnQuitRequested;
 
-        _explorerContextMenuRegistration.Dispose();
-        _explorerDropTargetServer.Dispose();
-        _explorerCommandServer.Dispose();
-        _trayIcon.Dispose();
-        _externalDiffLauncher.Dispose();
-        _hotKey.Dispose();
-        _clipboardMonitor.Dispose();
-        if (_shortcutWindow is not null)
+        explorerContextMenuRegistration.Dispose();
+        explorerDropTargetServer.Dispose();
+        explorerCommandServer.Dispose();
+        trayIcon.Dispose();
+        externalDiffLauncher.Dispose();
+        hotKey.Dispose();
+        clipboardMonitor.Dispose();
+        if (shortcutWindow is not null)
         {
-            _shortcutWindow.Close();
-            _shortcutWindow = null;
+            shortcutWindow.Close();
+            shortcutWindow = null;
         }
 
-        if (_diffWindow is not null)
+        if (diffWindow is not null)
         {
-            _diffWindow.AllowClose = true;
-            _diffWindow.Close();
-            _diffWindow = null;
+            diffWindow.AllowClose = true;
+            diffWindow.Close();
+            diffWindow = null;
         }
 
-        if (_aboutWindow is not null)
+        if (aboutWindow is not null)
         {
-            _aboutWindow.AllowClose = true;
-            _aboutWindow.Close();
-            _aboutWindow = null;
+            aboutWindow.AllowClose = true;
+            aboutWindow.Close();
+            aboutWindow = null;
         }
 
-        _viewModel.ClearDocument();
-        _history.Clear();
-        _messageWindow.Dispose();
-        _shutdown.Dispose();
+        viewModel.ClearDocument();
+        history.Clear();
+        messageWindow.Dispose();
+        shutdown.Dispose();
     }
 
     private void OnClipboardObservation(object? sender, ClipboardObservation observation)
     {
-        var change = _history.Apply(observation);
+        var change = history.Apply(observation);
         if (change == ClipboardHistoryChange.RemovedByRecentClear)
         {
             ClearComparison();
-            _viewModel.ClearDocument();
+            viewModel.ClearDocument();
         }
 
         UpdatePresentation();
@@ -151,7 +151,7 @@ internal sealed class AppController : IDisposable
 
     private void OnHotKeyPressed(object? sender, EventArgs args)
     {
-        if (_shortcutWindow?.TryCaptureRegisteredShortcut(_hotKey.Gesture) == true)
+        if (shortcutWindow?.TryCaptureRegisteredShortcut(hotKey.Gesture) == true)
         {
             return;
         }
@@ -163,14 +163,14 @@ internal sealed class AppController : IDisposable
 
     private void OnToggleMonitoringRequested(object? sender, EventArgs args)
     {
-        if (_history.IsMonitoring)
+        if (history.IsMonitoring)
         {
-            _clipboardMonitor.Pause();
-            _history.Pause();
+            clipboardMonitor.Pause();
+            history.Pause();
         }
         else
         {
-            _history.Resume(_clipboardMonitor.Resume());
+            history.Resume(clipboardMonitor.Resume());
         }
 
         UpdatePresentation();
@@ -180,52 +180,52 @@ internal sealed class AppController : IDisposable
 
     private void OnAboutRequested(object? sender, EventArgs args)
     {
-        _aboutWindow ??= new AboutWindow();
-        if (_aboutWindow.WindowState == WindowState.Minimized)
+        aboutWindow ??= new AboutWindow();
+        if (aboutWindow.WindowState == WindowState.Minimized)
         {
-            _aboutWindow.WindowState = WindowState.Normal;
+            aboutWindow.WindowState = WindowState.Normal;
         }
 
-        _aboutWindow.Show();
-        _aboutWindow.Activate();
+        aboutWindow.Show();
+        aboutWindow.Activate();
     }
 
     private void OnShortcutRequested(object? sender, EventArgs args)
     {
-        if (_shortcutWindow is not null)
+        if (shortcutWindow is not null)
         {
-            _shortcutWindow.Activate();
+            shortcutWindow.Activate();
             return;
         }
 
-        var window = new ShortcutWindow(_hotKey.Gesture, TryChangeHotKey);
-        _shortcutWindow = window;
+        var window = new ShortcutWindow(hotKey.Gesture, TryChangeHotKey);
+        shortcutWindow = window;
         try
         {
             window.ShowDialog();
         }
         finally
         {
-            if (ReferenceEquals(_shortcutWindow, window))
+            if (ReferenceEquals(shortcutWindow, window))
             {
-                _shortcutWindow = null;
+                shortcutWindow = null;
             }
         }
     }
 
     private HotKeyChangeResult TryChangeHotKey(HotKeyGesture gesture)
     {
-        if (_disposed)
+        if (disposed)
         {
             return HotKeyChangeResult.Unavailable;
         }
 
-        var updatedSettings = _settings with { HotKey = gesture };
+        var updatedSettings = settings with { HotKey = gesture };
         var result = HotKeyChangeTransaction.TrySave(
-            _hotKey, gesture, () => _settingsStore.TrySave(updatedSettings));
+            hotKey, gesture, () => settingsStore.TrySave(updatedSettings));
         if (result == HotKeyChangeResult.Success)
         {
-            _settings = updatedSettings;
+            settings = updatedSettings;
         }
 
         UpdatePresentation();
@@ -234,12 +234,12 @@ internal sealed class AppController : IDisposable
 
     private void OnDiffToolSelected(object? sender, ExternalDiffToolSelectedEventArgs args)
     {
-        _settings = _settings with
+        settings = settings with
         {
             SelectedExecutablePath = args.Choice?.ExecutablePath
         };
-        _settingsStore.TrySave(_settings);
-        _trayIcon.SetDiffTools(_externalDiffTools, args.Choice?.ExecutablePath);
+        settingsStore.TrySave(settings);
+        trayIcon.SetDiffTools(externalDiffTools, args.Choice?.ExecutablePath);
     }
 
     private void OnChooseDiffToolRequested(object? sender, EventArgs args)
@@ -259,9 +259,9 @@ internal sealed class AppController : IDisposable
         var choice = new ExternalDiffToolChoice(
             ExternalDiffToolCatalog.MatchExecutable(dialog.FileName),
             Path.GetFullPath(dialog.FileName));
-        _externalDiffTools =
+        externalDiffTools =
         [
-            .. _externalDiffTools
+            .. externalDiffTools
                 .Where(existing => !string.Equals(existing.ExecutablePath, choice.ExecutablePath,
                     StringComparison.OrdinalIgnoreCase)),
 
@@ -278,16 +278,16 @@ internal sealed class AppController : IDisposable
 
     private void ShowDiff()
     {
-        if (_history.Previous is not { } previous || _history.Current is not { } current)
+        if (history.Previous is not { } previous || history.Current is not { } current)
         {
             SystemSounds.Beep.Play();
             return;
         }
 
-        _comparison.Cancel();
+        comparison.Cancel();
         var selectedTool = GetSelectedExternalDiffTool();
         if (selectedTool is not null && ConfirmExternalDiffRisk() &&
-            _externalDiffLauncher.TryLaunch(selectedTool, previous, current))
+            externalDiffLauncher.TryLaunch(selectedTool, previous, current))
         {
             return;
         }
@@ -297,46 +297,56 @@ internal sealed class AppController : IDisposable
 
     private void ShowBuiltInDiff(ClipboardEntry previous, ClipboardEntry current)
     {
-        _comparisonInput = (previous with { SourceFilePath = null },
+        comparisonInput = (previous with { SourceFilePath = null },
             current with { SourceFilePath = null }, DiffFormatting.Labels(previous, current));
         Recompare();
     }
 
     private void Recompare()
     {
-        if (_comparisonInput is not { } input || _disposed) return;
-        _ = CompareBuiltInAsync(input.Previous, input.Current, input.Labels);
+        if (comparisonInput is not { } input || disposed)
+		{
+			return;
+		}
+
+		_ = CompareBuiltInAsync(input.Previous, input.Current, input.Labels);
     }
 
     private async Task CompareBuiltInAsync(ClipboardEntry previous, ClipboardEntry current, DiffSideLabels labels)
     {
-        var ignoreSpacing = _viewModel.IgnoreSpacing;
+        var ignoreSpacing = viewModel.IgnoreSpacing;
         try
         {
-            await _comparison.RunAsync(
-                token => Task.Run(() => _diffEngine.Compare(previous, current,
+            await comparison.RunAsync(
+                token => Task.Run(() => diffEngine.Compare(previous, current,
                     ignoreSpacing: ignoreSpacing, cancellationToken: token) with { Labels = labels }, token),
                 document =>
                 {
-                    _viewModel.Load(document);
-                    _diffWindow ??= new DiffWindow { DataContext = _viewModel };
-                    if (_diffWindow.WindowState == WindowState.Minimized)
-                        _diffWindow.WindowState = WindowState.Normal;
-                    _diffWindow.Show();
-                    _diffWindow.Activate();
+                    viewModel.Load(document);
+                    diffWindow ??= new DiffWindow { DataContext = viewModel };
+                    if (diffWindow.WindowState == WindowState.Minimized)
+					{
+						diffWindow.WindowState = WindowState.Normal;
+					}
+
+					diffWindow.Show();
+                    diffWindow.Activate();
                 });
         }
         catch (Exception exception) when (exception is InvalidOperationException or OverflowException)
         {
             // Never include input text in diagnostics or user-facing errors.
-            if (!_disposed) SystemSounds.Beep.Play();
-        }
+            if (!disposed)
+			{
+				SystemSounds.Beep.Play();
+			}
+		}
     }
 
     private void ClearComparison()
     {
-        _comparison.Cancel();
-        _comparisonInput = null;
+        comparison.Cancel();
+        comparisonInput = null;
     }
 
     private async Task CompareWithSelectedFileAsync(string selectedFilePath)
@@ -345,7 +355,7 @@ internal sealed class AppController : IDisposable
         {
             var dispatcher = System.Windows.Application.Current.Dispatcher;
             var canCompare = await dispatcher.InvokeAsync(
-                () => !_disposed && _history.IsMonitoring && _history.Current is not null).Task.ConfigureAwait(false);
+                () => !disposed && history.IsMonitoring && history.Current is not null).Task.ConfigureAwait(false);
             if (!canCompare)
             {
                 await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
@@ -364,9 +374,9 @@ internal sealed class AppController : IDisposable
                 return;
             }
 
-            var selectedValue = await _copiedFileTextReader.ReadFileAsync(
+            var selectedValue = await copiedFileTextReader.ReadFileAsync(
                 fullPath,
-                _shutdown.Token).ConfigureAwait(false);
+                shutdown.Token).ConfigureAwait(false);
             if (selectedValue is null)
             {
                 await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
@@ -375,18 +385,18 @@ internal sealed class AppController : IDisposable
 
             await dispatcher.InvokeAsync(() =>
             {
-                if (_disposed)
+                if (disposed)
                 {
                     return;
                 }
 
-                if (!_history.IsMonitoring || _history.Current is null)
+                if (!history.IsMonitoring || history.Current is null)
                 {
                     SystemSounds.Beep.Play();
                     return;
                 }
 
-                _history.AcceptDirectText(
+                history.AcceptDirectText(
                     selectedValue.Text,
                     DateTimeOffset.Now,
                     selectedValue.FileName,
@@ -395,7 +405,7 @@ internal sealed class AppController : IDisposable
                 ShowDiff();
             }).Task.ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (_disposed)
+        catch (OperationCanceledException) when (disposed)
         {
         }
     }
@@ -418,16 +428,16 @@ internal sealed class AppController : IDisposable
         {
             var dispatcher = System.Windows.Application.Current.Dispatcher;
             var canCompare = await dispatcher.InvokeAsync(
-                () => !_disposed && _history.IsMonitoring).Task.ConfigureAwait(false);
+                () => !disposed && history.IsMonitoring).Task.ConfigureAwait(false);
             if (!canCompare)
             {
                 await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
                 return;
             }
 
-            var selectedValues = await _copiedFileTextReader.ReadValuesAsync(
+            var selectedValues = await copiedFileTextReader.ReadValuesAsync(
                 [previousFilePath, currentFilePath],
-                _shutdown.Token).ConfigureAwait(false);
+                shutdown.Token).ConfigureAwait(false);
             if (selectedValues.Count != 2)
             {
                 await dispatcher.InvokeAsync(SystemSounds.Beep.Play).Task.ConfigureAwait(false);
@@ -436,12 +446,12 @@ internal sealed class AppController : IDisposable
 
             await dispatcher.InvokeAsync(() =>
             {
-                if (_disposed)
+                if (disposed)
                 {
                     return;
                 }
 
-                if (!_history.IsMonitoring)
+                if (!history.IsMonitoring)
                 {
                     SystemSounds.Beep.Play();
                     return;
@@ -449,7 +459,7 @@ internal sealed class AppController : IDisposable
 
                 var previous = selectedValues[0];
                 var current = selectedValues[1];
-                _history.AcceptDirectPair(
+                history.AcceptDirectPair(
                     previous.Text,
                     current.Text,
                     DateTimeOffset.Now,
@@ -461,27 +471,27 @@ internal sealed class AppController : IDisposable
                 ShowDiff();
             }).Task.ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (_disposed)
+        catch (OperationCanceledException) when (disposed)
         {
         }
     }
 
     private ExternalDiffToolChoice? GetSelectedExternalDiffTool()
     {
-        if (string.IsNullOrWhiteSpace(_settings.SelectedExecutablePath))
+        if (string.IsNullOrWhiteSpace(settings.SelectedExecutablePath))
         {
             return null;
         }
 
-        return _externalDiffTools.FirstOrDefault(choice => string.Equals(
+        return externalDiffTools.FirstOrDefault(choice => string.Equals(
             choice.ExecutablePath,
-            _settings.SelectedExecutablePath,
+            settings.SelectedExecutablePath,
             StringComparison.OrdinalIgnoreCase));
     }
 
     private bool ConfirmExternalDiffRisk()
     {
-        if (_settings.PlaintextWarningAcknowledged)
+        if (settings.PlaintextWarningAcknowledged)
         {
             return true;
         }
@@ -506,56 +516,56 @@ internal sealed class AppController : IDisposable
             return false;
         }
 
-        _settings = _settings with { PlaintextWarningAcknowledged = true };
-        _settingsStore.TrySave(_settings);
+        settings = settings with { PlaintextWarningAcknowledged = true };
+        settingsStore.TrySave(settings);
         return true;
     }
 
     private void CopyDiff()
     {
-        if (_viewModel.Document is not { } document)
+        if (viewModel.Document is not { } document)
         {
             SystemSounds.Beep.Play();
             return;
         }
 
         var text = DiffFormatting.Unified(document);
-        if (!_clipboardWriter.TryWriteProtectedText(text, out var sequenceNumber))
+        if (!clipboardWriter.TryWriteProtectedText(text, out var sequenceNumber))
         {
             SystemSounds.Beep.Play();
             return;
         }
 
-        _clipboardMonitor.SuppressOwnWrite(sequenceNumber);
-        _history.Apply(ClipboardObservation.OwnWrite(sequenceNumber, DateTimeOffset.Now));
+        clipboardMonitor.SuppressOwnWrite(sequenceNumber);
+        history.Apply(ClipboardObservation.OwnWrite(sequenceNumber, DateTimeOffset.Now));
         UpdatePresentation();
     }
 
     private void ClearCapturedText()
     {
         ClearComparison();
-        _history.Clear();
-        _viewModel.ClearDocument();
+        history.Clear();
+        viewModel.ClearDocument();
         UpdatePresentation();
     }
 
     private void UpdatePresentation()
     {
-        var status = _clipboardMonitor.IsRegistered || !_history.IsMonitoring
-            ? _history.Status
+        var status = clipboardMonitor.IsRegistered || !history.IsMonitoring
+            ? history.Status
             : "Clipboard listener unavailable";
-        _trayIcon.Update(
+        trayIcon.Update(
             status,
-            _hotKey.IsRegistered,
-            _hotKey.Gesture.DisplayText,
-            _history.IsMonitoring,
-            _history.Current,
-            _history.Previous);
-        _viewModel.SetCanClear(_history.Current is not null);
-        _explorerContextMenuRegistration.SetState(
-            _history.IsMonitoring,
-            _history.Current is not null,
-            _explorerDropTargetServer.IsRegistered,
-            _history.Current?.SourceFileName);
+            hotKey.IsRegistered,
+            hotKey.Gesture.DisplayText,
+            history.IsMonitoring,
+            history.Current,
+            history.Previous);
+        viewModel.SetCanClear(history.Current is not null);
+        explorerContextMenuRegistration.SetState(
+            history.IsMonitoring,
+            history.Current is not null,
+            explorerDropTargetServer.IsRegistered,
+            history.Current?.SourceFileName);
     }
 }

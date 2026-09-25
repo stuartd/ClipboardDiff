@@ -39,12 +39,12 @@ public sealed class CopiedFileTextReader
         [0x7F, 0x45, 0x4C, 0x46],                               // ELF
         [0xCA, 0xFE, 0xBA, 0xBE]                                // Java class
     ];
-    private readonly long _maximumTextFileBytes;
+    private readonly long maximumTextFileBytes;
 
     public CopiedFileTextReader(long maximumTextFileBytes = DefaultMaximumTextFileBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumTextFileBytes);
-        _maximumTextFileBytes = maximumTextFileBytes;
+        this.maximumTextFileBytes = maximumTextFileBytes;
     }
 
     public async ValueTask<IReadOnlyList<CopiedFileText>> ReadValuesAsync(
@@ -136,7 +136,7 @@ public sealed class CopiedFileTextReader
                 return CreateFallback(fileName, sourceFilePath, "empty file");
             }
 
-            if (stream.Length > _maximumTextFileBytes || stream.Length > int.MaxValue)
+            if (stream.Length > maximumTextFileBytes || stream.Length > int.MaxValue)
             {
                 return CreateFallback(fileName, sourceFilePath, "file too large");
             }

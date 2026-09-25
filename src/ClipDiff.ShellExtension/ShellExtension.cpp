@@ -21,16 +21,34 @@ namespace
 
     bool IsFilePair(IDataObject* data) noexcept
     {
-        if (!data) return false;
+        if (!data)
+        {
+	        return false;
+        }
+
         // The application consumes CF_HDROP. Do not offer an action it cannot receive.
         FORMATETC format{CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
-        if (data->QueryGetData(&format) != S_OK) return false;
+
+        if (data->QueryGetData(&format) != S_OK)
+        {
+	        return false;
+        }
 
         // IShellExtInit supplies the complete selection. No file contents or display names are requested.
         ComPtr<IShellItemArray> items;
-        if (FAILED(SHCreateShellItemArrayFromDataObject(data, IID_PPV_ARGS(&items)))) return false;
+
+        if (FAILED(SHCreateShellItemArrayFromDataObject(data, IID_PPV_ARGS(&items))))
+        {
+	        return false;
+        }
+
         DWORD count = 0;
-        if (FAILED(items->GetCount(&count)) || count != 2) return false;
+
+        if (FAILED(items->GetCount(&count)) || count != 2)
+        {
+	        return false;
+        }
+
         for (DWORD index = 0; index < count; ++index)
         {
             ComPtr<IShellItem> item;
@@ -41,6 +59,7 @@ namespace
             // ZIPs can be both folders and streams; physical directories are not streams.
             if ((attributes & SFGAO_FOLDER) && !(attributes & SFGAO_STREAM)) return false;
         }
+
         return true;
     }
 
@@ -56,13 +75,26 @@ namespace
 
         IFACEMETHODIMP QueryInterface(REFIID iid, void** result) override
         {
-            if (!result) return E_POINTER;
+            if (!result)
+            {
+	            return E_POINTER;
+            }
+
             *result = nullptr;
+
             if (iid == IID_IUnknown || iid == IID_IShellExtInit)
-                *result = static_cast<IShellExtInit*>(this);
+            {
+	            *result = static_cast<IShellExtInit*>(this);
+            }
             else if (iid == IID_IContextMenu)
-                *result = static_cast<IContextMenu*>(this);
-            else return E_NOINTERFACE;
+            {
+	            *result = static_cast<IContextMenu*>(this);
+            }
+            else
+            {
+	            return E_NOINTERFACE;
+            }
+
             AddRef();
             return S_OK;
         }
@@ -71,73 +103,136 @@ namespace
         IFACEMETHODIMP_(ULONG) Release() override
         {
             const ULONG remaining = --references_;
-            if (!remaining) delete this;
+
+            if (!remaining)
+            {
+	            delete this;
+            }
+
             return remaining;
         }
 
         IFACEMETHODIMP Initialize(PCIDLIST_ABSOLUTE, IDataObject* data, HKEY) override
         {
             selection_.Reset();
-            if (IsClipDiffReady() && IsFilePair(data)) selection_ = data;
+
+            if (IsClipDiffReady() && IsFilePair(data))
+            {
+	            selection_ = data;
+            }
+
             return S_OK;
         }
 
         IFACEMETHODIMP QueryContextMenu(HMENU menu, UINT position, UINT firstId, UINT lastId, UINT flags) override
         {
             if ((flags & CMF_DEFAULTONLY) || firstId > lastId || !selection_ || !IsClipDiffReady())
-                return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+            {
+	            return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+            }
 
             MENUITEMINFOW item{sizeof(item)};
             item.fMask = MIIM_ID | MIIM_STRING | MIIM_STATE;
             item.wID = firstId;
             item.fState = MFS_ENABLED;
             item.dwTypeData = const_cast<wchar_t*>(ClipDiffMenuLabel);
-            if (!InsertMenuItemW(menu, position, TRUE, &item)) return HRESULT_FROM_WIN32(GetLastError());
+
+            if (!InsertMenuItemW(menu, position, TRUE, &item))
+            {
+	            return HRESULT_FROM_WIN32(GetLastError());
+            }
+
             return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 1);
         }
 
         IFACEMETHODIMP GetCommandString(UINT_PTR id, UINT flags, UINT*, LPSTR buffer, UINT capacity) override
         {
-            if (id != 0) return E_INVALIDARG;
-            if (flags == GCS_VERBW) return StringCchCopyW(reinterpret_cast<LPWSTR>(buffer), capacity, ClipDiffVerb);
-            if (flags == GCS_VERBA) return StringCchCopyA(buffer, capacity, ClipDiffVerbAnsi);
+            if (id != 0)
+            {
+	            return E_INVALIDARG;
+            }
+
+            if (flags == GCS_VERBW)
+            {
+                return StringCchCopyW(reinterpret_cast<LPWSTR>(buffer), capacity, ClipDiffVerb);
+            }
+
+            if (flags == GCS_VERBA)
+            {
+	            return StringCchCopyA(buffer, capacity, ClipDiffVerbAnsi);
+            }
+
             if (flags == GCS_HELPTEXTW)
-                return StringCchCopyW(reinterpret_cast<LPWSTR>(buffer), capacity, L"Compare the two selected files.");
-            if (flags == GCS_HELPTEXTA) return StringCchCopyA(buffer, capacity, "Compare the two selected files.");
-            if (flags == GCS_VALIDATEA || flags == GCS_VALIDATEW) return S_OK;
+            {
+	            return StringCchCopyW(reinterpret_cast<LPWSTR>(buffer), capacity, L"Compare the two selected files.");
+            }
+
+            if (flags == GCS_HELPTEXTA)
+            {
+	            return StringCchCopyA(buffer, capacity, "Compare the two selected files.");
+            }
+
+            if (flags == GCS_VALIDATEA || flags == GCS_VALIDATEW)
+            {
+	            return S_OK;
+            }
+
             return E_NOTIMPL;
         }
 
         IFACEMETHODIMP InvokeCommand(CMINVOKECOMMANDINFO* command) override
         {
-            if (!command || command->cbSize < sizeof(CMINVOKECOMMANDINFO)) return E_INVALIDARG;
+            if (!command || command->cbSize < sizeof(CMINVOKECOMMANDINFO))
+            {
+	            return E_INVALIDARG;
+            }
+
             const wchar_t* unicodeVerb = nullptr;
             if (command->cbSize >= sizeof(CMINVOKECOMMANDINFOEX) && (command->fMask & CMIC_MASK_UNICODE))
             {
                 const auto extended = reinterpret_cast<CMINVOKECOMMANDINFOEX*>(command);
-                if (!IS_INTRESOURCE(extended->lpVerbW)) unicodeVerb = extended->lpVerbW;
+                if (!IS_INTRESOURCE(extended->lpVerbW))
+                {
+	                unicodeVerb = extended->lpVerbW;
+                }
             }
+
             const bool matches = unicodeVerb ? lstrcmpiW(unicodeVerb, ClipDiffVerb) == 0
                 : IS_INTRESOURCE(command->lpVerb) ? LOWORD(reinterpret_cast<ULONG_PTR>(command->lpVerb)) == 0
                 : lstrcmpiA(command->lpVerb, ClipDiffVerbAnsi) == 0;
-            if (!matches) return E_INVALIDARG;
+
+            if (!matches)
+            {
+	            return E_INVALIDARG;
+            }
 
             // Consume the selection once and release it on every exit, including failed delivery.
             ComPtr<IDataObject> data;
             data.Swap(selection_);
-            if (!IsClipDiffReady() || !IsFilePair(data.Get())) return E_FAIL;
+
+            if (!IsClipDiffReady() || !IsFilePair(data.Get()))
+            {
+	            return E_FAIL;
+            }
+
             ComPtr<IDropTarget> target;
             HRESULT result = CoCreateInstance(CLSID_ClipDiffDropTarget, nullptr, CLSCTX_LOCAL_SERVER,
                 IID_PPV_ARGS(&target));
-            if (FAILED(result)) return result;
+
+            if (FAILED(result))
+            {
+	            return result;
+            }
 
             DWORD effect = DROPEFFECT_COPY;
             result = target->DragEnter(data.Get(), MK_LBUTTON, POINTL{}, &effect);
+
             if (FAILED(result) || !(effect & DROPEFFECT_COPY))
             {
                 target->DragLeave();
                 return FAILED(result) ? result : E_FAIL;
             }
+
             effect = DROPEFFECT_COPY;
             return target->Drop(data.Get(), MK_LBUTTON, POINTL{}, &effect);
         }
@@ -151,35 +246,74 @@ namespace
         ClassFactory() { ++moduleReferences; }
         IFACEMETHODIMP QueryInterface(REFIID iid, void** result) override
         {
-            if (!result) return E_POINTER;
+            if (!result)
+            {
+	            return E_POINTER;
+            }
+
             *result = nullptr;
-            if (iid != IID_IUnknown && iid != IID_IClassFactory) return E_NOINTERFACE;
+
+            if (iid != IID_IUnknown && iid != IID_IClassFactory)
+            {
+	            return E_NOINTERFACE;
+            }
+
             *result = static_cast<IClassFactory*>(this);
             AddRef();
             return S_OK;
         }
-        IFACEMETHODIMP_(ULONG) AddRef() override { return ++references_; }
+		IFACEMETHODIMP_(ULONG) AddRef() override
+        {
+	        return ++references_;
+        }
+
         IFACEMETHODIMP_(ULONG) Release() override
         {
             const ULONG remaining = --references_;
-            if (!remaining) delete this;
+
+            if (!remaining)
+            {
+	            delete this;
+            }
+
             return remaining;
         }
+
         IFACEMETHODIMP CreateInstance(IUnknown* outer, REFIID iid, void** result) override
         {
-            if (!result) return E_POINTER;
+            if (!result)
+            {
+	            return E_POINTER;
+            }
+
             *result = nullptr;
-            if (outer) return CLASS_E_NOAGGREGATION;
+            if (outer)
+            {
+	            return CLASS_E_NOAGGREGATION;
+            }
+
             auto instance = new (std::nothrow) ContextMenu();
-            if (!instance) return E_OUTOFMEMORY;
+            if (!instance)
+            {
+	            return E_OUTOFMEMORY;
+            }
+
             const HRESULT status = instance->QueryInterface(iid, result);
             instance->Release();
             return status;
         }
+
         IFACEMETHODIMP LockServer(BOOL lock) override
         {
-            if (lock) ++moduleReferences;
-            else --moduleReferences;
+            if (lock)
+            {
+	            ++moduleReferences;
+            }
+            else
+            {
+	            --moduleReferences;
+            }
+
             return S_OK;
         }
     };

@@ -4,33 +4,37 @@ namespace ClipDiff.Windows.ViewModels;
 // happen together; even a worker that finishes just before cancellation cannot publish.
 internal sealed class LatestComparison
 {
-    private CancellationTokenSource? _active;
+    private CancellationTokenSource? active;
 
     public void Cancel()
     {
-        _active?.Cancel();
-        _active = null;
+        active?.Cancel();
+        active = null;
     }
 
     public async Task RunAsync(Func<CancellationToken, Task<DiffDocument>> compare, Action<DiffDocument> publish)
     {
         Cancel();
         using var cancellation = new CancellationTokenSource();
-        _active = cancellation;
+        active = cancellation;
         try
         {
             var document = await compare(cancellation.Token);
-            if (ReferenceEquals(_active, cancellation) && !cancellation.IsCancellationRequested)
-                publish(document);
-        }
+            if (ReferenceEquals(active, cancellation) && !cancellation.IsCancellationRequested)
+			{
+				publish(document);
+			}
+		}
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
             // Superseded, cleared, or shutting down.
         }
         finally
         {
-            if (ReferenceEquals(_active, cancellation))
-                _active = null;
-        }
+            if (ReferenceEquals(active, cancellation))
+			{
+				active = null;
+			}
+		}
     }
 }
