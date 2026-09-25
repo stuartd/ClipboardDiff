@@ -6,14 +6,15 @@ namespace ClipDiff;
 // One instance per comparison: the budget is shared by changed rows in document order.
 internal sealed class InlineDiff(bool ignoreSpacing, CancellationToken cancellationToken)
 {
-	internal const int MaximumPairBytes = 16_384;
-	internal const int MaximumSharedWork = 2_000_000;
-	internal const int MaximumSearchCells = 65_536;
-	private int _remainingWork = MaximumSharedWork;
+	private const int MaximumPairBytes = 16_384;
+	private const int MaximumSharedWork = 2_000_000;
+	private const int MaximumSearchCells = 65_536;
+	private int remainingWork = MaximumSharedWork;
 
 	internal DiffRow Highlight(DiffRow row)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (row.Kind != DiffKind.Changed || row.OldText is null || row.NewText is null)
 		{
 			return row;
@@ -26,13 +27,15 @@ internal sealed class InlineDiff(bool ignoreSpacing, CancellationToken cancellat
 		}
 
 		int bytes = Encoding.UTF8.GetByteCount(row.OldText) + Encoding.UTF8.GetByteCount(row.NewText);
-		if (bytes > MaximumPairBytes || bytes > _remainingWork)
+
+		if (bytes > MaximumPairBytes || bytes > remainingWork)
 		{
 			return row;
 		}
 
-		_remainingWork -= bytes;
-		int searchBudget = Math.Min(MaximumSearchCells, _remainingWork);
+		remainingWork -= bytes;
+
+		int searchBudget = Math.Min(MaximumSearchCells, remainingWork);
 		int initialBudget = searchBudget;
 		var oldUnits = Units(row.OldText, ignoreSpacing);
 		var newUnits = Units(row.NewText, ignoreSpacing);
@@ -47,6 +50,7 @@ internal sealed class InlineDiff(bool ignoreSpacing, CancellationToken cancellat
 		foreach ((int oldIndex, int newIndex) in tokenMatches.Append((oldTokens.Count, newTokens.Count)))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			int oldEnd = oldIndex == oldTokens.Count ? oldUnits.Count : oldTokens[oldIndex].Start;
 			int newEnd = newIndex == newTokens.Count ? newUnits.Count : newTokens[newIndex].Start;
 			var matches = Align(oldUnits.GetRange(oldStart, oldEnd - oldStart),
@@ -71,7 +75,7 @@ internal sealed class InlineDiff(bool ignoreSpacing, CancellationToken cancellat
 			newStart = newToken.End;
 		}
 
-		_remainingWork -= initialBudget - searchBudget;
+		remainingWork -= initialBudget - searchBudget;
 
 		return row with
 		{
@@ -89,10 +93,12 @@ internal sealed class InlineDiff(bool ignoreSpacing, CancellationToken cancellat
 	{
 		int[] boundaries = StringInfo.ParseCombiningCharacters(text);
 		var units = new List<Unit>(boundaries.Length);
+
 		for (var index = 0; index < boundaries.Length; index++)
 		{
 			int end = index + 1 < boundaries.Length ? boundaries[index + 1] : text.Length;
 			string value = text[boundaries[index]..end];
+
 			if (normalize && IsWhitespace(value))
 			{
 				if (units.Count > 0)

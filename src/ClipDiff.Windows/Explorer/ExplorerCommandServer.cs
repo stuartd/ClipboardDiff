@@ -6,39 +6,39 @@ namespace ClipDiff.Windows.Explorer;
 internal sealed class ExplorerCommandServer : IDisposable
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
-    private readonly Func<string, Task> _selectedFileHandler;
-    private readonly CancellationTokenSource _shutdown = new();
-    private readonly Lock _gate = new();
-    private readonly Task _listenTask;
-    private NamedPipeServerStream? _activePipe;
-    private bool _disposed;
+    private readonly Func<string, Task> selectedFileHandler;
+    private readonly CancellationTokenSource shutdown = new();
+    private readonly Lock gate = new();
+    private readonly Task listenTask;
+    private NamedPipeServerStream? activePipe;
+    private bool disposed;
 
     public ExplorerCommandServer(Func<string, Task> selectedFileHandler)
     {
-        _selectedFileHandler = selectedFileHandler ??
-            throw new ArgumentNullException(nameof(selectedFileHandler));
-        var cancellationToken = _shutdown.Token;
-        _listenTask = Task.Run(() => ListenAsync(cancellationToken), CancellationToken.None);
+        this.selectedFileHandler = selectedFileHandler ??
+								   throw new ArgumentNullException(nameof(selectedFileHandler));
+        var cancellationToken = shutdown.Token;
+        listenTask = Task.Run(() => ListenAsync(cancellationToken), CancellationToken.None);
     }
 
     public void Dispose()
     {
-        lock (_gate)
+        lock (gate)
         {
-            if (_disposed)
+            if (disposed)
             {
                 return;
             }
 
-            _disposed = true;
-            _shutdown.Cancel();
-            _activePipe?.Dispose();
-            _activePipe = null;
+            disposed = true;
+            shutdown.Cancel();
+            activePipe?.Dispose();
+            activePipe = null;
         }
 
-        _ = _listenTask.ContinueWith(
+        _ = listenTask.ContinueWith(
             static (_, state) => ((CancellationTokenSource)state!).Dispose(),
-            _shutdown,
+            shutdown,
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
@@ -65,7 +65,7 @@ internal sealed class ExplorerCommandServer : IDisposable
                         cancellationToken).ConfigureAwait(false);
                     if (filePath is not null)
                     {
-                        await _selectedFileHandler(filePath).ConfigureAwait(false);
+                        await selectedFileHandler(filePath).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -97,25 +97,25 @@ internal sealed class ExplorerCommandServer : IDisposable
 
     private void SetActivePipe(NamedPipeServerStream pipe)
     {
-        lock (_gate)
+        lock (gate)
         {
-            if (_disposed)
+            if (disposed)
             {
                 pipe.Dispose();
                 return;
             }
 
-            _activePipe = pipe;
+            activePipe = pipe;
         }
     }
 
     private void ClearActivePipe(NamedPipeServerStream pipe)
     {
-        lock (_gate)
+        lock (gate)
         {
-            if (ReferenceEquals(_activePipe, pipe))
+            if (ReferenceEquals(activePipe, pipe))
             {
-                _activePipe = null;
+                activePipe = null;
             }
         }
     }

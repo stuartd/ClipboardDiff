@@ -6,15 +6,15 @@ namespace ClipDiff.Windows.ExternalDiff;
 internal sealed class ExternalDiffLauncher : IDisposable
 {
     private static readonly TimeSpan ProcessExitCleanupDelay = TimeSpan.FromSeconds(3);
-    private readonly ExternalDiffWorkspace _workspace;
-    private readonly Lock _gate = new();
-    private readonly Dictionary<Process, ActiveComparison> _activeComparisons = [];
-    private bool _disposed;
+    private readonly ExternalDiffWorkspace workspace;
+    private readonly Lock gate = new();
+    private readonly Dictionary<Process, ActiveComparison> activeComparisons = [];
+    private bool disposed;
 
     public ExternalDiffLauncher(ExternalDiffWorkspace? workspace = null)
     {
-        _workspace = workspace ?? new ExternalDiffWorkspace();
-        _workspace.CleanupStaleDirectories();
+        this.workspace = workspace ?? new ExternalDiffWorkspace();
+        this.workspace.CleanupStaleDirectories();
     }
 
     public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
@@ -23,7 +23,7 @@ internal sealed class ExternalDiffLauncher : IDisposable
         ArgumentNullException.ThrowIfNull(previous);
         ArgumentNullException.ThrowIfNull(current);
 
-        if (_disposed || !File.Exists(choice.ExecutablePath))
+        if (disposed || !File.Exists(choice.ExecutablePath))
         {
             return false;
         }
@@ -33,7 +33,7 @@ internal sealed class ExternalDiffLauncher : IDisposable
         ActiveComparison? comparison = null;
         try
         {
-            files = _workspace.Create(
+            files = workspace.Create(
                 previous.Text,
                 current.Text,
                 previous.SourceFileName,
@@ -66,11 +66,11 @@ internal sealed class ExternalDiffLauncher : IDisposable
             process.Exited += OnProcessExited;
 
             var registered = false;
-            lock (_gate)
+            lock (gate)
             {
-                if (!_disposed)
+                if (!disposed)
                 {
-                    _activeComparisons.Add(process, comparison);
+                    activeComparisons.Add(process, comparison);
                     registered = true;
                 }
             }
@@ -110,16 +110,16 @@ internal sealed class ExternalDiffLauncher : IDisposable
     public void Dispose()
     {
         List<ActiveComparison> comparisons;
-        lock (_gate)
+        lock (gate)
         {
-            if (_disposed)
+            if (disposed)
             {
                 return;
             }
 
-            _disposed = true;
-            comparisons = [.. _activeComparisons.Values];
-            _activeComparisons.Clear();
+            disposed = true;
+            comparisons = [.. activeComparisons.Values];
+            activeComparisons.Clear();
         }
 
         foreach (var comparison in comparisons)
@@ -136,9 +136,9 @@ internal sealed class ExternalDiffLauncher : IDisposable
         }
 
         ActiveComparison? comparison;
-        lock (_gate)
+        lock (gate)
         {
-            _activeComparisons.TryGetValue(process, out comparison);
+            activeComparisons.TryGetValue(process, out comparison);
         }
 
         if (comparison is not null)
@@ -165,9 +165,9 @@ internal sealed class ExternalDiffLauncher : IDisposable
             return;
         }
 
-        lock (_gate)
+        lock (gate)
         {
-            _activeComparisons.Remove(comparison.Process);
+            activeComparisons.Remove(comparison.Process);
         }
 
         comparison.Process.Exited -= OnProcessExited;
@@ -177,15 +177,15 @@ internal sealed class ExternalDiffLauncher : IDisposable
 
     private sealed class ActiveComparison(string directoryPath, Process process)
     {
-        private int _cleanupScheduled;
-        private int _cleanupCompleted;
+        private int cleanupScheduled;
+        private int cleanupCompleted;
 
         public string DirectoryPath { get; } = directoryPath;
 
         public Process Process { get; } = process;
 
-        public bool TryScheduleCleanup() => Interlocked.Exchange(ref _cleanupScheduled, 1) == 0;
+        public bool TryScheduleCleanup() => Interlocked.Exchange(ref cleanupScheduled, 1) == 0;
 
-        public bool TryCompleteCleanup() => Interlocked.Exchange(ref _cleanupCompleted, 1) == 0;
+        public bool TryCompleteCleanup() => Interlocked.Exchange(ref cleanupCompleted, 1) == 0;
     }
 }
