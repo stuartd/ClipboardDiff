@@ -94,4 +94,33 @@ else
 	units.Add(new(value, index, index + 1, 1));
 }
 
+- Do not allow parameters to hide field@
 
+// Wrong
+void Method(string name)
+{
+	this,name = name;
+}
+
+// Wrong
+void Method(string newName)
+{
+	this,name = newName;
+}
+
+- Prefer to use type names for fields, not parameters.
+This makes the code more readable.
+
+// Wrong
+internal void TryCaptureRegisteredShortcut(HotKeyGesture hotKeyGesture)
+{
+	// field name does not match type
+    this.gesture = hotKeyGesture;
+}
+
+// Right
+internal void TryCaptureRegisteredShortcut(HotKeyGesture gesture)
+{
+	// field name matches type
+    this.hotKeyGesture = gesture;
+}

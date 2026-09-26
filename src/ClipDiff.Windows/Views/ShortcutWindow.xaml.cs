@@ -118,7 +118,7 @@ public partial class ShortcutWindow : Window
         }
     }
 
-    internal bool TryCaptureRegisteredShortcut(HotKeyGesture gesture)
+    internal bool TryCaptureRegisteredShortcut(HotKeyGesture hotKeyGesture)
     {
         // RegisterHotKey consumes the key before WPF's capture box sees it.
         if (!IsActive || !ShortcutBox.IsKeyboardFocusWithin)
@@ -126,7 +126,7 @@ public partial class ShortcutWindow : Window
             return false;
         }
 
-        this.gesture = gesture;
+        this.gesture = hotKeyGesture;
         ShowGesture();
         return true;
     }

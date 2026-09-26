@@ -88,9 +88,9 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     public RelayCommand ClearCommand => clearCommand;
 
-    public void Load(DiffDocument document)
+    public void Load(DiffDocument diffDocument)
     {
-        this.document = document ?? throw new ArgumentNullException(nameof(document));
+        this.document = diffDocument ?? throw new ArgumentNullException(nameof(diffDocument));
         RaiseDocumentProperties();
     }
 
@@ -100,14 +100,14 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         RaiseDocumentProperties();
     }
 
-    public void SetCanClear(bool canClear)
+    public void SetCanClear(bool canClearValue)
     {
-        if (this.canClear == canClear)
+        if (this.canClear == canClearValue)
         {
             return;
         }
 
-        this.canClear = canClear;
+        this.canClear = canClearValue;
         clearCommand.RaiseCanExecuteChanged();
     }
 
@@ -116,8 +116,8 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
         var lines = new List<UnifiedLineViewModel>
         {
             new(document.Labels.Previous, UnifiedLineKind.Header, "--- ", []),
-            new(document.Labels.Current, UnifiedLineKind.Header, "+++ ", [])
-        };
+            new(document.Labels.Current, UnifiedLineKind.Header, "+++ ", []),
+		};
         foreach (var row in document.Rows)
         {
             if (row.Kind == DiffKind.Equal)
@@ -161,7 +161,7 @@ internal enum UnifiedLineKind
     Header,
     Equal,
     Removed,
-    Inserted
+    Inserted,
 }
 
 internal sealed record UnifiedLineViewModel(string? Text, UnifiedLineKind Kind, string Prefix, IReadOnlyList<HighlightRange> Highlights);

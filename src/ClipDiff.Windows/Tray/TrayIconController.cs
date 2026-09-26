@@ -91,11 +91,11 @@ internal sealed class TrayIconController : IDisposable
     public event EventHandler? QuitRequested;
 
     public void SetDiffTools(
-        IReadOnlyList<ExternalDiffToolChoice> diffTools,
-        string? selectedDiffExecutablePath)
+        IReadOnlyList<ExternalDiffToolChoice> externalDiffTools,
+        string? diffToolExecutablePath)
     {
-        this.diffTools = diffTools ?? throw new ArgumentNullException(nameof(diffTools));
-        this.selectedDiffExecutablePath = selectedDiffExecutablePath;
+        this.diffTools = externalDiffTools ?? throw new ArgumentNullException(nameof(externalDiffTools));
+        this.selectedDiffExecutablePath = diffToolExecutablePath;
         RebuildDiffViewerMenu();
     }
 
