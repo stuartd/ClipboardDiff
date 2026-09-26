@@ -15,6 +15,9 @@
     <ProjectReference Include="../ClipDiff.Core/ClipDiff.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ClipDiff.Windows.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="Assets/ClipDiff.ico" />
   </ItemGroup>
   <ItemGroup Condition="Exists('../../artifacts/native/$(Configuration)/ClipDiff.ShellExtension.dll')">
