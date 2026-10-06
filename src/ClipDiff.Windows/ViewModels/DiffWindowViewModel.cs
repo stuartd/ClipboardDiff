@@ -7,18 +7,15 @@ namespace ClipDiff.Windows.ViewModels;
 internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 {
     private readonly RelayCommand copyCommand;
-    private readonly RelayCommand clearCommand;
     private DiffDocument? document;
     private int selectedViewIndex;
-    private bool canClear;
     private bool ignoreSpacing;
     private readonly Action comparisonOptionsChanged;
 
-    public DiffWindowViewModel(Action copy, Action clear, Action comparisonOptionsChanged)
+    public DiffWindowViewModel(Action copy, Action comparisonOptionsChanged)
     {
         this.comparisonOptionsChanged = comparisonOptionsChanged;
         copyCommand = new RelayCommand(copy, () => document is not null);
-        clearCommand = new RelayCommand(clear, () => canClear);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -86,8 +83,6 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
 
     public RelayCommand CopyCommand => copyCommand;
 
-    public RelayCommand ClearCommand => clearCommand;
-
     public void Load(DiffDocument diffDocument)
     {
         this.document = diffDocument ?? throw new ArgumentNullException(nameof(diffDocument));
@@ -98,17 +93,6 @@ internal sealed class DiffWindowViewModel : INotifyPropertyChanged
     {
         document = null;
         RaiseDocumentProperties();
-    }
-
-    public void SetCanClear(bool canClearValue)
-    {
-        if (this.canClear == canClearValue)
-        {
-            return;
-        }
-
-        this.canClear = canClearValue;
-        clearCommand.RaiseCanExecuteChanged();
     }
 
     private static IReadOnlyList<UnifiedLineViewModel> CreateUnifiedLines(DiffDocument document)

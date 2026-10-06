@@ -15,8 +15,6 @@ internal sealed class TrayIconController : IDisposable
     private readonly Forms.ToolStripMenuItem showDiffItem;
     private readonly Forms.ToolStripMenuItem diffViewerItem;
     private readonly Forms.ToolStripMenuItem shortcutItem;
-    private readonly Forms.ToolStripMenuItem monitorItem;
-    private readonly Forms.ToolStripMenuItem clearItem;
 	private readonly Forms.ToolStripMenuItem startAtLoginItem;
     private bool disposed;
 
@@ -33,17 +31,13 @@ internal sealed class TrayIconController : IDisposable
         showDiffItem = new Forms.ToolStripMenuItem("Show Diff (Ctrl+Alt+D)");
         diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
         shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
-        monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
 		startAtLoginItem = new Forms.ToolStripMenuItem("Start at login") { CheckOnClick = false };
-        clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
         var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
 
         showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
         shortcutItem.Click += (_, _) => ShortcutRequested?.Invoke(this, EventArgs.Empty);
-        monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
 		startAtLoginItem.Click += (_, _) => ToggleStartAtLoginRequested?.Invoke(this, EventArgs.Empty);
-        clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
         aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
         quitItem.Click += (_, _) => QuitRequested?.Invoke(this, EventArgs.Empty);
         SetDiffTools(diffTools, selectedDiffExecutablePath);
@@ -59,8 +53,6 @@ internal sealed class TrayIconController : IDisposable
             diffViewerItem,
             shortcutItem,
 			startAtLoginItem,
-            monitorItem,
-            clearItem,
             new Forms.ToolStripSeparator(),
             aboutItem,
             quitItem
@@ -92,15 +84,11 @@ internal sealed class TrayIconController : IDisposable
 
     public event EventHandler? ShowDiffRequested;
 
-    public event EventHandler? ToggleMonitoringRequested;
-
     public event EventHandler? ShortcutRequested;
 
     public event EventHandler<ExternalDiffToolSelectedEventArgs>? DiffToolSelected;
 
     public event EventHandler? ChooseDiffToolRequested;
-
-    public event EventHandler? ClearRequested;
 
     public event EventHandler? AboutRequested;
 
@@ -119,7 +107,6 @@ internal sealed class TrayIconController : IDisposable
         string status,
         bool hotKeyAvailable,
         string hotKeyDisplayText,
-        bool monitoring,
         ClipboardEntry? current,
         ClipboardEntry? previous)
     {
@@ -131,8 +118,6 @@ internal sealed class TrayIconController : IDisposable
         currentItem.Text = "Current: " + EntryPreview(current, fileLabels.Current);
         previousItem.Text = "Previous: " + EntryPreview(previous, fileLabels.Previous);
         showDiffItem.Enabled = current is not null && previous is not null;
-        monitorItem.Checked = monitoring;
-        clearItem.Enabled = current is not null;
     }
 
     public void Dispose()
