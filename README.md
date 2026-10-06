@@ -73,7 +73,7 @@ The built-in viewer keeps captured text in memory only. An external program cann
 
 This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files.
 
-ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, and the chosen shortcut's modifier/key codes in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
+ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, the chosen shortcut's modifier/key codes, and whether the login prompt has been shown in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
 
 Before reading text, ClipDiff inspects and honours these advisory [clipboard formats](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-formats):
 
@@ -277,7 +277,7 @@ On a Windows desktop, verify:
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;
 - external comparison files appear only below `%LOCALAPPDATA%\ClipDiff\Temp`, contain the exact text, and are removed after the launched process exits, on ClipDiff exit, or on the next start;
 - removing or renaming the selected viewer executable causes **Show Diff** to fall back to the built-in viewer;
-- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, and shortcut codes, never clipboard content;
+- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, shortcut codes, and the login-prompt flag, never clipboard content;
 - **Keyboard shortcut...** records a replacement such as `Ctrl+Alt+6`, keeps the old shortcut active when the replacement is already in use, updates the tray label after success, persists across restart, and resets to `Ctrl+Alt+D`;
 - **Copy unified diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
@@ -298,4 +298,28 @@ Run the same checks through Remote Desktop if Windows Server 2022 is the intende
 
 ## Optional start at sign-in
 
-ClipDiff cannot recover values copied before it starts because it does not persist clipboard content. If desired, create a shortcut to `ClipDiff.exe` in the folder opened by `shell:startup`.
+ClipDiff asks once on its first normal launch whether it should start automatically
+when you sign in to Windows. Both Yes and No dismiss future prompts. Existing users
+see the question once after upgrading. Change the choice at any time using
+**Start at login** in the notification-area context menu.
+
+Enabling this registers the quoted executable path in the current user's
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key; no administrator
+access is required. The check mark reflects that registration. Windows Startup
+Apps/Task Manager can separately disable it; re-enable it there if necessary.
+Disabling the menu option removes ClipDiff's Run value, and quitting the app
+leaves the registration intact.
+
+After extracting an update to a new directory, run the new executable once:
+an existing registration is updated to that location. Remove any shortcut you
+previously added to `shell:startup`; the toggle does not manage manual shortcuts.
+
+ClipDiff still captures only values copied after it starts.
+
+Windows verification:
+- Answer No, restart, and confirm the question does not return.
+- Enable **Start at login**, sign out/in, and confirm one tray instance starts.
+- Disable it, sign out/in, and confirm ClipDiff does not start.
+- Answer Yes on a fresh profile and verify the same login behaviour.
+- Launch an update from a path containing spaces and confirm login uses it.
+- Check that registry/settings write failures produce a warning and no false check mark.

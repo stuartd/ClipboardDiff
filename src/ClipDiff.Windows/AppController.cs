@@ -7,6 +7,7 @@ using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Hotkeys;
 using ClipDiff.Windows.Native;
 using ClipDiff.Windows.Settings;
+using ClipDiff.Windows.Startup;
 using ClipDiff.Windows.Tray;
 using ClipDiff.Windows.ViewModels;
 using ClipDiff.Windows.Views;
@@ -37,6 +38,7 @@ internal sealed class AppController : IDisposable
     private DiffWindow? diffWindow;
     private AboutWindow? aboutWindow;
     private ShortcutWindow? shortcutWindow;
+	private readonly StartupRegistration startupRegistration = new();
     private bool disposed;
 
     public AppController()
@@ -70,8 +72,89 @@ internal sealed class AppController : IDisposable
         trayIcon.ClearRequested += OnClearRequested;
         trayIcon.AboutRequested += OnAboutRequested;
         trayIcon.QuitRequested += OnQuitRequested;
+		trayIcon.ToggleStartAtLoginRequested += OnToggleStartAtLoginRequested;
+		trayIcon.MenuOpening += OnTrayMenuOpening;
         UpdatePresentation();
     }
+
+	public void InitializeStartAtLogin()
+	{
+		if (disposed)
+		{
+			return;
+		}
+
+		// Follow a portable upgrade to a new directory only when already opted in.
+		if (startupRegistration.TryRead(out var registered) && registered)
+		{
+			if (!startupRegistration.TrySetEnabled(true))
+			{
+				ShowStartupError("ClipDiff could not update its login registration to this location.");
+			}
+
+			RememberStartupPrompt();
+		}
+		else if (!settings.StartupPromptShown)
+		{
+			var answer = System.Windows.MessageBox.Show(
+				"Start ClipDiff automatically when you sign in to Windows?\n\n" +
+				"You can change this later using Start at login in the tray menu.",
+				"Start ClipDiff at login",
+				MessageBoxButton.YesNo,
+				MessageBoxImage.Question,
+				MessageBoxResult.No);
+
+			if (answer == MessageBoxResult.Yes && !startupRegistration.TrySetEnabled(true))
+			{
+				ShowStartupError("ClipDiff could not enable start at login. You can try again from the tray menu.");
+			}
+
+			RememberStartupPrompt();
+		}
+
+		RefreshStartAtLogin();
+	}
+
+	private void RememberStartupPrompt()
+	{
+		if (settings.StartupPromptShown)
+		{
+			return;
+		}
+
+		settings = settings with { StartupPromptShown = true };
+
+		if (!settingsStore.TrySave(settings))
+		{
+			ShowStartupError("ClipDiff could not save your answer. The startup question may appear next time.");
+		}
+	}
+
+	private void OnTrayMenuOpening(object? sender, EventArgs args) => RefreshStartAtLogin();
+
+	private void RefreshStartAtLogin()
+	{
+		var available = startupRegistration.TryRead(out var registered);
+		trayIcon.SetStartAtLogin(registered, available);
+	}
+
+	private void OnToggleStartAtLoginRequested(object? sender, EventArgs args)
+	{
+		if (!startupRegistration.TryRead(out var registered) ||
+			!startupRegistration.TrySetEnabled(!registered))
+		{
+			ShowStartupError("ClipDiff could not change start at login.");
+		}
+		else
+		{
+			RememberStartupPrompt();
+		}
+
+		RefreshStartAtLogin();
+	}
+
+	private static void ShowStartupError(string message) =>
+		System.Windows.MessageBox.Show(message, "ClipDiff", MessageBoxButton.OK, MessageBoxImage.Warning);
 
     public void CompareWithCurrent(string selectedFilePath)
     {
@@ -103,6 +186,8 @@ internal sealed class AppController : IDisposable
         trayIcon.ClearRequested -= OnClearRequested;
         trayIcon.AboutRequested -= OnAboutRequested;
         trayIcon.QuitRequested -= OnQuitRequested;
+		trayIcon.ToggleStartAtLoginRequested -= OnToggleStartAtLoginRequested;
+		trayIcon.MenuOpening -= OnTrayMenuOpening;
 
         explorerContextMenuRegistration.Dispose();
         explorerDropTargetServer.Dispose();

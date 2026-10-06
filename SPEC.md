@@ -108,7 +108,7 @@ The application must not:
 - Add accounts or cloud services.
 - Add a clipboard-history browser.
 - Retain more than the two values needed for the comparison.
-- Add settings or onboarding beyond the external-viewer executable path, warning acknowledgement, and global keyboard shortcut, or add a complex preferences interface.
+- Add settings or onboarding beyond the external-viewer executable path, warning acknowledgement, global keyboard shortcut, and start-at-login prompt, or add a complex preferences interface.
 - Add document-management features or file access beyond the copied-file conversion and explicit Explorer actions in section 6.4.
 - Use a terminal window or embedded web UI for the diff.
 - Require an installer for the initial personal release.
@@ -147,7 +147,7 @@ When ClipDiff starts:
 
 This avoids unexpectedly importing a value that predates application startup.
 
-Consequently, the user must copy two values after ClipDiff starts. Running ClipDiff at sign-in can be documented as an optional setup step, but no startup-settings UI is required.
+Consequently, the user must copy two values after ClipDiff starts. Offer the one-time start-at-login prompt and tray toggle described in section 24.
 
 ### 6.2 Accepted text
 
@@ -768,6 +768,7 @@ Previous: <preview>                  [disabled]
 Show Diff (Ctrl+Alt+D)
 Diff viewer: Built-in               [submenu]
 Keyboard shortcut...
+Start at login                       [checked/unchecked]
 Monitor Clipboard                    [checked/unchecked]
 Clear Captured Text
 ──────────────────────────────────
@@ -780,6 +781,7 @@ Behaviour:
 - **Show Diff** is disabled until two entries are available.
 - **Diff viewer** selects the built-in viewer, a detected external program, or an executable chosen by the user.
 - **Keyboard shortcut...** opens the shortcut recorder without changing the active shortcut unless Save succeeds.
+- **Start at login** toggles per-user startup registration (section 24).
 - **Monitor Clipboard** toggles monitoring.
 - **Clear Captured Text** is disabled when history is empty.
 - **About ClipDiff** opens a reusable native window showing the application icon, the product version and short source commit hash, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
@@ -921,7 +923,7 @@ After acknowledgement, create a unique per-comparison directory below `%LOCALAPP
 
 Track the process returned by the launch. Attempt to delete the comparison directory after that process exits, allowing a short grace period for handoff; when ClipDiff exits; and on ClipDiff's next startup to remove stale directories. Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.
 
-Persist application preferences in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path, the one-time-warning acknowledgement, and the global-shortcut modifier/virtual-key values. It must never contain clipboard text, previews, diffs, temporary-file contents, or selected-file paths. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
+Persist application preferences in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path, the one-time-warning acknowledgement, the global-shortcut modifier/virtual-key values, and whether the startup prompt has been shown. It must never contain clipboard text, previews, diffs, temporary-file contents, or selected-file paths. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
 
 ## 17. Suggested solution structure
 
@@ -1296,7 +1298,7 @@ On Windows:
 1. Confirm the per-comparison directory and its two read-only files are removed after the launched process exits and when ClipDiff exits.
 1. Leave a simulated stale comparison directory and confirm the next ClipDiff start removes it.
 1. Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.
-1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, and shortcut codes, never captured text or previews.
+1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, shortcut codes, and startup-prompt flag, never captured text or previews.
 1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
 1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. With no captured value required, select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**; confirm the first Explorer-supplied path becomes previous, the second becomes current, and the configured viewer opens immediately without changing the clipboard.
@@ -1394,17 +1396,31 @@ dotnet build --configuration Release
 
 The native clipboard, hotkey, tray, and WPF behaviour still require manual Windows testing.
 
-## 24. Optional start-at-sign-in documentation
+## 24. Start at login
 
-ClipDiff cannot recover clipboard values copied before it started because clipboard content is not persisted.
+On the first normal launch, ask whether ClipDiff should start when the user signs
+in to Windows. Remember either answer in `StartupPromptShown` in settings.json.
+Existing settings without this field default to false. Do not prompt secondary
+instances or Explorer command invocations. An existing ClipDiff Run registration
+counts as an opt-in and suppresses the question.
 
-The README may explain how the user can place a shortcut in:
+Provide a checked **Start at login** tray-menu item. Store only the quoted
+executable path under the current user's Run key, using the value name ClipDiff.
+Remove only that value when switched off. No administrator rights are needed.
+Refresh registration state when opening the menu. Registry failures must not
+crash the app; disable the toggle if reading fails and explain failed changes.
+Report settings-save failures so users know the question may recur.
 
-```
-shell:startup
-```
+On normal launch, update an existing registration to the current executable
+location, supporting portable updates. Never recreate a missing registration
+merely because the prompt was answered before. Quitting must retain registration.
+Windows Startup Apps/Task Manager can independently disable the Run entry; do
+not override Windows' approval state. The check mark indicates registration.
+Manual Startup-folder shortcuts remain user-managed and must be removed when
+switching to the built-in option to avoid launching an older copy.
 
-Do not add a **Start with Windows** settings screen in the first version.
+Verify opt-in/out, prompt persistence, upgrade path quoting, failures, and actual
+sign-out/sign-in behaviour on Windows.
 
 ## 25. README content
 

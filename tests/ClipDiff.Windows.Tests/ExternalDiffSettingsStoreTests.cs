@@ -18,7 +18,8 @@ public sealed class ClipDiffSettingsStoreTests
             var settings = new ClipDiffSettings(
                 @"C:\Tools\Diff.exe",
                 true,
-                new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36));
+                new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36),
+				StartupPromptShown: true);
 
             Assert.IsTrue(store.TrySave(settings));
 
@@ -27,6 +28,7 @@ public sealed class ClipDiffSettingsStoreTests
             StringAssert.Contains(serialized, "SelectedExecutablePath");
             StringAssert.Contains(serialized, "PlaintextWarningAcknowledged");
             StringAssert.Contains(serialized, "HotKey");
+			StringAssert.Contains(serialized, "StartupPromptShown");
             StringAssert.Contains(serialized, "Modifiers");
             StringAssert.Contains(serialized, "VirtualKey");
             Assert.IsFalse(serialized.Contains("DisplayText", StringComparison.Ordinal));
@@ -72,6 +74,7 @@ public sealed class ClipDiffSettingsStoreTests
             var settings = new ClipDiffSettingsStore(path).Load();
 
             Assert.IsTrue(settings.PlaintextWarningAcknowledged);
+			Assert.IsFalse(settings.StartupPromptShown);
             Assert.AreEqual(HotKeyGesture.Default, HotKeyGesture.Normalize(settings.HotKey));
         }
         finally
@@ -89,13 +92,15 @@ public sealed class ClipDiffSettingsStoreTests
         {
             var store = new ClipDiffSettingsStore(Path.Combine(directory, "settings.json"));
             var settings = new ClipDiffSettings(@"C:\Tools\Diff.exe", true,
-                new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36));
+                new HotKeyGesture(HotKeyModifiers.Control | HotKeyModifiers.Shift, 0x36),
+				StartupPromptShown: true);
             Assert.IsTrue(store.TrySave(settings));
             Assert.IsTrue(store.TrySave(settings with { HotKey = HotKeyGesture.Default }));
             var reloaded = store.Load();
             Assert.AreEqual(HotKeyGesture.Default, reloaded.HotKey);
             Assert.AreEqual(settings.SelectedExecutablePath, reloaded.SelectedExecutablePath);
             Assert.IsTrue(reloaded.PlaintextWarningAcknowledged);
+			Assert.IsTrue(reloaded.StartupPromptShown);
         }
         finally
         {
