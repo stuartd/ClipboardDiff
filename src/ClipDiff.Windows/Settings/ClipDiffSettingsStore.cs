@@ -7,7 +7,8 @@ namespace ClipDiff.Windows.Settings;
 internal sealed record ClipDiffSettings(
     string? SelectedExecutablePath = null,
     bool PlaintextWarningAcknowledged = false,
-    HotKeyGesture? HotKey = null);
+    HotKeyGesture? HotKey = null,
+	bool StartupPromptShown = false);
 
 internal sealed class ClipDiffSettingsStore
 {

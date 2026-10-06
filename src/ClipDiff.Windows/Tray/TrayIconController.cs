@@ -17,6 +17,7 @@ internal sealed class TrayIconController : IDisposable
     private readonly Forms.ToolStripMenuItem shortcutItem;
     private readonly Forms.ToolStripMenuItem monitorItem;
     private readonly Forms.ToolStripMenuItem clearItem;
+	private readonly Forms.ToolStripMenuItem startAtLoginItem;
     private bool disposed;
 
     private IReadOnlyList<ExternalDiffToolChoice> diffTools = [];
@@ -33,6 +34,7 @@ internal sealed class TrayIconController : IDisposable
         diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
         shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
         monitorItem = new Forms.ToolStripMenuItem("Monitor Clipboard") { CheckOnClick = false };
+		startAtLoginItem = new Forms.ToolStripMenuItem("Start at login") { CheckOnClick = false };
         clearItem = new Forms.ToolStripMenuItem("Clear Captured Text");
         var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
@@ -40,6 +42,7 @@ internal sealed class TrayIconController : IDisposable
         showDiffItem.Click += (_, _) => ShowDiffRequested?.Invoke(this, EventArgs.Empty);
         shortcutItem.Click += (_, _) => ShortcutRequested?.Invoke(this, EventArgs.Empty);
         monitorItem.Click += (_, _) => ToggleMonitoringRequested?.Invoke(this, EventArgs.Empty);
+		startAtLoginItem.Click += (_, _) => ToggleStartAtLoginRequested?.Invoke(this, EventArgs.Empty);
         clearItem.Click += (_, _) => ClearRequested?.Invoke(this, EventArgs.Empty);
         aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
         quitItem.Click += (_, _) => QuitRequested?.Invoke(this, EventArgs.Empty);
@@ -55,12 +58,14 @@ internal sealed class TrayIconController : IDisposable
             showDiffItem,
             diffViewerItem,
             shortcutItem,
+			startAtLoginItem,
             monitorItem,
             clearItem,
             new Forms.ToolStripSeparator(),
             aboutItem,
             quitItem
         ]);
+		menu.Opening += (_, _) => MenuOpening?.Invoke(this, EventArgs.Empty);
         DarkMenuRenderer.ApplyTo(menu);
 
         applicationIcon = TryLoadApplicationIcon();
@@ -73,6 +78,17 @@ internal sealed class TrayIconController : IDisposable
         };
         notifyIcon.DoubleClick += OnDoubleClick;
     }
+
+	public event EventHandler? ToggleStartAtLoginRequested;
+
+	public event EventHandler? MenuOpening;
+
+	public void SetStartAtLogin(bool registered, bool available)
+	{
+		startAtLoginItem.Checked = registered;
+		startAtLoginItem.Enabled = available;
+		startAtLoginItem.Text = available ? "Start at login" : "Start at login (unavailable)";
+	}
 
     public event EventHandler? ShowDiffRequested;
 

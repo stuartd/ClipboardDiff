@@ -37,6 +37,10 @@ public partial class App : System.Windows.Application
         {
             controller.CompareWithCurrent(selectedFilePath);
         }
+		else
+		{
+			Dispatcher.InvokeAsync(controller.InitializeStartAtLogin);
+		}
     }
 
     protected override void OnExit(ExitEventArgs args)
