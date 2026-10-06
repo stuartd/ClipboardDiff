@@ -215,33 +215,18 @@ If the clipboard is explicitly empty, or contains an empty Unicode text value:
 - Apply the recent-clear privacy heuristic if appropriate.
 - Otherwise leave existing history unchanged.
 
-### 6.6 Monitoring pause
+### 6.6 Continuous monitoring
 
-The notification-area menu must contain a checked **Monitor Clipboard** item.
+Monitoring stays active for the application lifetime. Do not expose a monitoring
+pause toggle in the notification-area menu. Quit ClipDiff stops monitoring.
+Internal pause/resume policy and its tests may remain for native lifecycle use.
 
-When monitoring is disabled:
+### 6.7 Captured text lifetime
 
-- Leave existing entries untouched.
-- Ignore incoming clipboard changes.
-- Show status **Monitoring paused**.
-
-When monitoring is re-enabled:
-
-- Record the clipboard’s current sequence number.
-- Do not capture values copied while monitoring was paused.
-- Resume from the next clipboard change.
-
-### 6.7 Clear Captured Text
-
-The **Clear Captured Text** command must:
-
-- Remove both in-memory entries.
-- Remove the active diff document.
-- Return the status to **Waiting for copied text**.
-- Not clear or alter the Windows clipboard.
-- Not close the application.
-
-Disable the command when there are no entries.
+Do not expose a Clear Captured Text command in either the tray or built-in viewer.
+Quitting discards the two-entry history and active diff without changing the
+Windows clipboard. Keep automatic recent-clear privacy handling and shutdown
+cleanup intact.
 
 ## 7. Sensitive clipboard content
 
@@ -769,8 +754,6 @@ Show Diff (Ctrl+Alt+D)
 Diff viewer: Built-in               [submenu]
 Keyboard shortcut...
 Start at login                       [checked/unchecked]
-Monitor Clipboard                    [checked/unchecked]
-Clear Captured Text
 ──────────────────────────────────
 About ClipDiff
 Quit ClipDiff
@@ -782,8 +765,6 @@ Behaviour:
 - **Diff viewer** selects the built-in viewer, a detected external program, or an executable chosen by the user.
 - **Keyboard shortcut...** opens the shortcut recorder without changing the active shortcut unless Save succeeds.
 - **Start at login** toggles per-user startup registration (section 24).
-- **Monitor Clipboard** toggles monitoring.
-- **Clear Captured Text** is disabled when history is empty.
 - **About ClipDiff** opens a reusable native window showing the application icon, the product version and short source commit hash, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
 - **Quit ClipDiff** removes the tray icon, unregisters native listeners/hotkeys, clears references to captured text, and shuts down.
 - Double-clicking the tray icon may invoke **Show Diff** when available.
@@ -839,11 +820,10 @@ The top header contains:
 
 - Title: `Clipboard Diff`
 - Summary label
-- View selector:
+- View selector (explicit dark templates keep the selected value and popup items readable in all Windows themes; preserve native keyboard selection and visible focus):
     - `Side by Side`
     - `Unified`
 - **Copy unified diff** button
-- **Clear captured text** button
 
 The view defaults to **Side by Side** each application launch. It may remain at the user’s selected mode during the current process lifetime. It does not need to be persisted.
 
@@ -1278,8 +1258,6 @@ On Windows:
 1. Inspect the clipboard formats and verify exclusion markers.
 1. Copy identical text twice and confirm Show Diff reports No differences.
 1. Copy an image and confirm history does not change.
-1. Pause monitoring, copy text, resume, and confirm paused text was not captured.
-1. Clear captured text and confirm the Windows clipboard itself remains unchanged.
 1. Close the diff window and confirm ClipDiff remains in the tray.
 1. Quit ClipDiff and restart it; confirm no previous text returns.
 1. Run a second instance and confirm it exits cleanly.
@@ -1300,9 +1278,9 @@ On Windows:
 1. Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.
 1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, shortcut codes, and startup-prompt flag, never captured text or previews.
 1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
-1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears after pause, clear, and quit, and is under **Show more options** on Windows 11 when not shown in the primary menu.
+1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears on quit or when no capture remains, and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. With no captured value required, select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**; confirm the first Explorer-supplied path becomes previous, the second becomes current, and the configured viewer opens immediately without changing the clipboard.
-1. Confirm the two-file command uses the same binary/encoding/fallback rules, is hidden for one file, three or more files, folders, and mixed file/folder selections, and rejects invalid invocations without reading files. Confirm it remains available for exactly two files after clearing captured text, disappears while monitoring is paused and on quit, reappears for exactly two files after resuming, and is under **Show more options** on Windows 11 when not shown in the primary menu.
+1. Confirm the two-file command uses the same binary/encoding/fallback rules, is hidden for one file, three or more files, folders, and mixed file/folder selections, and rejects invalid invocations without reading files. Confirm it disappears on quit and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. Upgrade from the old static verb, including a simulated abnormal exit, and confirm there is only one two-file command and no obsolete `CommandStateHandler` registration. Remove the native DLL before starting ClipDiff and confirm clipboard/tray workflows remain usable with no broken two-file menu. Restore the DLL and restart before testing the Explorer command again.
 1. Compare two files with the same basename from different directories and confirm the tray, built-in views, copied diff, and supported external-viewer titles use the shortest unique path suffixes.
 1. Start ClipDiff after a simulated abnormal exit and confirm it removes an owned stale Explorer registration when there is no captured entry.
@@ -1470,7 +1448,6 @@ The first release is complete when all of these are true:
 - Summary counts are correct.
 - **Copy unified diff** produces the agreed output.
 - Copied diff output is excluded from history/cloud processing and is not recaptured.
-- **Clear Captured Text** resets state without changing the Windows clipboard.
 - Closing the diff window leaves the tray app running.
 - Quitting releases native resources and loses all captured content.
 - Core unit tests pass.

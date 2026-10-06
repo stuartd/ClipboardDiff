@@ -55,7 +55,7 @@ internal sealed class AppController : IDisposable
         trayIcon = new TrayIconController(
             externalDiffTools,
             GetSelectedExternalDiffTool()?.ExecutablePath);
-        viewModel = new DiffWindowViewModel(CopyDiff, ClearCapturedText, Recompare);
+        viewModel = new DiffWindowViewModel(CopyDiff, Recompare);
         explorerCommandServer = new ExplorerCommandServer(CompareWithSelectedFileAsync);
         explorerDropTargetServer = new ExplorerDropTargetServer(
             OnExplorerFilesSelected,
@@ -66,10 +66,8 @@ internal sealed class AppController : IDisposable
         hotKey.Pressed += OnHotKeyPressed;
         trayIcon.ShowDiffRequested += OnShowDiffRequested;
         trayIcon.ShortcutRequested += OnShortcutRequested;
-        trayIcon.ToggleMonitoringRequested += OnToggleMonitoringRequested;
         trayIcon.DiffToolSelected += OnDiffToolSelected;
         trayIcon.ChooseDiffToolRequested += OnChooseDiffToolRequested;
-        trayIcon.ClearRequested += OnClearRequested;
         trayIcon.AboutRequested += OnAboutRequested;
         trayIcon.QuitRequested += OnQuitRequested;
 		trayIcon.ToggleStartAtLoginRequested += OnToggleStartAtLoginRequested;
@@ -180,10 +178,8 @@ internal sealed class AppController : IDisposable
         hotKey.Pressed -= OnHotKeyPressed;
         trayIcon.ShowDiffRequested -= OnShowDiffRequested;
         trayIcon.ShortcutRequested -= OnShortcutRequested;
-        trayIcon.ToggleMonitoringRequested -= OnToggleMonitoringRequested;
         trayIcon.DiffToolSelected -= OnDiffToolSelected;
         trayIcon.ChooseDiffToolRequested -= OnChooseDiffToolRequested;
-        trayIcon.ClearRequested -= OnClearRequested;
         trayIcon.AboutRequested -= OnAboutRequested;
         trayIcon.QuitRequested -= OnQuitRequested;
 		trayIcon.ToggleStartAtLoginRequested -= OnToggleStartAtLoginRequested;
@@ -245,23 +241,6 @@ internal sealed class AppController : IDisposable
     }
 
     private void OnShowDiffRequested(object? sender, EventArgs args) => ShowDiff();
-
-    private void OnToggleMonitoringRequested(object? sender, EventArgs args)
-    {
-        if (history.IsMonitoring)
-        {
-            clipboardMonitor.Pause();
-            history.Pause();
-        }
-        else
-        {
-            history.Resume(clipboardMonitor.Resume());
-        }
-
-        UpdatePresentation();
-    }
-
-    private void OnClearRequested(object? sender, EventArgs args) => ClearCapturedText();
 
     private void OnAboutRequested(object? sender, EventArgs args)
     {
@@ -626,14 +605,6 @@ internal sealed class AppController : IDisposable
         UpdatePresentation();
     }
 
-    private void ClearCapturedText()
-    {
-        ClearComparison();
-        history.Clear();
-        viewModel.ClearDocument();
-        UpdatePresentation();
-    }
-
     private void UpdatePresentation()
     {
         var status = clipboardMonitor.IsRegistered || !history.IsMonitoring
@@ -643,10 +614,8 @@ internal sealed class AppController : IDisposable
             status,
             hotKey.IsRegistered,
             hotKey.Gesture.DisplayText,
-            history.IsMonitoring,
             history.Current,
             history.Previous);
-        viewModel.SetCanClear(history.Current is not null);
         explorerContextMenuRegistration.SetState(
             history.IsMonitoring,
             history.Current is not null,

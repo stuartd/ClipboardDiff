@@ -33,16 +33,78 @@
             <Setter Property="Background" Value="#323232" />
             <Setter Property="Foreground" Value="#F5F5F5" />
             <Setter Property="BorderBrush" Value="#606060" />
+			<!-- Own the template so Windows theme brushes cannot replace the dark colours. -->
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ComboBox">
+						<Grid>
+							<ToggleButton x:Name="DropDownToggle" Focusable="False" ClickMode="Press"
+							              Background="{TemplateBinding Background}"
+							              BorderBrush="{TemplateBinding BorderBrush}"
+							              IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+								<ToggleButton.Template>
+									<ControlTemplate TargetType="ToggleButton">
+										<Border Background="{TemplateBinding Background}" BorderThickness="1"
+										        BorderBrush="{TemplateBinding BorderBrush}">
+											<Path Data="M 0 0 L 4 4 L 8 0 Z" Fill="#F5F5F5"
+											      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+										</Border>
+									</ControlTemplate>
+								</ToggleButton.Template>
+							</ToggleButton>
+							<ContentPresenter IsHitTestVisible="False" Margin="10,6,28,6" VerticalAlignment="Center"
+							                  TextElement.Foreground="{TemplateBinding Foreground}"
+							                  Content="{TemplateBinding SelectionBoxItem}"
+							                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+							                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+							<Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+							       IsOpen="{TemplateBinding IsDropDownOpen}">
+								<Border Background="#323232" BorderBrush="#606060" BorderThickness="1"
+								        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+								        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+									<ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">
+										<ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+									</ScrollViewer>
+								</Border>
+							</Popup>
+						</Grid>
+						<ControlTemplate.Triggers>
+							<Trigger Property="IsMouseOver" Value="True">
+								<Setter TargetName="DropDownToggle" Property="Background" Value="#424242" />
+							</Trigger>
+							<Trigger Property="IsKeyboardFocusWithin" Value="True">
+								<Setter TargetName="DropDownToggle" Property="BorderBrush" Value="#93BFFF" />
+							</Trigger>
+							<Trigger Property="IsDropDownOpen" Value="True">
+								<Setter TargetName="DropDownToggle" Property="Background" Value="#424242" />
+							</Trigger>
+							<Trigger Property="IsEnabled" Value="False">
+								<Setter Property="Opacity" Value="0.6" />
+							</Trigger>
+						</ControlTemplate.Triggers>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Background" Value="#323232" />
             <Setter Property="Foreground" Value="#F5F5F5" />
+			<Setter Property="Padding" Value="10,6" />
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ComboBoxItem">
+						<Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+							<ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
             <Style.Triggers>
                 <Trigger Property="IsHighlighted" Value="True">
                     <Setter Property="Background" Value="#3D3D3D" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#484848" />
+                    <Setter Property="Background" Value="#365F91" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -125,16 +187,16 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Margin="0,0,24,0">
                     <TextBlock Text="Clipboard Diff" FontSize="22" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding Summary}" Margin="0,3,0,0" />
                 </StackPanel>
-                <CheckBox Grid.Row="1" Grid.ColumnSpan="5" Content="Ignore spacing"
+                <CheckBox Grid.Row="1" Grid.ColumnSpan="4" Content="Ignore spacing"
                           Foreground="#F5F5F5" Margin="0,10,0,0"
                           IsChecked="{Binding IgnoreSpacing}" />
                 <ComboBox Grid.Column="2"
+				          AutomationProperties.Name="Diff view"
                           Width="128"
                           Margin="0,0,8,0"
                           VerticalAlignment="Center"
@@ -145,12 +207,6 @@
                 <Button Grid.Column="3"
                         Content="Copy unified diff"
                         Command="{Binding CopyCommand}"
-                        Padding="14,6"
-                        Margin="0,0,8,0"
-                        VerticalAlignment="Center" />
-                <Button Grid.Column="4"
-                        Content="Clear captured text"
-                        Command="{Binding ClearCommand}"
                         Padding="14,6"
                         VerticalAlignment="Center" />
             </Grid>
