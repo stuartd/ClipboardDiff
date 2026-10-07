@@ -5,187 +5,193 @@ namespace ClipDiff.Windows.ExternalDiff;
 
 internal sealed class ExternalDiffLauncher : IDisposable
 {
-    private static readonly TimeSpan ProcessExitCleanupDelay = TimeSpan.FromSeconds(3);
-    private readonly ExternalDiffWorkspace workspace;
-    private readonly Lock gate = new();
-    private readonly Dictionary<Process, ActiveComparison> activeComparisons = [];
-    private bool disposed;
+	private static readonly TimeSpan ProcessExitCleanupDelay = TimeSpan.FromSeconds(3);
+	private readonly ExternalDiffWorkspace externalDiffWorkspace;
+	private readonly Lock gate = new();
+	private readonly Dictionary<Process, ActiveComparison> activeComparisons = [];
+	private bool disposed;
 
-    public ExternalDiffLauncher(ExternalDiffWorkspace? workspace = null)
-    {
-        this.workspace = workspace ?? new ExternalDiffWorkspace();
-        this.workspace.CleanupStaleDirectories();
-    }
+	public ExternalDiffLauncher(ExternalDiffWorkspace? workspace = null)
+	{
+		externalDiffWorkspace = workspace ?? new ExternalDiffWorkspace();
+		externalDiffWorkspace.CleanupStaleDirectories();
+	}
 
-    public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
-    {
-        ArgumentNullException.ThrowIfNull(choice);
-        ArgumentNullException.ThrowIfNull(previous);
-        ArgumentNullException.ThrowIfNull(current);
+	public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
+	{
+		ArgumentNullException.ThrowIfNull(choice);
+		ArgumentNullException.ThrowIfNull(previous);
+		ArgumentNullException.ThrowIfNull(current);
 
-        if (disposed || !File.Exists(choice.ExecutablePath))
-        {
-            return false;
-        }
+		if (disposed || !File.Exists(choice.ExecutablePath))
+		{
+			return false;
+		}
 
-        ExternalDiffFiles? files = null;
-        Process? process = null;
-        ActiveComparison? comparison = null;
-        try
-        {
-            files = workspace.Create(
-                previous.Text,
-                current.Text,
-                previous.SourceFileName,
-                current.SourceFileName);
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = choice.ExecutablePath,
-                UseShellExecute = false,
-                WorkingDirectory = files.DirectoryPath
-            };
-            var labels = DiffFormatting.Labels(previous, current);
-            foreach (var argument in choice.Tool.BuildArguments(
-                         files.PreviousPath,
-                         files.CurrentPath,
-                         labels.Previous,
-                         labels.Current))
-            {
-                startInfo.ArgumentList.Add(argument);
-            }
+		ExternalDiffFiles? files = null;
+		Process? process = null;
+		ActiveComparison? comparison = null;
 
-            process = Process.Start(startInfo);
-            if (process is null)
-            {
-                ExternalDiffWorkspace.TryDelete(files.DirectoryPath);
-                return false;
-            }
+		try
+		{
+			files = externalDiffWorkspace.Create(
+				previous.Text,
+				current.Text,
+				previous.SourceFileName,
+				current.SourceFileName);
+			var startInfo = new ProcessStartInfo
+			{
+				FileName = choice.ExecutablePath,
+				UseShellExecute = false,
+				WorkingDirectory = files.DirectoryPath
+			};
+			var labels = DiffFormatting.Labels(previous, current);
 
-            comparison = new ActiveComparison(files.DirectoryPath, process);
-            process.EnableRaisingEvents = true;
-            process.Exited += OnProcessExited;
+			foreach (var argument in choice.Tool.BuildArguments(
+						 files.PreviousPath,
+						 files.CurrentPath,
+						 labels.Previous,
+						 labels.Current))
+			{
+				startInfo.ArgumentList.Add(argument);
+			}
 
-            var registered = false;
-            lock (gate)
-            {
-                if (!disposed)
-                {
-                    activeComparisons.Add(process, comparison);
-                    registered = true;
-                }
-            }
+			process = Process.Start(startInfo);
 
-            if (!registered)
-            {
-                CleanupComparison(comparison);
-                return false;
-            }
+			if (process is null)
+			{
+				files.Dispose();
+				return false;
+			}
 
-            if (process.HasExited)
-            {
-                ScheduleCleanup(comparison);
-            }
+			comparison = new ActiveComparison(files, process);
+			process.EnableRaisingEvents = true;
+			process.Exited += OnProcessExited;
 
-            return true;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            if (comparison is not null)
-            {
-                CleanupComparison(comparison);
-            }
-            else
-            {
-                process?.Dispose();
-                if (files is not null)
-                {
-                    ExternalDiffWorkspace.TryDelete(files.DirectoryPath);
-                }
-            }
+			var registered = false;
 
-            return false;
-        }
-    }
+			lock (gate)
+			{
+				if (!disposed)
+				{
+					activeComparisons.Add(process, comparison);
+					registered = true;
+				}
+			}
 
-    public void Dispose()
-    {
-        List<ActiveComparison> comparisons;
-        lock (gate)
-        {
-            if (disposed)
-            {
-                return;
-            }
+			if (!registered)
+			{
+				CleanupComparison(comparison);
+				return false;
+			}
 
-            disposed = true;
-            comparisons = [.. activeComparisons.Values];
-            activeComparisons.Clear();
-        }
+			if (process.HasExited)
+			{
+				ScheduleCleanup(comparison);
+			}
 
-        foreach (var comparison in comparisons)
-        {
-            CleanupComparison(comparison);
-        }
-    }
+			return true;
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+		{
+			if (comparison is not null)
+			{
+				CleanupComparison(comparison);
+			}
+			else
+			{
+				process?.Dispose();
+				if (files is not null)
+				{
+					files.Dispose();
+				}
+			}
 
-    private void OnProcessExited(object? sender, EventArgs args)
-    {
-        if (sender is not Process process)
-        {
-            return;
-        }
+			return false;
+		}
+	}
 
-        ActiveComparison? comparison;
-        lock (gate)
-        {
-            activeComparisons.TryGetValue(process, out comparison);
-        }
+	public void Dispose()
+	{
+		List<ActiveComparison> comparisons;
 
-        if (comparison is not null)
-        {
-            ScheduleCleanup(comparison);
-        }
-    }
+		lock (gate)
+		{
+			if (disposed)
+			{
+				return;
+			}
 
-    private async void ScheduleCleanup(ActiveComparison comparison)
-    {
-        if (!comparison.TryScheduleCleanup())
-        {
-            return;
-        }
+			disposed = true;
+			comparisons = [.. activeComparisons.Values];
+			activeComparisons.Clear();
+		}
 
-        await Task.Delay(ProcessExitCleanupDelay).ConfigureAwait(false);
-        CleanupComparison(comparison);
-    }
+		foreach (var comparison in comparisons)
+		{
+			CleanupComparison(comparison);
+		}
+	}
 
-    private void CleanupComparison(ActiveComparison comparison)
-    {
-        if (!comparison.TryCompleteCleanup())
-        {
-            return;
-        }
+	private void OnProcessExited(object? sender, EventArgs args)
+	{
+		if (sender is not Process process)
+		{
+			return;
+		}
 
-        lock (gate)
-        {
-            activeComparisons.Remove(comparison.Process);
-        }
+		ActiveComparison? comparison;
 
-        comparison.Process.Exited -= OnProcessExited;
-        comparison.Process.Dispose();
-        ExternalDiffWorkspace.TryDelete(comparison.DirectoryPath);
-    }
+		lock (gate)
+		{
+			activeComparisons.TryGetValue(process, out comparison);
+		}
 
-    private sealed class ActiveComparison(string directoryPath, Process process)
-    {
-        private int cleanupScheduled;
-        private int cleanupCompleted;
+		if (comparison is not null)
+		{
+			ScheduleCleanup(comparison);
+		}
+	}
 
-        public string DirectoryPath { get; } = directoryPath;
+	private async void ScheduleCleanup(ActiveComparison comparison)
+	{
+		if (!comparison.TryScheduleCleanup())
+		{
+			return;
+		}
 
-        public Process Process { get; } = process;
+		await Task.Delay(ProcessExitCleanupDelay).ConfigureAwait(false);
+		CleanupComparison(comparison);
+	}
 
-        public bool TryScheduleCleanup() => Interlocked.Exchange(ref cleanupScheduled, 1) == 0;
+	private void CleanupComparison(ActiveComparison comparison)
+	{
+		if (!comparison.TryCompleteCleanup())
+		{
+			return;
+		}
 
-        public bool TryCompleteCleanup() => Interlocked.Exchange(ref cleanupCompleted, 1) == 0;
-    }
+		lock (gate)
+		{
+			activeComparisons.Remove(comparison.Process);
+		}
+
+		comparison.Process.Exited -= OnProcessExited;
+		comparison.Process.Dispose();
+		comparison.Files.Dispose();
+	}
+
+	private sealed class ActiveComparison(ExternalDiffFiles files, Process process)
+	{
+		private int cleanupScheduled;
+		private int cleanupCompleted;
+
+		public ExternalDiffFiles Files { get; } = files;
+
+		public Process Process { get; } = process;
+
+		public bool TryScheduleCleanup() => Interlocked.Exchange(ref cleanupScheduled, 1) == 0;
+
+		public bool TryCompleteCleanup() => Interlocked.Exchange(ref cleanupCompleted, 1) == 0;
+	}
 }

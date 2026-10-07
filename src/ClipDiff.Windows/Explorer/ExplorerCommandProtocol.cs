@@ -6,68 +6,80 @@ namespace ClipDiff.Windows.Explorer;
 
 internal static class ExplorerCommandProtocol
 {
-    private const int MaximumPathBytes = 256 * 1024;
-    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+	private const int MaximumPathBytes = 256 * 1024;
+	private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
-    public static async ValueTask WriteFilePathAsync(
-        Stream stream,
-        string filePath,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+	public static async ValueTask WriteFilePathAsync(
+		Stream stream,
+		string filePath,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(stream);
+		ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var payload = StrictUtf8.GetBytes(filePath);
-        if (payload.Length > MaximumPathBytes)
-        {
-            throw new ArgumentException("The selected file path is too long.", nameof(filePath));
-        }
+		var payload = StrictUtf8.GetBytes(filePath);
+		if (payload.Length > MaximumPathBytes)
+		{
+			throw new ArgumentException("The selected file path is too long.", nameof(filePath));
+		}
 
-        var header = new byte[sizeof(int)];
-        BinaryPrimitives.WriteInt32LittleEndian(header, payload.Length);
-        await stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-        await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-    }
+		var header = new byte[sizeof(int)];
+		BinaryPrimitives.WriteInt32LittleEndian(header, payload.Length);
+		await stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+		await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+		await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+	}
 
-    public static async ValueTask<string?> ReadFilePathAsync(
-        Stream stream,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
+	public static ValueTask WriteDeliveryResultAsync(
+		Stream stream, bool accepted, CancellationToken cancellationToken = default) =>
+		stream.WriteAsync(new byte[] { accepted ? (byte)1 : (byte)0 }, cancellationToken);
 
-        var header = new byte[sizeof(int)];
-        try
-        {
-            await stream.ReadExactlyAsync(header, cancellationToken).ConfigureAwait(false);
-        }
-        catch (EndOfStreamException)
-        {
-            return null;
-        }
+	public static async ValueTask<bool> ReadDeliveryResultAsync(
+		Stream stream, CancellationToken cancellationToken = default)
+	{
+		var result = new byte[1];
+		await stream.ReadExactlyAsync(result, cancellationToken).ConfigureAwait(false);
+		return result[0] == 1;
+	}
 
-        var payloadLength = BinaryPrimitives.ReadInt32LittleEndian(header);
-        if (payloadLength <= 0 || payloadLength > MaximumPathBytes)
-        {
-            return null;
-        }
+	public static async ValueTask<string?> ReadFilePathAsync(
+		Stream stream,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(stream);
 
-        var payload = new byte[payloadLength];
-        try
-        {
-            await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
-            var filePath = StrictUtf8.GetString(payload);
-            return string.IsNullOrWhiteSpace(filePath) || filePath.Contains('\0')
-                ? null
-                : filePath;
-        }
-        catch (EndOfStreamException)
-        {
-            return null;
-        }
-        catch (DecoderFallbackException)
-        {
-            return null;
-        }
-    }
+		var header = new byte[sizeof(int)];
+		try
+		{
+			await stream.ReadExactlyAsync(header, cancellationToken).ConfigureAwait(false);
+		}
+		catch (EndOfStreamException)
+		{
+			return null;
+		}
+
+		var payloadLength = BinaryPrimitives.ReadInt32LittleEndian(header);
+		if (payloadLength <= 0 || payloadLength > MaximumPathBytes)
+		{
+			return null;
+		}
+
+		var payload = new byte[payloadLength];
+		try
+		{
+			await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
+			var filePath = StrictUtf8.GetString(payload);
+			return string.IsNullOrWhiteSpace(filePath) || filePath.Contains('\0')
+				? null
+				: filePath;
+		}
+		catch (EndOfStreamException)
+		{
+			return null;
+		}
+		catch (DecoderFallbackException)
+		{
+			return null;
+		}
+	}
 }

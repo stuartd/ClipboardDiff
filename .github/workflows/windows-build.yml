@@ -36,14 +36,13 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $tag = $env:RELEASE_TAG
+          . ./scripts/release-version.ps1
+          $version = Get-ReleaseVersion -Version $env:RELEASE_TAG -FromTag
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
 
-          if ($tag -notmatch '^v(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)$')
-          {
-            throw "Release tags must look like v1.2.3 or v1.2.3-preview.1; got '$tag'."
-          }
-
-          "RELEASE_VERSION=$($Matches.version)" >> $env:GITHUB_ENV
+      - name: Test release version propagation
+        shell: pwsh
+        run: ./scripts/test-release-version.ps1
 
       - name: Build, test, and package
         shell: pwsh
@@ -72,7 +71,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $selfContained = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64-self-contained.zip"
-          $net10 = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64-net10.zip"
+          . ./scripts/release-version.ps1
+          $selfContained = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $true).zip"
+          $net10 = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $false).zip"
 
           gh release create $env:RELEASE_TAG $selfContained $net10 --verify-tag --generate-notes --title "ClipDiff $env:RELEASE_TAG"

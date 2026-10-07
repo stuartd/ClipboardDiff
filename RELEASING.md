@@ -64,7 +64,11 @@ a published release.
    git push origin v1.2.3
    ```
 
-The **Windows build and release** workflow validates the tag, runs the complete release script,
+The **Windows build and release** workflow is the sole tag-release workflow.
+It shares tag validation and package naming with the release script, checks regular
+and prerelease version propagation on ordinary builds, and verifies published
+executable metadata. Tags such as `v1.2.3-preview.1` preserve the prerelease suffix
+in the product version and both ZIP names. The workflow validates the tag, runs the complete release script,
 and creates a GitHub release with generated notes and both
 `ClipDiff-1.2.3-win-x64-self-contained.zip` and
 `ClipDiff-1.2.3-win-x64-net10.zip` attached. It will not publish if any build,

@@ -6,37 +6,37 @@ namespace ClipDiff.Windows.Explorer;
 
 internal static class ExplorerCommandClient
 {
-    private const int ConnectionTimeoutMilliseconds = 2_000;
-    private static readonly string PipeName = CreatePipeName();
+	private static readonly TimeSpan DeliveryTimeout = TimeSpan.FromSeconds(2);
+	private static readonly string PipeName = CreatePipeName();
 
-    public static bool TrySendSelectedFile(string filePath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+	public static bool TrySendSelectedFile(string filePath) =>
+		TrySendSelectedFileAsync(filePath, PipeName).GetAwaiter().GetResult();
 
-        try
-        {
-            using var pipe = new NamedPipeClientStream(
-                ".",
-                PipeName,
-                PipeDirection.Out,
-                PipeOptions.Asynchronous);
-            pipe.Connect(ConnectionTimeoutMilliseconds);
-            ExplorerCommandProtocol.WriteFilePathAsync(pipe, filePath).AsTask().GetAwaiter().GetResult();
-            return true;
-        }
-        catch (Exception exception) when (exception is TimeoutException or IOException or
-                                          UnauthorizedAccessException or InvalidOperationException or
-                                          ArgumentException or ObjectDisposedException)
-        {
-            return false;
-        }
-    }
+	internal static async Task<bool> TrySendSelectedFileAsync(string filePath, string name)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-    internal static string GetPipeName() => PipeName;
+		try
+		{
+			using var deadline = new CancellationTokenSource(DeliveryTimeout);
+			using var pipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+			await pipe.ConnectAsync(deadline.Token).ConfigureAwait(false);
+			await ExplorerCommandProtocol.WriteFilePathAsync(pipe, filePath, deadline.Token).ConfigureAwait(false);
+			return await ExplorerCommandProtocol.ReadDeliveryResultAsync(pipe, deadline.Token).ConfigureAwait(false);
+		}
+		catch (Exception exception) when (exception is TimeoutException or IOException or
+			UnauthorizedAccessException or InvalidOperationException or ArgumentException or
+			ObjectDisposedException or OperationCanceledException)
+		{
+			return false;
+		}
+	}
 
-    private static string CreatePipeName()
-    {
-        using var process = Process.GetCurrentProcess();
-        return $"ClipDiff.ExplorerCommand.{process.SessionId}";
-    }
+	internal static string GetPipeName() => PipeName;
+
+	private static string CreatePipeName()
+	{
+		using var process = Process.GetCurrentProcess();
+		return $"ClipDiff.ExplorerCommand.{process.SessionId}";
+	}
 }
