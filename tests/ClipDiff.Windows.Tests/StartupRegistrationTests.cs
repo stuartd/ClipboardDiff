@@ -34,6 +34,36 @@ public sealed class StartupRegistrationTests
 	}
 
 	[TestMethod]
+	public void HostedStartupCommandIncludesExecutableAndEntryAssembly()
+	{
+		var registration = new StartupRegistration(
+			registryPath,
+			@"C:\Program Files\dotnet\dotnet.exe",
+			@"C:\ClipDiff build\日本語\ClipDiff.dll");
+		Assert.IsTrue(registration.TrySetEnabled(true));
+
+		using var key = Registry.CurrentUser.OpenSubKey(registryPath)!;
+		Assert.AreEqual(
+			"\"C:\\Program Files\\dotnet\\dotnet.exe\" \"C:\\ClipDiff build\\日本語\\ClipDiff.dll\"",
+			key.GetValue("ClipDiff"));
+	}
+
+	[TestMethod]
+	public void InvalidHostedCommandDoesNotReplaceExistingRegistration()
+	{
+		Assert.IsTrue(new StartupRegistration(registryPath, @"C:\Tools\ClipDiff.exe").TrySetEnabled(true));
+
+		foreach (var path in new[] { "", "ClipDiff.dll", "C:\\bad\"path.dll", "C:\\" + new string('x', 230) + ".dll" })
+		{
+			var registration = new StartupRegistration(registryPath, @"C:\Program Files\dotnet\dotnet.exe", path);
+			Assert.IsFalse(registration.TrySetEnabled(true));
+		}
+
+		using var key = Registry.CurrentUser.OpenSubKey(registryPath)!;
+		Assert.AreEqual("\"C:\\Tools\\ClipDiff.exe\"", key.GetValue("ClipDiff"));
+	}
+
+	[TestMethod]
 	public void EnablingFromNewLocationReplacesOnlyClipDiffCommand()
 	{
 		Assert.IsTrue(new StartupRegistration(registryPath, @"C:\Old\ClipDiff.exe").TrySetEnabled(true));

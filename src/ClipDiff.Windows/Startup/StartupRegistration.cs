@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Security;
 using Microsoft.Win32;
 
@@ -6,7 +7,8 @@ namespace ClipDiff.Windows.Startup;
 
 internal sealed class StartupRegistration(
 	string registryPath = @"Software\Microsoft\Windows\CurrentVersion\Run",
-	string? executablePath = null)
+	string? executablePath = null,
+	string? entryAssemblyPath = null)
 {
 	private const string ValueName = "ClipDiff";
 
@@ -33,13 +35,12 @@ internal sealed class StartupRegistration(
 			if (enabled)
 			{
 				var path = executablePath ?? Environment.ProcessPath;
+				var assemblyPath = entryAssemblyPath ?? Assembly.GetEntryAssembly()?.Location;
 
-				if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || path.Contains('"'))
+				if (!ApplicationCommandLine.TryBuild(path, assemblyPath, out var command))
 				{
 					return false;
 				}
-
-				var command = $"\"{path}\"";
 
 				// Windows limits Run value command lines to 260 characters.
 				if (command.Length > 260)

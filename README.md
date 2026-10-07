@@ -38,13 +38,17 @@ While clipboard monitoring is active, selecting exactly two files in Explorer al
 
 After ClipDiff has captured at least one value, and while clipboard monitoring is active, it adds **Compare with current ClipDiff capture** to the Explorer context menu for individual files. If the current capture came from a file, the command appends that filename so the comparison source is visible before it is invoked. Choosing it reads the selected file with the same conversion rules, promotes that result to **Current**, moves the former **Current** entry to **Previous**, and immediately uses the normal **Show Diff** workflow. It does not change the Windows clipboard. On Windows 11, this classic context-menu command may appear under **Show more options**.
 
-Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command appears only when exactly two files are selected and ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Losing the last capture removes the individual-file command; quitting removes both. A later ClipDiff start cleans up registrations left by an abnormal exit.
+Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command appears only when exactly two files are selected and ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Losing the last capture removes the individual-file command; quitting removes both when no other live session needs them. Concurrent sessions for the same user coordinate the shared registrations. Their individual-file label is generic because the registry is shared, while invocation validates the capture in the local session. A later ClipDiff start cleans up registrations left by an abnormal exit. Coordination retries brief lock contention; if a peer stays stalled beyond the retry deadline, the surviving instance reconciles registration on its next capture update or tray-menu opening.
 
 The two-file command uses a small native `ClipDiff.ShellExtension.dll` beside the executable. Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive after ClipDiff has exited.
+
+A newer Explorer request or accepted clipboard value cancels pending selected-file work. The single-file command checks that its original capture is still current when the read finishes. Slow reads and incomplete pipe messages do not block receipt of newer commands; failed forwarding gives concise feedback.
 
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
 File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. For the individual-file command, Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe. For the two-file command, Explorer marshals the selection directly to the running ClipDiff process. In both cases, each path is retained only with its in-memory entry for collision disambiguation; it is never logged or persisted.
+
+For large comparisons, Myers line matching uses at most 8 MiB of frontier/trace integer payload and 2,000,000 search steps. When that budget is reached, ClipDiff preserves exact common leading/trailing lines and pairs the remaining block by position. All text and line numbers remain available, though matching lines inside that block may appear as changed. Document storage still grows with the number of input lines.
 
 ## External diff viewers
 
@@ -73,9 +77,9 @@ ClipDiff captures only future, non-empty text values (including the copied-file 
 
 The built-in viewer keeps captured text in memory only. An external program cannot compare in-memory strings directly, so selecting an external viewer creates an explicit exception: after a one-time warning is accepted, ClipDiff writes the two values as UTF-8 plaintext files in a unique directory below `%LOCALAPPDATA%\ClipDiff\Temp`. Ordinary text uses `Previous clipboard.txt` and `Current clipboard.txt`; file-backed values use their source basename within separate `Previous` and `Current` child directories so even positional-only viewers expose the filename. The files are marked read-only. ClipDiff attempts to remove that directory after the launched process exits, when ClipDiff exits, and during its next startup.
 
-This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files.
+This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files. If automatic privacy clearing or a newer comparison invalidates the saved pair while the warning is open, neither OK nor Cancel reopens or exports it.
 
-ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, the chosen shortcut's modifier/key codes, and whether the login prompt has been shown in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove every temporary comparison directory.
+ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, the chosen shortcut's modifier/key codes, and whether the login prompt has been shown in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove this instance's temporary comparison directories. Empty exclusive owner leases protect live workspaces in another session from startup cleanup; leases contain no captured text. Shared Explorer registration claims contain only executable/DLL commands and menu metadata, and stale claims are removed at startup.
 
 Before reading text, ClipDiff inspects and honours these advisory [clipboard formats](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-formats):
 
@@ -177,12 +181,13 @@ It requires the .NET 10 Windows Desktop Runtime on the computer where it runs.
 It is not the distributable package. For the self-contained, validated two-file
 package, use the local release script below instead.
 
-The pure `ClipDiff.Core` project and both policy test assemblies target ordinary `net10.0`, so they can run on macOS:
+The pure `ClipDiff.Core` project and its tests target ordinary `net10.0`, so they can run on macOS:
 
 ```bash
 dotnet test tests/ClipDiff.Core.Tests/ClipDiff.Core.Tests.csproj
-dotnet test tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj
 ```
+
+`ClipDiff.Windows.Tests` targets Windows and references the WPF application; run the complete Windows suite on Windows.
 
 The Windows project has `EnableWindowsTargeting=true`, which permits cross-compilation where Microsoft targeting packs are available. A successful macOS compile is not a functional Windows test. Clipboard formats, notification-area behaviour, global hotkeys, WPF presentation, and native cleanup still require Windows verification.
 
@@ -200,7 +205,9 @@ An older test launcher could print `elevated=0, elevationType=2` after dropping 
 If the native test run fails, include the full output from `Native build:` through the final `[FAIL]` line and script error. The output identifies the test case, expected visibility, direct-handler and Windows-aggregate results, HRESULT/Win32 errors, selection counts and Shell attributes, and effective COM/menu registration. A visibility mismatch also prints menu IDs, states, separator labels, and a read-only snapshot of Shell restriction settings and ClipDiff's Approved/Blocked entries. These probes do not change policy or read clipboard contents or selected file paths. Passing the direct-handler check but failing the Windows-aggregate check narrows the problem to Shell discovery/aggregation; it does not by itself establish that a work-machine policy is responsible. Microsoft's [Shell extension approval policy documentation](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#enforceshellextensionsecurity) explains one possible restriction.
 
 GitHub Actions runs the same release script on `windows-latest` for every push
-and pull request. Each successful run provides `ClipDiff-win-x64-self-contained`
+and pull request. It checks regular and prerelease tag versions, assembly metadata,
+and asset names on every run. A `v1.2.3` or `v1.2.3-preview.1` tag publishes both
+validated ZIPs using that same version. Each successful run provides `ClipDiff-win-x64-self-contained`
 and `ClipDiff-win-x64-net10` artifacts. Each contains only the executable and
 native DLL; extract both into the same directory. The workflow can be run
 manually from the repository's **Actions** tab as well. Actual Explorer desktop
@@ -278,6 +285,9 @@ On a Windows desktop, verify:
 - neither the tray nor the viewer exposes a clear command, and the tray has no monitoring toggle;
 - the built-in viewer is selected by default, detected external programs appear under **Diff viewer**, and **Choose program...** accepts another executable;
 - selecting an external viewer shows the privacy warning once; cancelling uses the built-in viewer without creating plaintext files;
+- clearing a recent clipboard value while that warning is open prevents both OK and Cancel from exporting or reopening the saved pair;
+- a slow Explorer request cannot overwrite a newer completed pair, and copying a newer capture during a single-file request cancels that request;
+- in two concurrent sessions for the same user, starting and quitting B preserves A's active external comparison files and Explorer commands;
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;
 - external comparison files appear only below `%LOCALAPPDATA%\ClipDiff\Temp`, contain the exact text, and are removed after the launched process exits, on ClipDiff exit, or on the next start;
 - removing or renaming the selected viewer executable causes **Show Diff** to fall back to the built-in viewer;
