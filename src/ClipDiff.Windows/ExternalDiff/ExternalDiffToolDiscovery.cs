@@ -1,18 +1,46 @@
 using System.IO;
+using System.Security;
 using Microsoft.Win32;
 
 namespace ClipDiff.Windows.ExternalDiff;
 
 internal static class ExternalDiffToolDiscovery
 {
-	public static IReadOnlyList<ExternalDiffToolChoice> FindInstalled(string? selectedExecutablePath = null)
+	private const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+
+	private static readonly (RegistryHive Hive, RegistryView View)[] RegistryLocations =
+	[
+		(RegistryHive.CurrentUser, RegistryView.Registry64),
+		(RegistryHive.CurrentUser, RegistryView.Registry32),
+		(RegistryHive.LocalMachine, RegistryView.Registry64),
+		(RegistryHive.LocalMachine, RegistryView.Registry32)
+	];
+
+	public static IReadOnlyList<ExternalDiffToolChoice> FindInstalled(string? selectedExecutablePath = null) =>
+		FindInstalled(
+			new ExternalDiffRegistry(),
+			Environment.GetEnvironmentVariable("PATH"),
+			Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+			Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+			Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+			selectedExecutablePath);
+
+	internal static IReadOnlyList<ExternalDiffToolChoice> FindInstalled(
+		IExternalDiffRegistry registry,
+		string? searchPath,
+		string programFiles,
+		string programFilesX86,
+		string localAppData,
+		string? selectedExecutablePath = null)
 	{
+		var registrations = ReadRegistrations(registry).ToArray();
 		var choices = new List<ExternalDiffToolChoice>();
 		var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var tool in ExternalDiffToolCatalog.Tools)
 		{
-			var executable = FindExecutable(tool);
+			var executable = FindExecutable(tool, registry, registrations, searchPath,
+				programFiles, programFilesX86, localAppData);
 
 			if (executable is not null && seenPaths.Add(executable))
 			{
@@ -20,103 +48,222 @@ internal static class ExternalDiffToolDiscovery
 			}
 		}
 
-		if (!string.IsNullOrWhiteSpace(selectedExecutablePath))
+		var selectedPath = NormalizePath(selectedExecutablePath);
+
+		if (selectedPath is not null && File.Exists(selectedPath) && seenPaths.Add(selectedPath))
 		{
-			var selectedPath = selectedExecutablePath;
-			if (File.Exists(selectedPath) && seenPaths.Add(selectedPath))
-			{
-				choices.Add(new ExternalDiffToolChoice(
-					ExternalDiffToolCatalog.MatchExecutable(selectedPath),
-					selectedPath));
-			}
+			choices.Add(new ExternalDiffToolChoice(
+				ExternalDiffToolCatalog.MatchExecutable(selectedPath),
+				selectedPath));
 		}
 
 		return choices;
 	}
 
-	private static string? FindExecutable(ExternalDiffTool tool)
+	private static string? FindExecutable(
+		ExternalDiffTool tool,
+		IExternalDiffRegistry registry,
+		IReadOnlyList<ToolRegistration> registrations,
+		string? searchPath,
+		string programFiles,
+		string programFilesX86,
+		string localAppData)
 	{
-		foreach (var executableName in tool.ExecutableNames)
+		foreach (var executableName in tool.ExecutableNames.Distinct(StringComparer.OrdinalIgnoreCase))
 		{
-			var appPath = ReadAppPath(executableName);
+			var appPath = FindExistingExecutable(tool, AppPathCandidates(registry, executableName));
 
-			if (appPath is not null && MatchesTool(tool, appPath))
+			if (appPath is not null)
 			{
 				return appPath;
 			}
 
-			var pathExecutable = FindOnPath(executableName);
+			var pathExecutable = FindExistingExecutable(tool, PathCandidates(searchPath, executableName));
 
-			if (pathExecutable is not null && MatchesTool(tool, pathExecutable))
+			if (pathExecutable is not null)
 			{
 				return pathExecutable;
 			}
 		}
 
-		return FindKnownExecutable(
-			tool.Id,
-			Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-			Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-			Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+		var registeredExecutable = FindExistingExecutable(tool,
+			registrations.Where(registration => registration.ToolId == tool.Id)
+				.SelectMany(registration => RegistrationCandidates(tool, registration)),
+			identifiedTool: true);
+
+		return registeredExecutable ?? FindKnownExecutable(tool.Id, programFiles, programFilesX86, localAppData);
 	}
 
-	private static bool MatchesTool(ExternalDiffTool tool, string executablePath) =>
-		ExternalDiffToolCatalog.MatchExecutable(executablePath).Id == tool.Id;
-
-	private static string? ReadAppPath(string executableName)
+	private static IEnumerable<string?> AppPathCandidates(IExternalDiffRegistry registry, string executableName)
 	{
-		foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+		foreach (var (hive, view) in RegistryLocations)
 		{
-			foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
-			{
-				try
-				{
-					using var baseKey = RegistryKey.OpenBaseKey(hive, view);
-					using var key = baseKey.OpenSubKey($@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{executableName}");
+			yield return TryReadRegistry(() => registry.ReadValue(hive, view,
+				$@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{executableName}"));
+		}
+	}
 
-					if (key?.GetValue(null) is string path && File.Exists(path.Trim('"')))
-					{
-						return Path.GetFullPath(path.Trim('"'));
-					}
-				}
-				catch (System.Security.SecurityException)
+	private static IEnumerable<string> PathCandidates(string? searchPath, string executableName)
+	{
+		if (string.IsNullOrWhiteSpace(searchPath))
+		{
+			yield break;
+		}
+
+		foreach (var directory in searchPath.Split(Path.PathSeparator,
+			StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+		{
+			var normalizedDirectory = NormalizePath(directory);
+
+			if (normalizedDirectory is not null)
+			{
+				yield return Path.Combine(normalizedDirectory, executableName);
+			}
+		}
+	}
+
+	private static IEnumerable<ToolRegistration> ReadRegistrations(IExternalDiffRegistry registry)
+	{
+		foreach (var (hive, view) in RegistryLocations)
+		{
+			yield return new("winmerge", TryReadRegistry(() => registry.ReadValue(hive, view,
+				@"SOFTWARE\Thingamahoochie\WinMerge", "Executable")), null);
+
+			foreach (var version in new[] { "", " 5", " 4" })
+			{
+				yield return new("beyond-compare", TryReadRegistry(() => registry.ReadValue(hive, view,
+					$@"SOFTWARE\Scooter Software\Beyond Compare{version}", "ExePath")), null);
+			}
+
+			var subKeys = TryReadRegistry(() => registry.ReadSubKeyNames(hive, view, UninstallKey)) ?? [];
+
+			foreach (var subKey in subKeys)
+			{
+				var keyPath = $@"{UninstallKey}\{subKey}";
+				var displayName = TryReadRegistry(() => registry.ReadValue(hive, view, keyPath, "DisplayName"));
+				var tool = MatchDisplayName(displayName);
+
+				if (tool is not null)
 				{
+					var installLocation = TryReadRegistry(() => registry.ReadValue(hive, view, keyPath, "InstallLocation"));
+					yield return new(tool.Id, null, installLocation);
 				}
-				catch (UnauthorizedAccessException)
+			}
+		}
+	}
+
+	private static ExternalDiffTool? MatchDisplayName(string? displayName)
+	{
+		if (string.IsNullOrWhiteSpace(displayName))
+		{
+			return null;
+		}
+
+		var name = displayName.Trim();
+
+		return ExternalDiffToolCatalog.Tools.FirstOrDefault(tool =>
+			DisplayNames(tool).Any(alias => name.Equals(alias, StringComparison.OrdinalIgnoreCase) ||
+				name.StartsWith(alias + " ", StringComparison.OrdinalIgnoreCase)));
+	}
+
+	private static IEnumerable<string> DisplayNames(ExternalDiffTool tool) => tool.Id switch
+	{
+		"diffmerge" => [tool.DisplayName, "DiffMerge"],
+		"vscode" => [tool.DisplayName, "Microsoft Visual Studio Code"],
+		"visual-studio" => [tool.DisplayName, "Microsoft Visual Studio"],
+		"tortoisegitmerge" => [tool.DisplayName, "TortoiseGit"],
+		"tortoisemerge" => [tool.DisplayName, "TortoiseSVN"],
+		_ => [tool.DisplayName]
+	};
+
+	private static IEnumerable<string?> RegistrationCandidates(ExternalDiffTool tool, ToolRegistration registration)
+	{
+		var executablePath = NormalizePath(registration.ExecutablePath);
+		var installLocation = NormalizePath(registration.InstallLocation);
+
+		if (executablePath is not null)
+		{
+			if (tool.Id == "beyond-compare" &&
+				tool.ExecutableNames.Contains(Path.GetFileName(executablePath), StringComparer.OrdinalIgnoreCase))
+			{
+				yield return Path.Combine(Path.GetDirectoryName(executablePath)!, "BComp.exe");
+			}
+
+			yield return executablePath;
+		}
+
+		if (installLocation is not null)
+		{
+			foreach (var executableName in tool.ExecutableNames.Distinct(StringComparer.OrdinalIgnoreCase))
+			{
+				yield return Path.Combine(installLocation, executableName);
+			}
+
+			if (tool.Id is "kdiff3" or "tortoisegitmerge" or "tortoisemerge")
+			{
+				foreach (var executableName in tool.ExecutableNames)
 				{
+					yield return Path.Combine(installLocation, "bin", executableName);
 				}
+			}
+
+			if (tool.Id == "visual-studio")
+			{
+				yield return Path.Combine(installLocation, "Common7", "IDE", "devenv.exe");
+			}
+		}
+	}
+
+	private static string? FindExistingExecutable(
+		ExternalDiffTool tool,
+		IEnumerable<string?> candidates,
+		bool identifiedTool = false)
+	{
+		foreach (var candidate in candidates)
+		{
+			var path = NormalizePath(candidate);
+
+			if (path is not null && File.Exists(path) &&
+				(identifiedTool
+					? tool.ExecutableNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+					: ExternalDiffToolCatalog.MatchExecutable(path).Id == tool.Id))
+			{
+				return path;
 			}
 		}
 
 		return null;
 	}
 
-	private static string? FindOnPath(string executableName)
+	private static string? NormalizePath(string? path)
 	{
-		var path = Environment.GetEnvironmentVariable("PATH");
-
 		if (string.IsNullOrWhiteSpace(path))
 		{
 			return null;
 		}
 
-		foreach (var directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+		try
 		{
-			try
-			{
-				var candidate = Path.Combine(directory.Trim('"'), executableName);
+			var expandedPath = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
 
-				if (File.Exists(candidate))
-				{
-					return Path.GetFullPath(candidate);
-				}
-			}
-			catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-			{
-			}
+			return Path.IsPathFullyQualified(expandedPath) ? Path.GetFullPath(expandedPath) : null;
 		}
+		catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+		{
+			return null;
+		}
+	}
 
-		return null;
+	private static T? TryReadRegistry<T>(Func<T?> read) where T : class
+	{
+		try
+		{
+			return read();
+		}
+		catch (Exception exception) when (exception is SecurityException or UnauthorizedAccessException or IOException)
+		{
+			return null;
+		}
 	}
 
 	internal static string? FindKnownExecutable(
@@ -132,63 +279,56 @@ internal static class ExternalDiffToolDiscovery
 		string programFilesX86,
 		string localAppData)
 	{
-		return toolId switch
+		if (toolId == "visual-studio")
 		{
-			"diffmerge" => UnderProgramFiles(programFiles, programFilesX86,
-				@"SourceGear\Common\DiffMerge\sgdm.exe",
-				@"SourceGear\DiffMerge\DiffMerge.exe"),
-			"winmerge" => UnderProgramFiles(programFiles, programFilesX86, @"WinMerge\WinMergeU.exe"),
-			"meld" =>
+			return VisualStudioCandidates(programFiles, programFilesX86);
+		}
+
+		string[] relativePaths = toolId switch
+		{
+			"diffmerge" => [@"SourceGear\Common\DiffMerge\sgdm.exe", @"SourceGear\DiffMerge\DiffMerge.exe"],
+			"winmerge" => [@"WinMerge\WinMergeU.exe", @"WinMerge\WinMerge.exe"],
+			"meld" => [@"Meld\Meld.exe"],
+			"kdiff3" => [@"KDiff3\bin\kdiff3.exe", @"KDiff3\kdiff3.exe"],
+			"beyond-compare" =>
 			[
-				.. UnderProgramFiles(programFiles, programFilesX86, Path.Combine("Meld", "Meld.exe")),
-				Path.Combine(localAppData, "Programs", "Meld", "meld.exe")
+				@"Beyond Compare 5\BComp.exe", @"Beyond Compare 5\BCompare.exe",
+				@"Beyond Compare 4\BComp.exe", @"Beyond Compare 4\BCompare.exe"
 			],
-			"kdiff3" => UnderProgramFiles(programFiles, programFilesX86,
-				@"KDiff3\bin\kdiff3.exe",
-				@"KDiff3\kdiff3.exe"),
-			"beyond-compare" => UnderProgramFiles(programFiles, programFilesX86,
-				@"Beyond Compare 5\BComp.exe",
-				@"Beyond Compare 5\BCompare.exe",
-				@"Beyond Compare 4\BComp.exe",
-				@"Beyond Compare 4\BCompare.exe"),
-			"araxis" => UnderProgramFiles(programFiles, programFilesX86,
-				@"Araxis\Araxis Merge\ConsoleCompare.exe",
-				@"Araxis\Araxis Merge\Compare.exe"),
-			"vscode" =>
-			[
-				Path.Combine(localAppData, @"Programs\Microsoft VS Code\Code.exe"),
-				Path.Combine(localAppData, @"Programs\Microsoft VS Code Insiders\Code - Insiders.exe"),
-				.. UnderProgramFiles(programFiles, programFilesX86,
-					@"Microsoft VS Code\Code.exe",
-					@"Microsoft VS Code Insiders\Code - Insiders.exe")
-			],
-			"visual-studio" => VisualStudioCandidates(programFiles, programFilesX86),
-			"tortoisegitmerge" => UnderProgramFiles(programFiles, programFilesX86, @"TortoiseGit\bin\TortoiseGitMerge.exe"),
-			"tortoisemerge" => UnderProgramFiles(programFiles, programFilesX86, @"TortoiseSVN\bin\TortoiseMerge.exe"),
-			"p4merge" => UnderProgramFiles(programFiles, programFilesX86, @"Perforce\p4merge.exe"),
-			"examdiff" => UnderProgramFiles(programFiles, programFilesX86, @"ExamDiff Pro\ExamDiff.exe"),
+			"araxis" => [@"Araxis\Araxis Merge\ConsoleCompare.exe", @"Araxis\Araxis Merge\Compare.exe"],
+			"vscode" => [@"Microsoft VS Code\Code.exe", @"Microsoft VS Code Insiders\Code - Insiders.exe"],
+			"tortoisegitmerge" => [@"TortoiseGit\bin\TortoiseGitMerge.exe"],
+			"tortoisemerge" => [@"TortoiseSVN\bin\TortoiseMerge.exe"],
+			"p4merge" => [@"Perforce\p4merge.exe"],
+			"examdiff" => [@"ExamDiff Pro\ExamDiff.exe"],
 			_ => []
 		};
+
+		var machineCandidates = relativePaths.SelectMany(relativePath =>
+			UnderRoots([programFiles, programFilesX86], relativePath));
+		var userRoot = string.IsNullOrWhiteSpace(localAppData) ? "" : Path.Combine(localAppData, "Programs");
+		var userCandidates = relativePaths.SelectMany(relativePath =>
+			UnderRoots([userRoot], toolId == "meld" ? @"Meld\meld.exe" : relativePath));
+
+		return toolId == "vscode"
+			? userCandidates.Concat(machineCandidates)
+			: machineCandidates.Concat(userCandidates);
 	}
 
-	private static string[] UnderProgramFiles(string programFiles, string programFilesX86, params string[] relativePaths) =>
-	[
-		.. relativePaths.SelectMany(relativePath => new[]
-		{
-			Path.Combine(programFiles, relativePath),
-			Path.Combine(programFilesX86, relativePath)
-		}).Distinct(StringComparer.OrdinalIgnoreCase)
-	];
+	private static IEnumerable<string> UnderRoots(IEnumerable<string> roots, string relativePath) =>
+		roots.Where(root => !string.IsNullOrWhiteSpace(root))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.Select(root => Path.Combine(root, relativePath.Replace('\\', Path.DirectorySeparatorChar)));
 
 	private static IEnumerable<string> VisualStudioCandidates(string programFiles, string programFilesX86)
 	{
 		var editions = new[] { "Enterprise", "Professional", "Community" };
 		var versions = new[] { "2022", "2019" };
 
-		return versions.SelectMany(version => editions.SelectMany(edition => new[]
-		{
-			Path.Combine(programFiles, "Microsoft Visual Studio", version, edition, "Common7", "IDE", "devenv.exe"),
-			Path.Combine(programFilesX86, "Microsoft Visual Studio", version, edition, "Common7", "IDE", "devenv.exe")
-		}));
+		return versions.SelectMany(version => editions.SelectMany(edition =>
+			UnderRoots([programFiles, programFilesX86],
+				Path.Combine("Microsoft Visual Studio", version, edition, "Common7", "IDE", "devenv.exe"))));
 	}
+
+	private sealed record ToolRegistration(string ToolId, string? ExecutablePath, string? InstallLocation);
 }

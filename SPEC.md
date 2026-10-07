@@ -891,7 +891,7 @@ Copy two text values, then use Show Diff.
 
 ### 16.5 External diff viewers
 
-The built-in viewer is the default. The notification-area **Diff viewer** submenu must offer the built-in viewer, supported external programs detected through Windows App Paths, PATH, or normal installation locations, and **Choose program...** for manual executable selection. Detection must not select an external program automatically. Remember the selected executable path between runs.
+The built-in viewer is the default. The notification-area **Diff viewer** submenu must offer the built-in viewer, supported external programs detected through Windows App Paths, PATH, installer or known vendor registry entries, or normal machine-wide and per-user installation locations, and **Choose program...** for manual executable selection. Inspect current-user and machine registrations in both 32-bit and 64-bit registry views. Match installer entries to supported viewer names and verify the expected executable exists; ignore missing executables and unreadable or malformed registrations. Detection must not select an external program automatically. Remember the selected executable path between runs.
 
 When two entries are ready, **Show Diff** must launch the selected external program with the previous value on the left and the current value on the right. If there is no selection, the executable is unavailable, the privacy warning is cancelled, temporary-file creation fails, or process launch fails, open the built-in viewer instead. Do not discard either captured entry.
 
