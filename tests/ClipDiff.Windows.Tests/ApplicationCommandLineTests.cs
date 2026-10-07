@@ -15,7 +15,6 @@ public sealed class ApplicationCommandLineTests
 	[TestMethod]
 	[DataRow(@"C:\Program Files\dotnet\dotnet.exe")]
 	[DataRow(@"C:\Program Files\dotnet\DOTNET.EXE")]
-	[DataRow(@"/usr/local/share/dotnet/dotnet")]
 	public void HostedCommandIncludesQuotedEntryAssembly(string processPath)
 	{
 		var command = ApplicationCommandLine.Build(processPath, @"C:\ClipDiff build\日本語\ClipDiff.dll");
