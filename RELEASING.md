@@ -55,7 +55,7 @@ a published release.
 
 ## Publish on GitHub
 
-1. Merge the release changes into `main` and confirm **Windows build** succeeds.
+1. Merge the release changes into `main` and confirm **Windows build and release** succeeds.
 2. Choose a semantic version such as `1.2.3`.
 3. Create and push an annotated tag for that exact `main` commit:
 
@@ -64,7 +64,7 @@ a published release.
    git push origin v1.2.3
    ```
 
-The **Release** workflow validates the tag, runs the complete release script,
+The **Windows build and release** workflow validates the tag, runs the complete release script,
 and creates a GitHub release with generated notes and both
 `ClipDiff-1.2.3-win-x64-self-contained.zip` and
 `ClipDiff-1.2.3-win-x64-net10.zip` attached. It will not publish if any build,

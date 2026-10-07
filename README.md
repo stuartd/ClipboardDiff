@@ -63,7 +63,7 @@ ClipDiff has command-line profiles for these developer tools:
 - P4Merge
 - ExamDiff Pro
 
-ClipDiff checks Windows App Paths, `PATH`, and the programs' usual install locations. A program selected with **Choose program...** is matched to a known profile by executable name; an unknown executable receives the previous and current file paths as two positional arguments. If no external viewer is selected, its executable is no longer available, or it cannot be started, **Show Diff** falls back to the built-in viewer.
+ClipDiff checks Windows App Paths, `PATH`, and the programs' usual install locations, including Meld at `%LOCALAPPDATA%\Programs\Meld\meld.exe`. A program selected with **Choose program...** is matched to a known profile by executable name; an unknown executable receives the previous and current file paths as two positional arguments. If no external viewer is selected, its executable is no longer available, or it cannot be started, **Show Diff** falls back to the built-in viewer.
 
 ## Privacy model and limitations
 
