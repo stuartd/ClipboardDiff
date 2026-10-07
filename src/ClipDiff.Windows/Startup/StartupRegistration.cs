@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using System.Security;
 using Microsoft.Win32;
 
@@ -35,7 +34,7 @@ internal sealed class StartupRegistration(
 			if (enabled)
 			{
 				var path = executablePath ?? Environment.ProcessPath;
-				var assemblyPath = entryAssemblyPath ?? Assembly.GetEntryAssembly()?.Location;
+				var assemblyPath = entryAssemblyPath ?? ApplicationCommandLine.GetCurrentEntryAssemblyPath();
 
 				if (!ApplicationCommandLine.TryBuild(path, assemblyPath, out var command))
 				{

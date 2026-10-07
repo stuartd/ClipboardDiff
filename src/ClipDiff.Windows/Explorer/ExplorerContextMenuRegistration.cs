@@ -1,6 +1,5 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Reflection;
 using System.Security;
 using Microsoft.Win32;
 
@@ -50,7 +49,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 
 		try
 		{
-			var entryAssemblyPath = Assembly.GetEntryAssembly()?.Location;
+			var entryAssemblyPath = ApplicationCommandLine.GetCurrentEntryAssemblyPath();
 			singleCommandLine = ExplorerContextCommandLine.BuildShellCommand(processPath, entryAssemblyPath);
 			comServerCommandLine = ExplorerContextCommandLine.BuildComServerCommand(processPath, entryAssemblyPath);
 			registrationCoordinator = new ExplorerRegistrationCoordinator(

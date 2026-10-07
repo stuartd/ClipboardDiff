@@ -4,6 +4,42 @@ namespace ClipDiff.Windows;
 
 internal static class ApplicationCommandLine
 {
+	private static readonly string? EntryAssemblyPath = ResolveCurrentEntryAssemblyPath();
+
+	public static string? GetCurrentEntryAssemblyPath() => EntryAssemblyPath;
+
+	private static string? ResolveCurrentEntryAssemblyPath()
+	{
+		if (!IsDotnetHost(Environment.ProcessPath))
+		{
+			return null;
+		}
+
+		var entryPath = Environment.GetCommandLineArgs().FirstOrDefault();
+
+		if (string.IsNullOrWhiteSpace(entryPath))
+		{
+			return null;
+		}
+
+		// Resolve once before a file dialog can change the working directory.
+		// Unlike Assembly.Location, command arguments also support single-file apps.
+		return Path.GetFullPath(entryPath);
+	}
+
+	private static bool IsDotnetHost(string? path)
+	{
+		if (path is null)
+		{
+			return false;
+		}
+
+		var separatorIndex = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+		var fileName = path[(separatorIndex + 1)..];
+		return string.Equals(fileName, "dotnet", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(fileName, "dotnet.exe", StringComparison.OrdinalIgnoreCase);
+	}
+
 	public static string Build(string processPath, string? entryAssemblyPath)
 	{
 		if (!TryBuild(processPath, entryAssemblyPath, out var command))
@@ -23,10 +59,7 @@ internal static class ApplicationCommandLine
 			return false;
 		}
 
-		var separatorIndex = Math.Max(processPath!.LastIndexOf('/'), processPath.LastIndexOf('\\'));
-		var fileName = processPath[(separatorIndex + 1)..];
-		var isDotnetHost = string.Equals(fileName, "dotnet", StringComparison.OrdinalIgnoreCase) ||
-			string.Equals(fileName, "dotnet.exe", StringComparison.OrdinalIgnoreCase);
+		var isDotnetHost = IsDotnetHost(processPath);
 
 		if (isDotnetHost && !IsAbsolutePath(entryAssemblyPath))
 		{
