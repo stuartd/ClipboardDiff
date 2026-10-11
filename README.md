@@ -7,7 +7,7 @@ ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
 ## Use
 
 1. Start `ClipDiff.exe`. It opens in the notification area
-2. Copy the older text or file. Explorer's **Copy as path** also counts as copying the file.
+2. Copy the older text or file. Explorer's **Copy as path**, Visual Studio's **Copy Full Path**, and VS Code's **Copy Path** also count as copying an existing local file.
 3. Either copy the newer text or file, or right-click the newer file in Explorer and choose **Compare with current ClipDiff capture**.
 4. If you copied the newer value normally, press `Ctrl+Alt+D` (or your chosen replacement) or right-click the ClipDiff icon and choose **Show Diff**. The Explorer command opens the diff immediately.
 5. You can also copy two files at the same time—or select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**—to diff them immediately without an existing capture.
@@ -20,7 +20,17 @@ The menu also shows short previews of the current and previous entries, and prov
 
 ## Copied files
 
-When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. Explorer **Copy as path** is also treated as a file copy when its text consists solely of one or two quoted absolute Windows paths. This deliberately favors the useful file-diff workflow over the unusual case of comparing the quoted paths themselves. Unquoted paths and paths embedded in other text remain ordinary text. A single copied file is converted as follows:
+When Explorer places files on the clipboard, ClipDiff checks the same privacy markers used for ordinary text before obtaining any file paths. A standard file list takes precedence over any accompanying text.
+
+Full paths copied as text, including Explorer **Copy as path**, Visual Studio **Copy Full Path**, and VS Code **Copy Path**, use the same file conversion. The complete text must contain one or two fully qualified Windows drive or UNC paths, one per line. Each path may independently have a matched pair of double quotes; spaces and Unicode in filenames are preserved. CRLF/LF separators and a trailing newline are accepted.
+
+If any path is unquoted, every path must resolve to an existing file. A missing file, directory, or failed existence check leaves the entire original payload as ordinary text. Fully quoted paths retain Explorer's filename/reason fallbacks for missing files and directories. Lists of more than two valid existing files are ignored; fully quoted lists of more than two paths keep the existing ignore behavior. Relative or drive-relative paths, environment-variable expressions, URLs, remote editor URIs, line/column suffixes, malformed quoting, and paths mixed with prose or code remain ordinary text. ClipDiff neither expands variables nor repairs quotes.
+
+ClipDiff reads the saved file when it processes the clipboard event; unsaved editor buffers are not included. Copying code directly continues to capture that code as text. File probes and reads run off the UI thread, including UNC access, and a newer clipboard update cancels pending work. If a recognized file disappears or becomes unreadable before the read, the usual filename/reason fallback applies. The Windows clipboard is unchanged.
+
+Copying file nodes with Ctrl+C in Visual Studio Solution Explorer or VS Code Explorer is a separate workflow whose editor-specific clipboard formats have not been verified on a Windows desktop. Standard file lists are handled already; no adapter for custom project-item formats is included. WSL, SSH, container, browser, and virtual-workspace resources are not assumed to be Windows-local files.
+
+A single copied file is converted as follows:
 
 - `.bat`, `.cmd`, `.ps1`, terminal captures containing ANSI escape sequences, and other files whose bytes look like text contribute their full decoded contents. UTF-8, BOM-marked UTF-16/UTF-32, common BOM-less UTF-16, and Windows-1252 text are supported.
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute the filename with a reason, such as `program.exe (binary file)`.

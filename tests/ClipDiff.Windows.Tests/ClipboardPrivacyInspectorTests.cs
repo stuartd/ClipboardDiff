@@ -6,263 +6,296 @@ namespace ClipDiff.Windows.Tests;
 [TestClass]
 public sealed class ClipboardPrivacyInspectorTests
 {
-    private const uint Exclude = 100;
-    private const uint History = 101;
-    private const uint Cloud = 102;
-    private static readonly DateTimeOffset Now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+	private const uint Exclude = 100;
+	private const uint History = 101;
+	private const uint Cloud = 102;
+	private static readonly DateTimeOffset Now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    [TestMethod]
-    public void ExcludeMarkerPreventsTextRequest()
-    {
-        var clipboard = FakeClipboard.WithText("secret");
-        clipboard.Formats.Add(Exclude);
+	[TestMethod]
+	public void ExcludeMarkerPreventsTextRequest()
+	{
+		var clipboard = FakeClipboard.WithText("secret");
+		clipboard.Formats.Add(Exclude);
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
-        Assert.AreEqual(0, clipboard.TextReadCount);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+	}
 
-    [TestMethod]
-    [DataRow(History)]
-    [DataRow(Cloud)]
-    public void ZeroPrivacyDwordExcludesText(uint format)
-    {
-        var clipboard = FakeClipboard.WithText("secret");
-        clipboard.Dwords[format] = 0;
+	[TestMethod]
+	[DataRow(History)]
+	[DataRow(Cloud)]
+	public void ZeroPrivacyDwordExcludesText(uint format)
+	{
+		var clipboard = FakeClipboard.WithText("secret");
+		clipboard.Dwords[format] = 0;
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
-        Assert.AreEqual(0, clipboard.TextReadCount);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+	}
 
-    [TestMethod]
-    [DataRow(History)]
-    [DataRow(Cloud)]
-    public void OnePrivacyDwordAllowsText(uint format)
-    {
-        var clipboard = FakeClipboard.WithText("ordinary");
-        clipboard.Dwords[format] = 1;
+	[TestMethod]
+	[DataRow(History)]
+	[DataRow(Cloud)]
+	public void OnePrivacyDwordAllowsText(uint format)
+	{
+		var clipboard = FakeClipboard.WithText("ordinary");
+		clipboard.Dwords[format] = 1;
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
-        Assert.AreEqual("ordinary", result.Text);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
+		Assert.AreEqual("ordinary", result.Text);
+	}
 
-    [TestMethod]
-    [DataRow(History)]
-    [DataRow(Cloud)]
-    public void MalformedPrivacyDwordIsExcludedConservatively(uint format)
-    {
-        var clipboard = FakeClipboard.WithText("secret");
-        clipboard.MalformedDwords.Add(format);
+	[TestMethod]
+	[DataRow(History)]
+	[DataRow(Cloud)]
+	public void MalformedPrivacyDwordIsExcludedConservatively(uint format)
+	{
+		var clipboard = FakeClipboard.WithText("secret");
+		clipboard.MalformedDwords.Add(format);
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
-        Assert.AreEqual(0, clipboard.TextReadCount);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+	}
 
-    [TestMethod]
-    public void NoPrivacyFormatsAllowsUnicodeText()
-    {
-        var result = Inspect(FakeClipboard.WithText("ordinary"));
+	[TestMethod]
+	public void NoPrivacyFormatsAllowsUnicodeText()
+	{
+		var result = Inspect(FakeClipboard.WithText("ordinary"));
 
-        Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
-        Assert.AreEqual("ordinary", result.Text);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
+		Assert.AreEqual("ordinary", result.Text);
+	}
 
-    [TestMethod]
-    public void PrivacyMarkerPlusTextNeverReadsText()
-    {
-        var clipboard = FakeClipboard.WithText("secret");
-        clipboard.Dwords[History] = 0;
+	[TestMethod]
+	public void PrivacyMarkerPlusTextNeverReadsText()
+	{
+		var clipboard = FakeClipboard.WithText("secret");
+		clipboard.Dwords[History] = 0;
 
-        Inspect(clipboard);
+		Inspect(clipboard);
 
-        Assert.AreEqual(0, clipboard.TextReadCount);
-    }
+		Assert.AreEqual(0, clipboard.TextReadCount);
+	}
 
-    [TestMethod]
-    public void FormatEnumerationFailureFailsClosedWithoutReadingText()
-    {
-        var clipboard = FakeClipboard.WithText("secret");
-        clipboard.FormatInspectionSucceeds = false;
+	[TestMethod]
+	public void FormatEnumerationFailureFailsClosedWithoutReadingText()
+	{
+		var clipboard = FakeClipboard.WithText("secret");
+		clipboard.FormatInspectionSucceeds = false;
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.InspectionFailed, result.Kind);
-        Assert.AreEqual(0, clipboard.TextReadCount);
-    }
+		Assert.AreEqual(ClipboardObservationKind.InspectionFailed, result.Kind);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+	}
 
-    [TestMethod]
-    public void EmptyClipboardIsAnExplicitClear()
-    {
-        var clipboard = new FakeClipboard { HasAnyFormats = false };
+	[TestMethod]
+	public void EmptyClipboardIsAnExplicitClear()
+	{
+		var clipboard = new FakeClipboard { HasAnyFormats = false };
 
-        Assert.AreEqual(ClipboardObservationKind.ExplicitClear, Inspect(clipboard).Kind);
-    }
+		Assert.AreEqual(ClipboardObservationKind.ExplicitClear, Inspect(clipboard).Kind);
+	}
 
-    [TestMethod]
-    public void EmptyUnicodeTextIsAnExplicitClear()
-    {
-        Assert.AreEqual(ClipboardObservationKind.ExplicitClear, Inspect(FakeClipboard.WithText(string.Empty)).Kind);
-    }
+	[TestMethod]
+	public void EmptyUnicodeTextIsAnExplicitClear()
+	{
+		Assert.AreEqual(ClipboardObservationKind.ExplicitClear, Inspect(FakeClipboard.WithText(string.Empty)).Kind);
+	}
 
-    [TestMethod]
-    public void NonTextClipboardIsIgnored()
-    {
-        var clipboard = new FakeClipboard();
-        clipboard.Formats.Add(500);
+	[TestMethod]
+	public void NonTextClipboardIsIgnored()
+	{
+		var clipboard = new FakeClipboard();
+		clipboard.Formats.Add(500);
 
-        Assert.AreEqual(ClipboardObservationKind.NonText, Inspect(clipboard).Kind);
-    }
+		Assert.AreEqual(ClipboardObservationKind.NonText, Inspect(clipboard).Kind);
+	}
 
-    [TestMethod]
-    public void TextReadFailureRequestsARetryOutcome()
-    {
-        var clipboard = FakeClipboard.WithText("not returned");
-        clipboard.TextReadSucceeds = false;
+	[TestMethod]
+	public void TextReadFailureRequestsARetryOutcome()
+	{
+		var clipboard = FakeClipboard.WithText("not returned");
+		clipboard.TextReadSucceeds = false;
 
-        Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
-    }
+		Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
+	}
 
-    [TestMethod]
-    public void CopiedFilesAreReturnedWithoutReadingIncidentalUnicodeText()
-    {
-        var clipboard = FakeClipboard.WithText("\"C:\\incidental\\path.txt\"");
-        clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
-        clipboard.FilePaths = [@"C:\work\script.bat"];
+	[TestMethod]
+	public void CopiedFilesAreReturnedWithoutReadingIncidentalUnicodeText()
+	{
+		var clipboard = FakeClipboard.WithText(@"C:\incidental\path.txt");
+		clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
+		clipboard.FilePaths = [@"C:\work\script.bat"];
 
-        var result = InspectRaw(clipboard);
+		var result = InspectRaw(clipboard);
 
-        Assert.IsTrue(result is ClipboardInspection.CopiedFiles);
-        var copiedFiles = (ClipboardInspection.CopiedFiles)result;
-        CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
-        Assert.AreEqual(0, clipboard.TextReadCount);
-        Assert.AreEqual(1, clipboard.FilePathReadCount);
-    }
+		Assert.IsTrue(result is ClipboardInspection.CopiedFiles);
+		var copiedFiles = (ClipboardInspection.CopiedFiles)result;
+		CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
+		Assert.IsNull(copiedFiles.OriginalText);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+		Assert.AreEqual(1, clipboard.FilePathReadCount);
+	}
 
-    [TestMethod]
-    public void PrivacyMarkerPreventsCopiedFilePathRequest()
-    {
-        var clipboard = FakeClipboard.WithFiles(@"C:\work\secret.txt");
-        clipboard.Dwords[History] = 0;
+	[TestMethod]
+	public void PrivacyMarkerPreventsCopiedFilePathRequest()
+	{
+		var clipboard = FakeClipboard.WithFiles(@"C:\work\secret.txt");
+		clipboard.Dwords[History] = 0;
 
-        var result = Inspect(clipboard);
+		var result = Inspect(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
-        Assert.AreEqual(0, clipboard.FilePathReadCount);
-    }
+		Assert.AreEqual(ClipboardObservationKind.Sensitive, result.Kind);
+		Assert.AreEqual(0, clipboard.FilePathReadCount);
+	}
 
-    [TestMethod]
-    public void CopiedFilePathReadFailureRequestsARetryOutcome()
-    {
-        var clipboard = FakeClipboard.WithFiles(@"C:\work\script.bat");
-        clipboard.FilePathReadSucceeds = false;
+	[TestMethod]
+	public void CopiedFilePathReadFailureRequestsARetryOutcome()
+	{
+		var clipboard = FakeClipboard.WithFiles(@"C:\work\script.bat");
+		clipboard.FilePathReadSucceeds = false;
 
-        Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
-    }
+		Assert.AreEqual(ClipboardObservationKind.InspectionFailed, Inspect(clipboard).Kind);
+	}
 
-    [TestMethod]
-    public void ExplorerCopyAsPathTextIsReturnedForFileConversion()
-    {
-        var clipboard = FakeClipboard.WithText("\"C:\\work\\script.bat\"");
+	[TestMethod]
+	public void ExplorerCopyAsPathTextIsReturnedForFileConversion()
+	{
+		var clipboard = FakeClipboard.WithText("\"C:\\work\\script.bat\"");
 
-        var result = InspectRaw(clipboard);
+		var result = InspectRaw(clipboard);
 
-        Assert.IsInstanceOfType<ClipboardInspection.CopiedFiles>(result);
-        var copiedFiles = (ClipboardInspection.CopiedFiles)result;
-        CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
-        Assert.AreEqual(1, clipboard.TextReadCount);
-    }
+		Assert.IsInstanceOfType<ClipboardInspection.CopiedFiles>(result);
+		var copiedFiles = (ClipboardInspection.CopiedFiles)result;
+		CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
+		Assert.AreEqual(1, clipboard.TextReadCount);
+		Assert.IsNull(copiedFiles.OriginalText);
+	}
 
-    [TestMethod]
-    public void OrdinaryPathTextRemainsText()
-    {
-        var result = Inspect(FakeClipboard.WithText(@"C:\work\script.bat"));
+	[TestMethod]
+	public void UnquotedPathDefersExistenceCheckWithoutLosingOriginalText()
+	{
+		const string text = "C:\\work\\script.bat\r\n";
+		var clipboard = FakeClipboard.WithText(text);
+		var result = InspectRaw(clipboard);
 
-        Assert.AreEqual(ClipboardObservationKind.Text, result.Kind);
-        Assert.AreEqual(@"C:\work\script.bat", result.Text);
-    }
+		Assert.IsInstanceOfType<ClipboardInspection.CopiedFiles>(result);
+		var copiedFiles = (ClipboardInspection.CopiedFiles)result;
+		Assert.AreEqual(text, copiedFiles.OriginalText);
+		CollectionAssert.AreEqual(new[] { @"C:\work\script.bat" }, copiedFiles.FilePaths.ToArray());
+		Assert.AreEqual(1, clipboard.TextReadCount);
+	}
 
-    private static ClipboardObservation Inspect(FakeClipboard clipboard)
-    {
-        var result = InspectRaw(clipboard);
-        return result is ClipboardInspection.Completed completed
-            ? completed.Observation
-            : throw new AssertFailedException("Expected a completed clipboard inspection.");
-    }
+	[TestMethod]
+	[DataRow(Exclude)]
+	[DataRow(History)]
+	[DataRow(Cloud)]
+	public async Task PrivacyMarkedFullPathsCauseNoPayloadRetrievalOrFileAccess(uint format)
+	{
+		var clipboard = FakeClipboard.WithText(@"C:\work\secret.txt");
+		clipboard.Dwords[format] = 0;
+		var accesses = 0;
+		var reader = new ClipboardFileObservationReader(
+			_ => { accesses++; return true; },
+			(_, _) => { accesses++; return ValueTask.FromResult<IReadOnlyList<CopiedFileText>>([]); });
+		var result = InspectRaw(clipboard);
 
-    private static ClipboardInspection InspectRaw(FakeClipboard clipboard) =>
-        new ClipboardPrivacyInspector(clipboard, new ClipboardFormatIds(Exclude, History, Cloud)).Inspect(7, Now);
+		if (result is ClipboardInspection.CopiedFiles files)
+		{
+			await reader.ReadAsync(files, CancellationToken.None);
+		}
 
-    private sealed class FakeClipboard : IClipboardDataAccess
-    {
-        public HashSet<uint> Formats { get; } = [];
+		Assert.IsInstanceOfType<ClipboardInspection.Completed>(result);
+		Assert.AreEqual(ClipboardObservationKind.Sensitive, ((ClipboardInspection.Completed)result).Observation.Kind);
+		Assert.AreEqual(0, clipboard.TextReadCount);
+		Assert.AreEqual(0, clipboard.FilePathReadCount);
+		Assert.AreEqual(0, accesses);
+	}
 
-        public Dictionary<uint, uint> Dwords { get; } = [];
+	private static ClipboardObservation Inspect(FakeClipboard clipboard)
+	{
+		var result = InspectRaw(clipboard);
+		return result is ClipboardInspection.Completed completed
+			? completed.Observation
+			: throw new AssertFailedException("Expected a completed clipboard inspection.");
+	}
 
-        public HashSet<uint> MalformedDwords { get; } = [];
+	private static ClipboardInspection InspectRaw(FakeClipboard clipboard) =>
+		new ClipboardPrivacyInspector(clipboard, new ClipboardFormatIds(Exclude, History, Cloud)).Inspect(7, Now);
 
-        public bool FormatInspectionSucceeds { get; set; } = true;
+	private sealed class FakeClipboard : IClipboardDataAccess
+	{
+		public HashSet<uint> Formats { get; } = [];
 
-        public bool HasAnyFormats { get; set; } = true;
+		public Dictionary<uint, uint> Dwords { get; } = [];
 
-        public bool TextReadSucceeds { get; set; } = true;
+		public HashSet<uint> MalformedDwords { get; } = [];
 
-        public bool FilePathReadSucceeds { get; set; } = true;
+		public bool FormatInspectionSucceeds { get; set; } = true;
 
-        public string? Text { get; set; }
+		public bool HasAnyFormats { get; set; } = true;
 
-        public IReadOnlyList<string>? FilePaths { get; set; }
+		public bool TextReadSucceeds { get; set; } = true;
 
-        public int TextReadCount { get; private set; }
+		public bool FilePathReadSucceeds { get; set; } = true;
 
-        public int FilePathReadCount { get; private set; }
+		public string? Text { get; set; }
 
-        public static FakeClipboard WithText(string text)
-        {
-            var clipboard = new FakeClipboard { Text = text };
-            clipboard.Formats.Add(ClipboardPrivacyInspector.NativeUnicodeTextFormat);
-            return clipboard;
-        }
+		public IReadOnlyList<string>? FilePaths { get; set; }
 
-        public static FakeClipboard WithFiles(params string[] filePaths)
-        {
-            var clipboard = new FakeClipboard { FilePaths = filePaths };
-            clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
-            return clipboard;
-        }
+		public int TextReadCount { get; private set; }
 
-        public bool TryHasAnyFormats(out bool hasAnyFormats)
-        {
-            hasAnyFormats = HasAnyFormats;
-            return FormatInspectionSucceeds;
-        }
+		public int FilePathReadCount { get; private set; }
 
-        public bool IsFormatAvailable(uint format) => Formats.Contains(format) || Dwords.ContainsKey(format) || MalformedDwords.Contains(format);
+		public static FakeClipboard WithText(string text)
+		{
+			var clipboard = new FakeClipboard { Text = text };
+			clipboard.Formats.Add(ClipboardPrivacyInspector.NativeUnicodeTextFormat);
+			return clipboard;
+		}
 
-        public bool TryReadDword(uint format, out uint value)
-        {
-            value = 0;
-            return !MalformedDwords.Contains(format) && Dwords.TryGetValue(format, out value);
-        }
+		public static FakeClipboard WithFiles(params string[] filePaths)
+		{
+			var clipboard = new FakeClipboard { FilePaths = filePaths };
+			clipboard.Formats.Add(ClipboardPrivacyInspector.NativeFileDropFormat);
+			return clipboard;
+		}
 
-        public bool TryReadUnicodeText(out string? text)
-        {
-            TextReadCount++;
-            text = TextReadSucceeds ? Text : null;
-            return TextReadSucceeds;
-        }
+		public bool TryHasAnyFormats(out bool hasAnyFormats)
+		{
+			hasAnyFormats = HasAnyFormats;
+			return FormatInspectionSucceeds;
+		}
 
-        public bool TryReadFilePaths(out IReadOnlyList<string>? filePaths)
-        {
-            FilePathReadCount++;
-            filePaths = FilePathReadSucceeds ? FilePaths : null;
-            return FilePathReadSucceeds;
-        }
-    }
+		public bool IsFormatAvailable(uint format) => Formats.Contains(format) || Dwords.ContainsKey(format) || MalformedDwords.Contains(format);
+
+		public bool TryReadDword(uint format, out uint value)
+		{
+			value = 0;
+			return !MalformedDwords.Contains(format) && Dwords.TryGetValue(format, out value);
+		}
+
+		public bool TryReadUnicodeText(out string? text)
+		{
+			TextReadCount++;
+			text = TextReadSucceeds ? Text : null;
+			return TextReadSucceeds;
+		}
+
+		public bool TryReadFilePaths(out IReadOnlyList<string>? filePaths)
+		{
+			FilePathReadCount++;
+			filePaths = FilePathReadSucceeds ? FilePaths : null;
+			return FilePathReadSucceeds;
+		}
+	}
 }
