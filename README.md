@@ -36,6 +36,8 @@ A single copied file is converted as follows:
 - Known binary executable/package types such as `.exe`, `.com`, `.dll`, and `.msi` contribute the filename with a reason, such as `program.exe (binary file)`.
 - Other binary-looking, empty, missing, unreadable, directory, or larger-than-16-MiB entries also contribute the filename with `(binary file)`, `(empty file)`, `(file not found)`, `(file unreadable)`, `(directory)`, or `(file too large)` appended as appropriate.
 
+Windows `.lnk` shortcuts also work: ClipDiff reads the saved contents of the stored target and shows the target filename. This applies to copied shortcuts, copied shortcut paths, and both Explorer comparison actions. Target files use the same encoding, binary, size, and fallback rules as ordinary files. ClipDiff does not launch the shortcut, use its arguments, search for moved targets, or modify the shortcut. Invalid or non-file shortcuts fall back to the shortcut filename with `(file unreadable)`; chains stop after eight shortcuts or at a cycle. Shortcut loading runs off the UI thread and newer captures supersede it.
+
 The decision uses both safe binary-extension handling and content inspection, so a binary renamed to `.txt` still falls back to its filename.
 
 ClipDiff retains the source basename separately from the converted text. The filename is always shown on the corresponding side of the built-in diff, in unified/copied diff headers, in the notification-area current/previous item, and in external-viewer labels. If both sides have the same filename but come from different paths, ClipDiff adds only enough parent directories to distinguish them—for example, `branch-a/src/settings.json` and `branch-b/src/settings.json`.
@@ -284,6 +286,11 @@ Maintainer instructions for publishing a tagged GitHub release are in
 
 ## Windows verification checklist
 
+For repeated clipboard activity and process-resource counters, use the standalone
+[C# stress tool](tools/ClipDiff.Stress/README.md). It writes generated text, single
+files, file pairs and copied paths to the clipboard, then samples a cooldown. It
+does not change the ClipDiff application or collect clipboard contents.
+
 On a Windows desktop, verify:
 
 - only one notification-area icon appears and a second process exits cleanly;
@@ -306,6 +313,7 @@ On a Windows desktop, verify:
 - **Copy unified diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;
 - a copied `.bat` contributes its full text, a copied `.exe` contributes its filename plus `(binary file)`, and a renamed binary is still treated as binary;
+- a copied `.lnk` shortcut reads its saved target contents and shows the target filename, including shortcut/file pairs and both Explorer actions; broken or invalid targets fall back without launching anything or changing the shortcut;
 - exactly two copied files—or two files copied with Explorer **Copy as path**—become the previous/current comparison pair in clipboard order, while copies of more than two files are ignored; missing, unreadable, empty, directory, oversized, and binary entries fall back to a filename with the reason appended;
 - after one capture, right-clicking a second file offers **Compare with current ClipDiff capture** (including the current filename when file-backed), makes that file the new current entry, and immediately opens the selected diff viewer without changing the clipboard;
 - selecting exactly two Explorer files offers **Compare two selected files with ClipDiff** without requiring a prior capture, makes the first Shell-supplied path previous and the second current, and immediately opens the selected viewer without changing the clipboard;
