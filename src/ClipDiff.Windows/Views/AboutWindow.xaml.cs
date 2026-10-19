@@ -10,69 +10,72 @@ namespace ClipDiff.Windows.Views;
 
 public partial class AboutWindow : Window
 {
-    public AboutWindow()
-    {
-        InitializeComponent();
-        VersionText.Text = $"Version {GetDisplayVersion()}";
-    }
+	public AboutWindow()
+	{
+		InitializeComponent();
+		BuildInfoText.Text = GetBuildInfo();
+	}
 
-    public bool AllowClose { get; set; }
+	public bool AllowClose { get; set; }
 
-    private void OnSourceInitialized(object? sender, EventArgs args)
-    {
-        var windowHandle = new WindowInteropHelper(this).Handle;
-        var enabled = 1;
-        var result = NativeMethods.DwmSetWindowAttribute(
-            windowHandle,
-            NativeMethods.DwmwaUseImmersiveDarkMode,
-            ref enabled,
-            sizeof(int));
+	private void OnSourceInitialized(object? sender, EventArgs args)
+	{
+		var windowHandle = new WindowInteropHelper(this).Handle;
+		var enabled = 1;
+		var result = NativeMethods.DwmSetWindowAttribute(
+			windowHandle,
+			NativeMethods.DwmwaUseImmersiveDarkMode,
+			ref enabled,
+			sizeof(int));
 
-        if (result != 0)
-        {
-            NativeMethods.DwmSetWindowAttribute(
-                windowHandle,
-                NativeMethods.DwmwaUseImmersiveDarkModeBefore20H1,
-                ref enabled,
-                sizeof(int));
-        }
-    }
+		if (result != 0)
+		{
+			NativeMethods.DwmSetWindowAttribute(
+				windowHandle,
+				NativeMethods.DwmwaUseImmersiveDarkModeBefore20H1,
+				ref enabled,
+				sizeof(int));
+		}
+	}
 
-    private static string GetDisplayVersion()
-    {
-        var assembly = typeof(AboutWindow).Assembly;
-        
-        var informationalVersion = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-            .InformationalVersion;
+	private static string GetBuildInfo()
+	{
+		var assembly = typeof(AboutWindow).Assembly;
 
-        return AboutVersionFormatter.Format(informationalVersion, assembly.GetName().Version);
-    }
+		var informationalVersion = assembly
+			.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+			.InformationalVersion;
 
-    private void OnLinkRequestNavigate(object sender, RequestNavigateEventArgs args)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(args.Uri.AbsoluteUri) { UseShellExecute = true });
-        }
-        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or NotSupportedException)
-        {
-            System.Media.SystemSounds.Beep.Play();
-        }
+		var buildDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+			.FirstOrDefault(attribute => attribute.Key == "BuildDateUtc")?.Value;
 
-        args.Handled = true;
-    }
+		return AboutBuildInfoFormatter.Format(informationalVersion, buildDate);
+	}
 
-    private void OnCloseClick(object sender, RoutedEventArgs args) => Hide();
+	private void OnLinkRequestNavigate(object sender, RequestNavigateEventArgs args)
+	{
+		try
+		{
+			Process.Start(new ProcessStartInfo(args.Uri.AbsoluteUri) { UseShellExecute = true });
+		}
+		catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or NotSupportedException)
+		{
+			System.Media.SystemSounds.Beep.Play();
+		}
 
-    private void OnClosing(object? sender, CancelEventArgs args)
-    {
-        if (AllowClose)
-        {
-            return;
-        }
+		args.Handled = true;
+	}
 
-        args.Cancel = true;
-        Hide();
-    }
+	private void OnCloseClick(object sender, RoutedEventArgs args) => Hide();
+
+	private void OnClosing(object? sender, CancelEventArgs args)
+	{
+		if (AllowClose)
+		{
+			return;
+		}
+
+		args.Cancel = true;
+		Hide();
+	}
 }

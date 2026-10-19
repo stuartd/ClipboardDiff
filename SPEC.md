@@ -779,7 +779,7 @@ Behaviour:
 - **Diff viewer** selects the built-in viewer, a detected external program, or an executable chosen by the user.
 - **Keyboard shortcut...** opens the shortcut recorder without changing the active shortcut unless Save succeeds.
 - **Start at login** toggles per-user startup registration (section 24).
-- **About ClipDiff** opens a reusable native window showing the application icon, the product version and short source commit hash, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
+- **About ClipDiff** opens a reusable native window showing the application icon, the last source commit (short hash) and build date/time in UTC (embedded at build time), without a product version, Stuart Dunkeld, `stuartd.dev`, and the source repository link.
 - **Quit ClipDiff** removes the tray icon, unregisters native listeners/hotkeys, clears references to captured text, and shuts down.
 - Double-clicking the tray icon may invoke **Show Diff** when available.
 - The ordinary native right-click context-menu behaviour is sufficient.
