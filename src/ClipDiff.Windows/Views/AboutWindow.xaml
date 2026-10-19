@@ -55,9 +55,10 @@
 
         <StackPanel Grid.Row="0" Grid.Column="1">
             <TextBlock Text="ClipDiff" FontSize="26" FontWeight="SemiBold" />
-            <TextBlock x:Name="VersionText"
+            <TextBlock x:Name="BuildInfoText"
                        Margin="0,2,0,16"
-                       Opacity="0.72" />
+                       Opacity="0.72"
+                       TextWrapping="Wrap" />
             <TextBlock Text="A minimal clipboard comparison tool."
                        Margin="0,0,0,16"
                        TextWrapping="Wrap" />

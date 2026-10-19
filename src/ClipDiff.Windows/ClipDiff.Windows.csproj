@@ -11,6 +11,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/ClipDiff.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Override BuildDateUtc for reproducible builds; otherwise stamp this build in UTC. -->
+    <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString("O"))</BuildDateUtc>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildDateUtc" Value="$(BuildDateUtc)" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../ClipDiff.Core/ClipDiff.Core.csproj" />
   </ItemGroup>
