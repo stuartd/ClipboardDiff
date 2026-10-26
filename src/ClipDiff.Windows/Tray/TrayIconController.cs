@@ -163,7 +163,12 @@ internal sealed class TrayIconController : IDisposable
 
     private void RebuildDiffViewerMenu()
     {
-        diffViewerItem.DropDownItems.Clear();
+		// Removing an item does not dispose it. Release its native menu resources
+		// and event subscriptions before replacing the viewer choices.
+		while (diffViewerItem.DropDownItems.Count > 0)
+		{
+			diffViewerItem.DropDownItems[0].Dispose();
+		}
 
         var builtIn = new Forms.ToolStripMenuItem("Built-in viewer")
         {

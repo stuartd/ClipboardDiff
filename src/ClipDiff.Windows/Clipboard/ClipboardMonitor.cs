@@ -16,6 +16,7 @@ internal sealed class ClipboardMonitor : IDisposable
 	private readonly NativeMessageWindow nativeMessageWindow;
 	private readonly NativeClipboard nativeClipboard;
 	private readonly ClipboardPrivacyInspector clipboardPrivacyInspector;
+	private readonly ClipboardInspectionReader clipboardInspectionReader;
 	private readonly ClipboardFileObservationReader clipboardFileObservationReader = new();
 	private readonly SemaphoreSlim readGate = new(1, 1);
 	private CancellationTokenSource? pendingRead;
@@ -34,6 +35,10 @@ internal sealed class ClipboardMonitor : IDisposable
 			RegisterFormat("CanIncludeInClipboardHistory"),
 			RegisterFormat("CanUploadToCloudClipboard"));
 		clipboardPrivacyInspector = new ClipboardPrivacyInspector(nativeClipboard, formats);
+		clipboardInspectionReader = new ClipboardInspectionReader(
+			() => nativeClipboard.TryOpen(nint.Zero),
+			nativeClipboard.Close,
+			clipboardPrivacyInspector.Inspect);
 
 		baselineSequence = NativeMethods.GetClipboardSequenceNumber();
 		latestRequestedSequence = baselineSequence;
@@ -155,19 +160,8 @@ internal sealed class ClipboardMonitor : IDisposable
 						return;
 					}
 
-					ClipboardInspection? inspection = null;
-
-					if (nativeClipboard.TryOpen(nativeMessageWindow.Handle))
-					{
-						try
-						{
-							inspection = clipboardPrivacyInspector.Inspect(expectedSequence, DateTimeOffset.Now);
-						}
-						finally
-						{
-							nativeClipboard.Close();
-						}
-					}
+					var inspection = await clipboardInspectionReader.ReadAsync(
+						expectedSequence, DateTimeOffset.Now, cancellationToken);
 
 					var observation = inspection switch
 					{

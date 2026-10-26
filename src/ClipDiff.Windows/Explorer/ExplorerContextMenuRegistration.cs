@@ -170,15 +170,16 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 
 		// The old static two-file verb has no live owner in this registration scheme.
 		changed |= TryRemoveOwnedKey(PairVerbKeyPath);
-		pairRegistered = selection.Pair is not null && TryRegisterPair(selection.Pair);
 
 		if (selection.Pair is null)
 		{
+			pairRegistered = false;
 			changed |= TryRemoveOwnedPairRegistration();
 		}
 		else
 		{
-			changed |= pairRegistered;
+			pairRegistered = TryRegisterPair(selection.Pair, out var pairChanged);
+			changed |= pairChanged;
 		}
 
 		return changed;
@@ -201,22 +202,23 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 				return false;
 			}
 
-			commandKey.SetValue(null, claim.SingleCommandLine, RegistryValueKind.String);
-			verbKey.SetValue(null, displayName, RegistryValueKind.String);
-			verbKey.SetValue("Icon", $"{Quote(claim.IconPath)},0", RegistryValueKind.String);
-			verbKey.SetValue("MultiSelectModel", "Single", RegistryValueKind.String);
-			verbKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
-			return true;
+			var changed = SetStringValue(commandKey, null, claim.SingleCommandLine);
+			changed |= SetStringValue(verbKey, null, displayName);
+			changed |= SetStringValue(verbKey, "Icon", $"{Quote(claim.IconPath)},0");
+			changed |= SetStringValue(verbKey, "MultiSelectModel", "Single");
+			changed |= SetStringValue(verbKey, OwnerValueName, OwnerValue);
+			return changed;
 		}
 		catch (Exception exception) when (IsRegistryException(exception))
 		{
-			TryRemoveOwnedSingleRegistration();
-			return false;
+			return TryRemoveOwnedSingleRegistration();
 		}
 	}
 
-	private bool TryRegisterPair(ExplorerRegistrationClaim claim)
+	private bool TryRegisterPair(ExplorerRegistrationClaim claim, out bool changed)
 	{
+		changed = false;
+
 		if (claim.ComServerCommandLine.Length == 0 || !File.Exists(claim.ExtensionPath) || !Environment.Is64BitProcess)
 		{
 			return false;
@@ -225,26 +227,26 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 		try
 		{
 			using var classKey = Registry.CurrentUser.CreateSubKey(ClassKeyPath, writable: true);
-			classKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
+			changed |= SetStringValue(classKey, OwnerValueName, OwnerValue);
 			using var localServerKey = Registry.CurrentUser.CreateSubKey(LocalServerKeyPath, writable: true);
-			classKey.SetValue(null, "ClipDiff Explorer comparison", RegistryValueKind.String);
-			localServerKey.SetValue(null, claim.ComServerCommandLine, RegistryValueKind.String);
+			changed |= SetStringValue(classKey, null, "ClipDiff Explorer comparison");
+			changed |= SetStringValue(localServerKey, null, claim.ComServerCommandLine);
 
 			using var extensionClassKey = Registry.CurrentUser.CreateSubKey(ExtensionClassKeyPath, writable: true);
-			extensionClassKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
-			extensionClassKey.SetValue(null, "ClipDiff selection menu", RegistryValueKind.String);
+			changed |= SetStringValue(extensionClassKey, OwnerValueName, OwnerValue);
+			changed |= SetStringValue(extensionClassKey, null, "ClipDiff selection menu");
 			using var extensionServerKey = Registry.CurrentUser.CreateSubKey(ExtensionServerKeyPath, writable: true);
-			extensionServerKey.SetValue(null, claim.ExtensionPath, RegistryValueKind.String);
-			extensionServerKey.SetValue("ThreadingModel", "Apartment", RegistryValueKind.String);
+			changed |= SetStringValue(extensionServerKey, null, claim.ExtensionPath);
+			changed |= SetStringValue(extensionServerKey, "ThreadingModel", "Apartment");
 
 			using var handlerKey = Registry.CurrentUser.CreateSubKey(PairHandlerKeyPath, writable: true);
-			handlerKey.SetValue(OwnerValueName, OwnerValue, RegistryValueKind.String);
-			handlerKey.SetValue(null, ExtensionClassId, RegistryValueKind.String);
+			changed |= SetStringValue(handlerKey, OwnerValueName, OwnerValue);
+			changed |= SetStringValue(handlerKey, null, ExtensionClassId);
 			return true;
 		}
 		catch (Exception exception) when (IsRegistryException(exception))
 		{
-			TryRemoveOwnedPairRegistration();
+			changed |= TryRemoveOwnedPairRegistration();
 			return false;
 		}
 	}
@@ -323,6 +325,20 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 		{
 			return false;
 		}
+	}
+
+	internal static bool SetStringValue(RegistryKey key, string? valueName, string value)
+	{
+		// Clipboard updates and opening the tray menu also reconcile registration.
+		// An unchanged registration must not flush Explorer's association caches.
+		if (key.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames) is string existing &&
+			existing == value && key.GetValueKind(valueName) == RegistryValueKind.String)
+		{
+			return false;
+		}
+
+		key.SetValue(valueName, value, RegistryValueKind.String);
+		return true;
 	}
 
 	private static bool IsRegistryException(Exception exception) =>
