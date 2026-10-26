@@ -23,9 +23,10 @@ an in-progress Win32 call or prove that delayed rendering caused this incident.
 
 ## Native C++ ownership
 
-The DLL is loaded into **Explorer**, not the ClipDiff process. I found no unmatched
-allocation, COM reference, event handle, or menu ownership in its production paths.
-That is a source-review result, not a Windows soak-test result.
+The DLL is loaded into **Explorer**, not the ClipDiff process. Source review and
+the new Windows lifetime regressions found no unmatched allocation, COM reference,
+event handle, or menu ownership in the exercised production paths. This was not
+a multi-day Windows soak test or inspection of the original hung process.
 
 | Native path | Ownership and release |
 | --- | --- |
@@ -105,9 +106,15 @@ uptime or weekend-specific trigger in the resource ownership reviewed here.
   neither native binary was executed on Linux.
 - The hang-inspection PowerShell script parses successfully. Its Windows
   process-inspection behavior has not been executed on this machine.
+- The full [Windows workflow for code commit f3fb721](https://github.com/stuartd/ClipboardDiff/actions/runs/40388380708)
+  succeeded in 2m 30s. This ran the supported MSVC native build and expanded
+  native lifetime/Shell tests, the managed core and Windows tests (including
+  registry and tray disposal regressions), release-version checks, and the
+  complete release script. Both self-contained and framework-dependent Windows
+  packages passed the script's payload validation and were uploaded as artifacts.
 
-The new Windows registry, tray-menu, and native lifetime tests still need to run
-on Windows. Use the existing workflow or, from a normal Windows PowerShell with
+The Windows workflow result is separate from the local Linux checks above.
+To repeat platform validation locally, use a normal Windows PowerShell with
 ClipDiff closed:
 
 ```powershell
@@ -118,7 +125,8 @@ dotnet test tests/ClipDiff.Stress.Tests --configuration Release
 
 Then test the tray while a synthetic producer delays rendering, check ordinary
 clipboard capture/privacy behavior, repeat viewer selection, and exercise the
-actual Explorer menu. No Windows functional-readiness claim is made here.
+actual Explorer menu. Those manual desktop checks and reproduction of the
+reported laptop hang remain outstanding.
 
 ## Inspect the existing hang before restarting
 
