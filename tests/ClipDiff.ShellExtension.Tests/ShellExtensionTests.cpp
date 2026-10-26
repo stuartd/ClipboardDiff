@@ -465,6 +465,107 @@ namespace
         return handler;
     }
 
+	struct DataLifetime
+	{
+		std::atomic<ULONG> references{1};
+		bool destroyed = false;
+	};
+
+	class TrackedData final : public IDataObject
+	{
+		ComPtr<IDataObject> inner;
+		DataLifetime& lifetime;
+
+		~TrackedData() { lifetime.destroyed = true; }
+
+	public:
+		TrackedData(IDataObject* data, DataLifetime& state) : inner(data), lifetime(state) {}
+
+		IFACEMETHODIMP QueryInterface(REFIID iid, void** result) override
+		{
+			if (!result)
+			{
+				return E_POINTER;
+			}
+
+			*result = nullptr;
+
+			if (iid != IID_IUnknown && iid != IID_IDataObject)
+			{
+				return E_NOINTERFACE;
+			}
+
+			*result = static_cast<IDataObject*>(this);
+			AddRef();
+			return S_OK;
+		}
+
+		IFACEMETHODIMP_(ULONG) AddRef() override { return ++lifetime.references; }
+
+		IFACEMETHODIMP_(ULONG) Release() override
+		{
+			const auto remaining = --lifetime.references;
+
+			if (!remaining)
+			{
+				delete this;
+			}
+
+			return remaining;
+		}
+
+		IFACEMETHODIMP GetData(FORMATETC* format, STGMEDIUM* medium) override { return inner->GetData(format, medium); }
+		IFACEMETHODIMP GetDataHere(FORMATETC* format, STGMEDIUM* medium) override { return inner->GetDataHere(format, medium); }
+		IFACEMETHODIMP QueryGetData(FORMATETC* format) override { return inner->QueryGetData(format); }
+		IFACEMETHODIMP GetCanonicalFormatEtc(FORMATETC* input, FORMATETC* output) override { return inner->GetCanonicalFormatEtc(input, output); }
+		IFACEMETHODIMP SetData(FORMATETC* format, STGMEDIUM* medium, BOOL release) override { return inner->SetData(format, medium, release); }
+		IFACEMETHODIMP EnumFormatEtc(DWORD direction, IEnumFORMATETC** formats) override { return inner->EnumFormatEtc(direction, formats); }
+		IFACEMETHODIMP DAdvise(FORMATETC* format, DWORD flags, IAdviseSink* sink, DWORD* connection) override { return inner->DAdvise(format, flags, sink, connection); }
+		IFACEMETHODIMP DUnadvise(DWORD connection) override { return inner->DUnadvise(connection); }
+		IFACEMETHODIMP EnumDAdvise(IEnumSTATDATA** connections) override { return inner->EnumDAdvise(connections); }
+	};
+
+	void VerifyModuleLifetime(HMODULE library)
+	{
+		BeginCase("native factory, handler and event-handle lifetime (10000 cycles)");
+		const auto getFactory = reinterpret_cast<HRESULT(STDAPICALLTYPE*)(REFCLSID, REFIID, void**)>(
+			GetProcAddress(library, "DllGetClassObject"));
+		const auto canUnload = reinterpret_cast<HRESULT(STDAPICALLTYPE*)()>(GetProcAddress(library, "DllCanUnloadNow"));
+		Check(getFactory && canUnload, "Missing COM lifetime exports.");
+		Check(canUnload() == S_OK, "Freshly loaded module retains a COM reference.");
+		DWORD handlesBefore = 0;
+		CheckWin32(GetProcessHandleCount(GetCurrentProcess(), &handlesBefore), "Cannot count native test handles.");
+
+		for (int iteration = 0; iteration < 10000; ++iteration)
+		{
+			ComPtr<IClassFactory> factory;
+			CheckHr(getFactory(CLSID_ClipDiffShellExtension, IID_PPV_ARGS(&factory)), "Cannot create lifetime-test factory.");
+			Check(canUnload() == S_FALSE, "Live factory does not retain the module.");
+
+			{
+				auto handler = CreateHandler(factory.Get(), nullptr);
+				ComPtr<IContextMenu> context;
+				CheckHr(handler.As(&context), "Lifetime-test handler lacks IContextMenu.");
+				CheckHr(handler->Initialize(nullptr, nullptr, nullptr), "Repeated empty initialization failed.");
+			}
+
+			void* unsupported = nullptr;
+			Check(factory->CreateInstance(nullptr, IID_IStream, &unsupported) == E_NOINTERFACE && !unsupported,
+				"Unsupported-interface creation must release its temporary handler.");
+			Check(factory->CreateInstance(factory.Get(), IID_IUnknown, &unsupported) == CLASS_E_NOAGGREGATION && !unsupported,
+				"Aggregation rejection must not allocate a handler.");
+			CheckHr(factory->LockServer(TRUE), "Cannot lock native module.");
+			CheckHr(factory->LockServer(FALSE), "Cannot unlock native module.");
+			factory.Reset();
+			Check(canUnload() == S_OK, "Factory or handler reference leaked after release.");
+		}
+
+		DWORD handlesAfter = 0;
+		CheckWin32(GetProcessHandleCount(GetCurrentProcess(), &handlesAfter), "Cannot recount native test handles.");
+		std::cout << "  Native process handles: before=" << handlesBefore << ", after=" << handlesAfter << '\n';
+		Check(handlesAfter <= handlesBefore + 8, "Readiness-event handles accumulate across menu lifetimes.");
+	}
+
     void Verify(const fs::path& directory, IClassFactory* factory, HANDLE ready)
     {
         struct Case { const char* label; std::vector<std::wstring> names; bool visible; };
@@ -515,7 +616,10 @@ namespace
 
         BeginCase("pair fixture identity and order");
         Selection pair(directory, {L"old file.txt", L"new 雪.cmd"});
-        auto data = pair.Data();
+		auto originalData = pair.Data();
+		DataLifetime lifetime;
+		ComPtr<IDataObject> data;
+		data.Attach(new TrackedData(originalData.Get(), lifetime));
         // The Shell can expand short directory names in GetTempPath's result. Verify fixture identity
         // and then compare delivery with the exact paths/order supplied by the real Shell data object.
         std::vector<std::wstring> suppliedPaths;
@@ -523,6 +627,25 @@ namespace
         Check(suppliedPaths.size() == 2 && fs::equivalent(suppliedPaths[0], directory / L"old file.txt") &&
             fs::equivalent(suppliedPaths[1], directory / L"new 雪.cmd"), "Shell fixture order or identity is wrong.");
         auto handler = CreateHandler(factory, data.Get());
+		Check(lifetime.references == 2, "Handler must retain exactly one selection reference.");
+		BeginCase("selection replacement and destruction reference balance");
+
+		for (int iteration = 0; iteration < 1000; ++iteration)
+		{
+			CheckHr(handler->Initialize(nullptr, data.Get(), nullptr), "Repeated selection initialization failed.");
+			Check(lifetime.references == 2, "Selection references accumulate during reinitialization.");
+		}
+
+		CheckHr(handler->Initialize(nullptr, nullptr, nullptr), "Clearing selection failed.");
+		Check(lifetime.references == 1, "Reinitialization did not release the previous selection.");
+
+		{
+			auto temporary = CreateHandler(factory, data.Get());
+			Check(lifetime.references == 2, "Temporary handler did not retain selection.");
+		}
+
+		Check(lifetime.references == 1, "Handler destruction did not release selection.");
+		CheckHr(handler->Initialize(nullptr, data.Get(), nullptr), "Restoring selection failed.");
         ComPtr<IContextMenu> context;
         CheckHr(handler.As(&context), "Missing menu interface.");
         BeginCase("default-action exclusion");
@@ -537,6 +660,7 @@ namespace
             "Existing handler must hide while monitoring is paused.");
         CMINVOKECOMMANDINFO command{sizeof(command)};
         Check(FAILED(context->InvokeCommand(&command)), "Cached invocation must fail while paused.");
+		Check(lifetime.references == 1, "Failed invocation did not release selection.");
         BeginCase("resume, command ID allocation and canonical verb");
         CheckWin32(SetEvent(ready), "Cannot set readiness event for resume.");
         CheckHr(handler->Initialize(nullptr, data.Get(), nullptr), "Resume initialization failed.");
@@ -578,10 +702,13 @@ namespace
             unicode.lpVerbW = ClipDiffVerb;
             CheckHr(context->InvokeCommand(reinterpret_cast<CMINVOKECOMMANDINFO*>(&unicode)), "Unicode verb failed.");
             Check(receiver->drops == 2, "Unicode verb was not delivered.");
+			Check(lifetime.references == 1, "Successful invocation did not release selection.");
             Check(FAILED(context->InvokeCommand(reinterpret_cast<CMINVOKECOMMANDINFO*>(&unicode))), "Selection retained after invocation.");
         }
         catch (...) { CoRevokeClassObject(cookie); throw; }
         CoRevokeClassObject(cookie);
+		data.Reset();
+		Check(lifetime.destroyed, "Selection object remains alive after all owners released it.");
     }
 }
 
@@ -620,6 +747,7 @@ int wmain(int argc, wchar_t** argv)
         const fs::path dll = fs::absolute(argv[1]);
         library = LoadLibraryW(dll.c_str());
         CheckWin32(library != nullptr, "Cannot load extension DLL.");
+		VerifyModuleLifetime(library);
         const auto getFactory = reinterpret_cast<HRESULT(STDAPICALLTYPE*)(REFCLSID, REFIID, void**)>(GetProcAddress(library, "DllGetClassObject"));
         CheckWin32(getFactory != nullptr, "Missing class factory export.");
         ComPtr<IClassFactory> factory;

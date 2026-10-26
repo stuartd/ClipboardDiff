@@ -56,7 +56,7 @@ public partial class AboutWindow : Window
 	{
 		try
 		{
-			Process.Start(new ProcessStartInfo(args.Uri.AbsoluteUri) { UseShellExecute = true });
+			using var process = Process.Start(new ProcessStartInfo(args.Uri.AbsoluteUri) { UseShellExecute = true });
 		}
 		catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or NotSupportedException)
 		{
