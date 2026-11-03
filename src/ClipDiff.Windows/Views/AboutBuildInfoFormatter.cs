@@ -6,9 +6,16 @@ internal static class AboutBuildInfoFormatter
 {
 	private const int ShortCommitLength = 7;
 
-	public static string Format(string? informationalVersion, string? buildDateUtc)
+	public static string Format(string? informationalVersion, string? buildDateUtc, bool isReleaseBuild)
 	{
 		var parts = informationalVersion?.Split('+', 2);
+
+		if (isReleaseBuild)
+		{
+			var version = string.IsNullOrWhiteSpace(parts?[0]) ? "Unknown" : parts[0];
+			return $"Version: {version}";
+		}
+
 		var commit = parts is { Length: 2 }
 			? parts[1].Split('.').LastOrDefault(IsCommitHash)
 			: null;

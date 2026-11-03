@@ -48,8 +48,9 @@ public partial class AboutWindow : Window
 
 		var buildDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
 			.FirstOrDefault(attribute => attribute.Key == "BuildDateUtc")?.Value;
+		var isReleaseBuild = assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration == "Release";
 
-		return AboutBuildInfoFormatter.Format(informationalVersion, buildDate);
+		return AboutBuildInfoFormatter.Format(informationalVersion, buildDate, isReleaseBuild);
 	}
 
 	private void OnLinkRequestNavigate(object sender, RequestNavigateEventArgs args)
