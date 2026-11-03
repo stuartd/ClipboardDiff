@@ -75,4 +75,4 @@ jobs:
           $selfContained = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $true).zip"
           $net10 = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $false).zip"
 
-          gh release create $env:RELEASE_TAG $selfContained $net10 --verify-tag --generate-notes --title "ClipDiff $env:RELEASE_TAG"
+          gh release create $env:RELEASE_TAG $selfContained $net10 --verify-tag --notes "" --title "ClipDiff $env:RELEASE_TAG"
