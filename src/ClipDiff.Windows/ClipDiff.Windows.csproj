@@ -10,6 +10,7 @@
     <AssemblyName>ClipDiff</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/ClipDiff.ico</ApplicationIcon>
+	<ShellExtensionFileName Condition="'$(ShellExtensionFileName)' == ''">ClipDiff.ShellExtension.dll</ShellExtensionFileName>
   </PropertyGroup>
   <PropertyGroup>
     <!-- Override BuildDateUtc for reproducible builds; otherwise stamp this build in UTC. -->
@@ -17,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="BuildDateUtc" Value="$(BuildDateUtc)" />
+	<AssemblyMetadata Include="ShellExtensionFileName" Value="$(ShellExtensionFileName)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../ClipDiff.Core/ClipDiff.Core.csproj" />
@@ -29,7 +31,7 @@
   </ItemGroup>
   <ItemGroup Condition="Exists('../../artifacts/native/$(Configuration)/ClipDiff.ShellExtension.dll')">
     <Content Include="../../artifacts/native/$(Configuration)/ClipDiff.ShellExtension.dll"
-             Link="ClipDiff.ShellExtension.dll" CopyToOutputDirectory="PreserveNewest"
+             Link="$(ShellExtensionFileName)" CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@ using ClipDiff.Windows.Clipboard;
 using ClipDiff.Windows.ExternalDiff;
 using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Hotkeys;
+using ClipDiff.Windows.Installation;
 using ClipDiff.Windows.Native;
 using ClipDiff.Windows.Settings;
 using ClipDiff.Windows.Startup;
@@ -84,6 +85,20 @@ internal sealed class AppController : IDisposable
 		trayIcon.ToggleStartAtLoginRequested += OnToggleStartAtLoginRequested;
 		trayIcon.MenuOpening += OnTrayMenuOpening;
 		UpdatePresentation();
+		TryCleanupShellExtensions();
+	}
+
+	private static void TryCleanupShellExtensions()
+	{
+		try
+		{
+			var protectedPaths = new ExplorerRegistryClaimStore().ReadClaims().Select(claim => claim.ExtensionPath);
+			ShellExtensionFiles.TryCleanup(AppContext.BaseDirectory, ShellExtensionFiles.CurrentFileName, protectedPaths);
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+		{
+			// If other sessions' registrations cannot be read, leave their DLLs alone.
+		}
 	}
 
 	public void InitializeStartAtLogin()

@@ -44,15 +44,43 @@ jobs:
         shell: pwsh
         run: ./scripts/test-release-version.ps1
 
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          }
+
       - name: Build, test, and package
         shell: pwsh
         run: ./scripts/create-local-release.ps1 -Version $env:RELEASE_VERSION
+
+      - name: Test installer with running app and loaded extension images
+        shell: pwsh
+        run: ./scripts/test-installer.ps1 -Version $env:RELEASE_VERSION
+
+      - name: Upload installer test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ClipDiff-installer-test-diagnostics
+          path: artifacts/installer-smoke/**/*.log
+          if-no-files-found: ignore
 
       - name: Upload self-contained Windows build
         uses: actions/upload-artifact@v7
         with:
           name: ClipDiff-win-x64-self-contained
           path: releases/ClipDiff-*-win-x64-self-contained/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: ClipDiff-win-x64-Setup
+          path: releases/ClipDiff-*-win-x64-Setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -74,5 +102,6 @@ jobs:
           . ./scripts/release-version.ps1
           $selfContained = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $true).zip"
           $net10 = "releases/$(Get-ReleasePackageName -Version $env:RELEASE_VERSION -SelfContained $false).zip"
+          $installer = "releases/ClipDiff-$env:RELEASE_VERSION-win-x64-Setup.exe"
 
-          gh release create $env:RELEASE_TAG $selfContained $net10 --verify-tag --notes "" --title "ClipDiff $env:RELEASE_TAG"
+          gh release create $env:RELEASE_TAG $installer $selfContained $net10 --verify-tag --notes "" --title "ClipDiff $env:RELEASE_TAG"
