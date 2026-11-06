@@ -14,6 +14,7 @@ $packageStagingRoot = Join-Path $repositoryRoot 'artifacts/release-package'
 $applicationProject = Join-Path $repositoryRoot 'src/ClipDiff.Windows/ClipDiff.Windows.csproj'
 $coreTests = Join-Path $repositoryRoot 'tests/ClipDiff.Core.Tests/ClipDiff.Core.Tests.csproj'
 $windowsTests = Join-Path $repositoryRoot 'tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj'
+$updateTests = Join-Path $repositoryRoot 'tests/ClipDiff.Update.Tests/ClipDiff.Update.Tests.csproj'
 $nativeDll = Join-Path $repositoryRoot 'artifacts/native/Release/ClipDiff.ShellExtension.dll'
 $extensionFileName = $null
 $requiredPayload = @()
@@ -103,6 +104,13 @@ try
 	if ($LASTEXITCODE -ne 0)
 	{
 		throw 'Windows policy tests failed.'
+	}
+
+	dotnet test $updateTests --configuration Release
+
+	if ($LASTEXITCODE -ne 0)
+	{
+		throw 'Update policy tests failed.'
 	}
 
 	# dotnet publish does not clean custom output directories. Build both variants

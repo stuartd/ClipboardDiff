@@ -15,7 +15,7 @@ using ClipDiff.Windows.Views;
 
 namespace ClipDiff.Windows;
 
-internal sealed class AppController : IDisposable
+internal sealed partial class AppController : IDisposable
 {
 	private readonly DiffEngine diffEngine = new();
 	private readonly LatestComparison comparison = new();
@@ -84,6 +84,7 @@ internal sealed class AppController : IDisposable
 		trayIcon.QuitRequested += OnQuitRequested;
 		trayIcon.ToggleStartAtLoginRequested += OnToggleStartAtLoginRequested;
 		trayIcon.MenuOpening += OnTrayMenuOpening;
+		InitializeUpdateChecks();
 		UpdatePresentation();
 		TryCleanupShellExtensions();
 	}
@@ -202,6 +203,7 @@ internal sealed class AppController : IDisposable
 		}
 
 		disposed = true;
+		DisposeUpdateChecks();
 		ClearComparison();
 		clipboardMonitor.ObservationReceived -= OnClipboardObservation;
 		hotKey.Pressed -= OnHotKeyPressed;

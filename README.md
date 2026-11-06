@@ -2,7 +2,7 @@
 
 ClipDiff is a Windows notification-area utility that compares the last two text values captured after it starts. A value can come from copied Unicode text or from a file copied in Explorer. 
 
-ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
+ClipDiff listens to the Windows clipboard directly. Clipboard content and document data are never uploaded. Optional update checks contact GitHub only after you enable them or request a manual check.
 
 ## Use
 
@@ -125,35 +125,64 @@ Windows Server Core is not supported. The initial release target is `win-x64`.
 
 ## Install or update
 
-Download one of these assets from the GitHub release and extract the whole
-archive into its own directory:
+Download `ClipDiff-<version>-win-x64-Setup.exe` from the
+[latest GitHub Release](https://github.com/stuartd/ClipboardDiff/releases/latest)
+and run it. The installer includes .NET, installs under
+`%LOCALAPPDATA%\Programs\ClipDiff` without administrator rights, and offers to
+launch ClipDiff. Run a newer installer to update: it closes the installed app,
+replaces the executable, and preserves your preferences and existing start-at-login choice.
+Closing ClipDiff discards the two in-memory captures.
 
-- `ClipDiff-<version>-win-x64-self-contained.zip` includes its own .NET runtime
-  and works without a separately installed runtime. It is the larger download.
-- `ClipDiff-<version>-win-x64-net10.zip` is much smaller but requires the x64
-  **.NET 10 Desktop Runtime** (`Microsoft.WindowsDesktop.App`), not merely the
-  base `Microsoft.NETCore.App` runtime.
+For your first move from an older portable build, quit that copy before running
+the installer. Your preferences already live outside the portable folder and are
+retained. Remove any manually created Startup-folder shortcut to the old copy.
+The installer does not delete old portable folders.
 
-Check an existing installation with `dotnet --list-runtimes`; the smaller build
-requires a `Microsoft.WindowsDesktop.App 10.x` entry for x64. Both archives
-contain exactly these two files:
+Explorer may continue using a loaded older extension temporarily. Each different
+extension binary has its own `ClipDiff.ShellExtension.<sha256>.dll` filename;
+updates leave the loaded old DLL in place and the app registers the current one.
+Later launches remove obsolete, unlocked DLLs. Cleanup failures never block
+startup. Normal updates do not require restarting Explorer or Windows.
 
-```text
-ClipDiff.exe
-ClipDiff.ShellExtension.dll
-```
+Uninstall through Windows **Installed apps**. Uninstall stops ClipDiff and
+removes its installed executable, shortcuts and owned registrations. An extension
+DLL held by Explorer can remain in the installation folder until released;
+uninstall does not restart Explorer to remove it. Preferences are retained.
 
-They must stay beside one another. Run `ClipDiff.exe`; the application manages
-the Explorer integration per user. Do not copy the DLL to a Windows system
-directory or register it manually.
+Portable ZIPs remain available:
 
-ClipDiff is portable and has no installer. The directory may be anywhere the
-current user can write, for example
-`%LOCALAPPDATA%\Programs\ClipDiff\1.0.0`. To update, quit
-ClipDiff, extract the new ZIP to a new directory, and run the new executable.
-Using a new directory avoids trying to overwrite an older shell-extension DLL
-that Explorer may still have loaded. Restarting Explorer or signing out may be
-needed before the old directory can be deleted.
+- `ClipDiff-<version>-win-x64-self-contained.zip` includes .NET.
+- `ClipDiff-<version>-win-x64-net10.zip` requires the x64 **.NET 10 Desktop
+  Runtime** (`Microsoft.WindowsDesktop.App 10.x`), not just the base runtime.
+
+Each ZIP contains exactly `ClipDiff.exe` and its matching
+`ClipDiff.ShellExtension.<sha256>.dll`. Keep them beside one another. For a portable
+update, quit ClipDiff, extract the new ZIP, and run the new executable. Leave any
+locked older extension in place. Do not register DLLs manually or copy them to a
+Windows system directory.
+
+All downloads remain unsigned. Windows SmartScreen may warn about the installer
+or application; packaging does not remove that warning.
+
+## Update checks
+
+On the first normal launch, ClipDiff asks whether to check `api.github.com` for
+new releases. **Enable** permits background checks at most once every 24 hours;
+**Not now** saves that choice and makes no automatic requests. The tray menu's
+**Automatically check for updates** toggle changes this preference. Manual
+**Check for updates...** works regardless of the automatic setting and reports
+up-to-date or failure states. Offline checks never stop clipboard monitoring.
+
+Checks read the latest published, non-prerelease GitHub Release. Each newer
+version produces at most one automatic tray notification, even across restarts.
+Click the notification or the update-available tray item for **Download** and
+**Dismiss**. Download opens the specific GitHub release page in your browser;
+run its Setup installer yourself. Nothing is downloaded or installed automatically.
+
+GitHub receives the normal request metadata, including your IP address. Requests
+contain no clipboard text, document data, selected paths or settings. Stored
+update preferences contain only consent, the last check attempt time, and the
+last notified version.
 
 ## Build and test
 
@@ -239,6 +268,7 @@ It stages each variant in a clean private directory, then creates these gitignor
 directories and ZIPs:
 
 ```text
+releases\ClipDiff-<version>-win-x64-Setup.exe
 releases\ClipDiff-<version>-win-x64-self-contained\
 releases\ClipDiff-<version>-win-x64-self-contained.zip
 releases\ClipDiff-<version>-win-x64-net10\
@@ -246,7 +276,7 @@ releases\ClipDiff-<version>-win-x64-net10.zip
 ```
 
 Both directories and ZIPs are validated to contain exactly `ClipDiff.exe` and
-`ClipDiff.ShellExtension.dll`. Those are the complete release; keep them
+`ClipDiff.ShellExtension.<sha256>.dll`. Those are the complete portable payload; keep them
 together. The self-contained variant bundles .NET; the `net10` variant expects
 the x64 .NET 10 Desktop Runtime on the target computer. PDB, `deps.json`,
 `runtimeconfig.json`, `bin`, `obj`, and the rest of the raw publish directories
@@ -262,11 +292,10 @@ To skip the native Explorer integration tests for a local release, pass `-SkipNa
 
 This still builds and packages the native DLL and runs the .NET tests. Native tests run by default and remain enabled in CI. You can combine this switch with `-Launch`.
 
-Quit ClipDiff before upgrading. The versioned package directory deliberately
-makes side-by-side extraction straightforward because Explorer may keep the old
-DLL loaded. Restart Explorer or sign out if the old handler remains loaded.
-Starting the new version removes the obsolete two-file static menu registration
-automatically.
+The Setup installer handles upgrades and closes ClipDiff automatically. A loaded
+old extension may continue serving Explorer until released; its COM contract
+remains compatible with the new app. The app registers its current extension
+and removes obsolete unlocked DLLs on later launches.
 
 If PowerShell reports that script execution is disabled, allow the checked-out
 script for this process only, then run it again:
@@ -279,7 +308,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 Copy the chosen ZIP to the target PC and extract both files together. Choose the
 `net10` archive only when the x64 .NET 10 Desktop Runtime is already installed.
 
-No installer, automatic updater, or code signing is included in the initial release.
+Installers and optional update notifications are included. Automatic installation
+and code signing are not included. Building release packages requires Inno Setup
+6.3 or later in addition to the .NET SDK and C++ build tools.
 
 Maintainer instructions for publishing a tagged GitHub release are in
 [`RELEASING.md`](RELEASING.md).

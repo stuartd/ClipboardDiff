@@ -47,7 +47,7 @@ Use:
 - Win32 APIs through small, explicit P/Invoke wrappers
 - PowerShell for local build/release scripts
 
-The two-file Explorer menu additionally uses a small native C++17 `ClipDiff.ShellExtension.dll`, built with the Visual Studio C++ toolset and Windows SDK. This is the approved exception to the C#-only, single-executable design: only selection/menu handling runs in Explorer, with a statically linked C++ runtime and no third-party runtime dependencies. File conversion and comparison remain in the C# application.
+The two-file Explorer menu additionally uses a small native C++17 `ClipDiff.ShellExtension.<sha256>.dll` in release packages (`ClipDiff.ShellExtension.dll` during development), built with the Visual Studio C++ toolset and Windows SDK. This is the approved exception to the C#-only, single-executable design: only selection/menu handling runs in Explorer, with a statically linked C++ runtime and no third-party runtime dependencies. File conversion and comparison remain in the C# application.
 
 The Windows application project should target:
 
@@ -108,7 +108,7 @@ The application must not:
 - Add accounts or cloud services.
 - Add a clipboard-history browser.
 - Retain more than the two values needed for the comparison.
-- Add settings or onboarding beyond the external-viewer executable path, warning acknowledgement, global keyboard shortcut, and start-at-login prompt, or add a complex preferences interface.
+- Add settings or onboarding beyond the external-viewer executable path, warning acknowledgement, global keyboard shortcut, start-at-login prompt, and explicitly consented update checks, or add a complex preferences interface.
 - Add document-management features or file access beyond the copied-file conversion and explicit Explorer actions in section 6.4.
 - Use a terminal window or embedded web UI for the diff.
 - Require an installer for the initial personal release.
@@ -768,6 +768,8 @@ Show Diff (Ctrl+Alt+D)
 Diff viewer: Built-in               [submenu]
 Keyboard shortcut...
 Start at login                       [checked/unchecked]
+Automatically check for updates      [checked/unchecked]
+Check for updates...
 ──────────────────────────────────
 About ClipDiff
 Quit ClipDiff
@@ -919,7 +921,7 @@ Track the process returned by the launch. Attempt to delete the comparison direc
 
 Cleanup is best effort because crashes, power loss, open file handles, and programs that delegate to another process cannot be controlled. Normalize read-only attributes before deletion. Never log a temporary path together with clipboard text.
 
-Persist application preferences in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path, the one-time-warning acknowledgement, the global-shortcut modifier/virtual-key values, and whether the startup prompt has been shown. It must never contain clipboard text, previews, diffs, temporary-file contents, or selected-file paths. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
+Persist application preferences in `%LOCALAPPDATA%\ClipDiff\settings.json`. The file may contain only the selected executable path, the one-time-warning acknowledgement, the global-shortcut modifier/virtual-key values, whether the startup prompt has been shown, and update-check consent/last attempt time/last notified release version. It must never contain clipboard text, previews, diffs, temporary-file contents, or selected-file paths. Returning to the built-in viewer clears the executable selection but need not reset the acknowledgement.
 
 ## 17. Suggested solution structure
 
@@ -1297,7 +1299,7 @@ On Windows:
 1. Confirm the per-comparison directory and its two read-only files are removed after the launched process exits and when ClipDiff exits.
 1. Leave a simulated stale comparison directory and confirm the next ClipDiff start removes it.
 1. Remove or rename the selected executable and confirm Show Diff falls back to the built-in viewer.
-1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, shortcut codes, and startup-prompt flag, never captured text or previews.
+1. Inspect settings.json and confirm it contains only the selected path, acknowledgement, shortcut codes, startup-prompt flag, and update-check consent/time/version metadata, never captured text or previews.
 1. Copy one file, then right-click a second file and choose **Compare with current ClipDiff capture**; confirm the second file becomes current, the copied file becomes previous, and the configured viewer opens immediately without changing the clipboard.
 1. Confirm the Explorer command is single-file only, uses the same binary/encoding/fallback rules, disappears on quit or when no capture remains, and is under **Show more options** on Windows 11 when not shown in the primary menu.
 1. With no captured value required, select exactly two files in Explorer and choose **Compare two selected files with ClipDiff**; confirm the first Explorer-supplied path becomes previous, the second becomes current, and the configured viewer opens immediately without changing the clipboard.
@@ -1309,65 +1311,50 @@ On Windows:
 1. Separately investigate Ctrl+C on file nodes in Visual Studio Solution Explorer and VS Code Explorer on Windows, recording editor versions, project/workspace types, actual clipboard formats and payload structure. Verify standard file-list handling where available; record limitations before considering custom adapters. This investigation is not yet verified.
 1. Start ClipDiff after a simulated abnormal exit and confirm it removes an owned stale Explorer registration when there is no captured entry.
 
-## 22. Release build
+## 22. Release build and installer
 
-Provide:
+`scripts/create-local-release.ps1` is the shared local/CI release entry point. On
+Windows it builds/tests the native extension, runs .NET tests, and publishes both
+self-contained and .NET 10 Desktop Runtime dependent x64 single-file applications
+without trimming. `-SkipNativeTests` is a local-only opt-out of native integration
+tests; it does not skip the native build or .NET tests.
 
-```
-scripts/create-local-release.ps1
-```
+Hash the native DLL with SHA-256 and ship it as
+`ClipDiff.ShellExtension.<sha256>.dll`. Embed that exact filename in the app's
+assembly metadata and use it for per-user registration. Each validated portable
+directory/ZIP contains exactly that DLL and `ClipDiff.exe`. The hash is independent
+of the application version. Use reproducible native linking to avoid changing the
+hash for app-only releases. Keep the native DLL outside the .NET single-file bundle.
 
-It should:
+Build an unsigned, self-contained Inno Setup installer from the same validated
+payload before exposing release assets. Install per-user without elevation into
+`%LOCALAPPDATA%\Programs\ClipDiff`, supply an Installed apps uninstaller and Start
+menu shortcut, and offer to launch ClipDiff. Preserve preferences and an existing
+start-at-login opt-in. Use a stable Inno AppId across versions.
 
-1. Build and test the native Explorer DLL with Visual Studio C++ build tools and the Windows SDK.
-1. Run core tests.
-1. Publish a Release build through a clean private staging directory.
-1. Place versioned self-contained and .NET 10 framework-dependent directories and ZIPs in the gitignored `releases/` directory.
-1. Publish both variants as single-file applications. The framework-dependent variant requires the x64 .NET 10 Desktop Runtime.
-1. Place `ClipDiff.ShellExtension.dll` alongside `ClipDiff.exe` in both variants; keep the DLL outside the .NET single-file bundle.
-1. Validate that every versioned directory and ZIP contains exactly `ClipDiff.exe` and `ClipDiff.ShellExtension.dll`, with no SDK by-products or stale files.
-1. Optionally launch the resulting executable.
+The app listens for the session-local `Local\ClipDiff.ShutdownForUpdate` event.
+The installer/uninstaller signals it and waits for `Local\ClipDiff` to disappear
+before changing the executable. Never force-kill the app or restart Explorer.
+Old pre-installer portable builds require a one-time manual quit during migration.
 
-Suggested publish properties:
+Never overwrite an existing extension DLL: install immutable hashed filenames
+only when absent. Keep loaded old extensions available and preserve their native
+COM class IDs, interfaces, readiness event and delivery behavior during updates.
+On launch, register the current path; best-effort cleanup deletes only recognised
+obsolete DLLs that are not referenced by another session's registration claim.
+Windows rejects deletion while an image is loaded. Cleanup failure must not
+prevent startup or updating. Uninstall likewise leaves locked DLLs behind without
+requesting a reboot and retains user preferences.
 
-```
-<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-<SelfContained>true</SelfContained>
-<PublishSingleFile>true</PublishSingleFile>
-<PublishTrimmed>false</PublishTrimmed>
-<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-```
+The tag workflow publishes `ClipDiff-<version>-win-x64-Setup.exe` alongside both
+portable ZIPs only after build, packaging and installer smoke checks succeed.
+Versioned artifact names preserve prerelease suffixes. `scripts/test-installer.ps1`
+checks installation, running-app upgrades with unchanged and changed loaded DLLs,
+and uninstall. Real Explorer interactions still require the manual Windows checks
+in `docs/windows-update-testing.md`. Unsigned downloads may trigger SmartScreen.
 
-Do not enable trimming for the initial WPF build.
-
-The native projects are built separately with `scripts/build-shell-extension.ps1 -Test`, so macOS can still cross-compile the .NET application and run the pure core tests. The release script runs this native build first. Distribute the executable and DLL together. Explorer can keep a loaded DLL locked after ClipDiff quits; updating into a new directory avoids overwriting a loaded DLL, and restarting Explorer or signing out may be needed to unload an older handler. Do not restart Explorer automatically.
-
-Continuous integration must call the same release script rather than duplicate the publish commands. A semantic-version tag in the form `v1.2.3` or `v1.2.3-preview.1` should run the complete build and test process, then create a GitHub release containing both validated versioned ZIPs. One workflow owns tag releases. Share version validation and package naming with the packaging script; test regular/prerelease version propagation in ordinary CI and validate published executable metadata before exposing packages.
-
-For local releases, `create-local-release.ps1 -SkipNativeTests` may explicitly skip the native Explorer integration tests. It must still build and package the DLL and run the .NET tests. Native tests remain enabled by default and in CI.
-
-A typical command is:
-
-```
-dotnet publish src/ClipDiff.Windows/ClipDiff.Windows.csproj `
-  --configuration Release `
-  --runtime win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:PublishTrimmed=false
-```
-
-The first release can be an unsigned personal executable. Document that Windows SmartScreen may warn about an unsigned binary.
-
-Not required initially:
-
-- MSI
-- MSIX
-- Microsoft Store submission
-- code signing
-- automatic updates
-- notarization equivalent
-- enterprise deployment machinery
+MSI, MSIX, Store distribution, code signing and automatic installation are outside
+this change.
 
 ## 23. Development from macOS
 
@@ -1426,6 +1413,29 @@ switching to the built-in option to avoid launching an older copy.
 Verify opt-in/out, prompt persistence, upgrade path quoting, failures, and actual
 sign-out/sign-in behaviour on Windows.
 
+### 24.1 Opt-in update checks
+
+On the first normal launch, ask **Enable** or **Not now** before making any update
+request to `api.github.com/repos/stuartd/ClipboardDiff/releases/latest`. Remember
+either choice, including a decline. Do not prompt secondary instances or Explorer
+command invocations. The tray menu provides **Automatically check for updates**
+and **Check for updates...**; no separate Settings window is required.
+
+Automatic checks run asynchronously at most every 24 hours. Persist attempt time
+before the request, including failed attempts. Check periodically while the app
+remains open. Disable takes effect immediately and cancels an automatic request
+already in progress. No automatic request is allowed if consent or the attempt
+time cannot be saved. Manual checks bypass the automatic setting/throttle and
+show current/newer/failure states. Bound request time and response size.
+
+Compare SemVer versions, ignoring build metadata and handling prerelease ordering.
+The endpoint supplies the latest published non-prerelease release. A newer version
+produces one unobtrusive tray notification per version, remembered across restarts.
+Clicking it offers **Download** (the exact GitHub release page) and **Dismiss**.
+Do not download or install updates automatically. Do not send clipboard/document
+data, selected paths or settings. Explain the GitHub destination, purpose and
+normal request metadata in the consent prompt and privacy documentation.
+
 ## 25. README content
 
 The README should explain:
@@ -1478,7 +1488,7 @@ The first release is complete when all of these are true:
 - Quitting releases native resources and loses all captured content.
 - Core unit tests pass.
 - A self-contained `win-x64` Release build can be produced.
-- The application has no dependency on Ditto, a database, a web service, or the macOS repository.
+- Clipboard functionality has no dependency on Ditto, a database, a web service, or the macOS repository. Optional GitHub update checks fail independently.
 
 ## 27. Suggested implementation order
 
