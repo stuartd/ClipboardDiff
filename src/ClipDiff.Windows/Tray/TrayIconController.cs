@@ -16,6 +16,9 @@ internal sealed class TrayIconController : IDisposable
     private readonly Forms.ToolStripMenuItem diffViewerItem;
     private readonly Forms.ToolStripMenuItem shortcutItem;
 	private readonly Forms.ToolStripMenuItem startAtLoginItem;
+	private readonly Forms.ToolStripMenuItem automaticUpdatesItem;
+	private readonly Forms.ToolStripMenuItem checkForUpdatesItem;
+	private readonly Forms.ToolStripMenuItem availableUpdateItem;
     private bool disposed;
 
     private IReadOnlyList<ExternalDiffToolChoice> diffTools = [];
@@ -32,6 +35,12 @@ internal sealed class TrayIconController : IDisposable
         diffViewerItem = new Forms.ToolStripMenuItem("Diff viewer");
         shortcutItem = new Forms.ToolStripMenuItem("Keyboard shortcut...");
 		startAtLoginItem = new Forms.ToolStripMenuItem("Start at login") { CheckOnClick = false };
+		automaticUpdatesItem = new Forms.ToolStripMenuItem("Automatically check for updates");
+		checkForUpdatesItem = new Forms.ToolStripMenuItem("Check for updates...");
+		availableUpdateItem = new Forms.ToolStripMenuItem("Update available...") { Visible = false };
+		automaticUpdatesItem.Click += (_, _) => ToggleAutomaticUpdatesRequested?.Invoke(this, EventArgs.Empty);
+		checkForUpdatesItem.Click += (_, _) => CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty);
+		availableUpdateItem.Click += (_, _) => AvailableUpdateRequested?.Invoke(this, EventArgs.Empty);
         var aboutItem = new Forms.ToolStripMenuItem("About ClipDiff");
         var quitItem = new Forms.ToolStripMenuItem("Quit ClipDiff");
 
@@ -53,6 +62,9 @@ internal sealed class TrayIconController : IDisposable
             diffViewerItem,
             shortcutItem,
 			startAtLoginItem,
+			automaticUpdatesItem,
+			checkForUpdatesItem,
+			availableUpdateItem,
             new Forms.ToolStripSeparator(),
             aboutItem,
             quitItem
@@ -69,7 +81,31 @@ internal sealed class TrayIconController : IDisposable
             Visible = true
         };
         notifyIcon.DoubleClick += OnDoubleClick;
+		notifyIcon.BalloonTipClicked += (_, _) => AvailableUpdateRequested?.Invoke(this, EventArgs.Empty);
     }
+
+	public event EventHandler? ToggleAutomaticUpdatesRequested;
+	public event EventHandler? CheckForUpdatesRequested;
+	public event EventHandler? AvailableUpdateRequested;
+
+	public void SetUpdateChecks(bool automatic, bool checking)
+	{
+		automaticUpdatesItem.Checked = automatic;
+		checkForUpdatesItem.Enabled = !checking;
+		checkForUpdatesItem.Text = checking ? "Checking for updates..." : "Check for updates...";
+	}
+
+	public void SetAvailableUpdate(string version, bool notify)
+	{
+		availableUpdateItem.Text = $"ClipDiff {version} available...";
+		availableUpdateItem.Visible = true;
+
+		if (notify)
+		{
+			notifyIcon.ShowBalloonTip(10000, "ClipDiff update available",
+				$"ClipDiff {version} is available. Click for Download or Dismiss.", Forms.ToolTipIcon.Info);
+		}
+	}
 
 	public event EventHandler? ToggleStartAtLoginRequested;
 

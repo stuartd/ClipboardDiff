@@ -46,7 +46,11 @@ public partial class App : System.Windows.Application
 		}
 		else
 		{
-			Dispatcher.InvokeAsync(controller.InitializeStartAtLogin);
+			Dispatcher.InvokeAsync(() =>
+			{
+				controller.InitializeStartAtLogin();
+				controller?.InitializeUpdateConsent();
+			});
 		}
 	}
 
