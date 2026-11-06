@@ -2,7 +2,7 @@
 
 ClipDiff is a Windows notification-area utility that compares the last two text values captured after it starts. A value can come from copied Unicode text or from a file copied in Explorer. 
 
-ClipDiff listens to the Windows clipboard directly. No data is ever uploaded.
+ClipDiff listens to the Windows clipboard directly. Clipboard content and document data are never uploaded. Optional update checks contact GitHub only after you enable them or request a manual check.
 
 ## Use
 
@@ -52,7 +52,7 @@ After ClipDiff has captured at least one value, and while clipboard monitoring i
 
 Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command appears only when exactly two files are selected and ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Losing the last capture removes the individual-file command; quitting removes both when no other live session needs them. Concurrent sessions for the same user coordinate the shared registrations. Their individual-file label is generic because the registry is shared, while invocation validates the capture in the local session. A later ClipDiff start cleans up registrations left by an abnormal exit. Coordination retries brief lock contention; if a peer stays stalled beyond the retry deadline, the surviving instance reconciles registration on its next capture update or tray-menu opening.
 
-The two-file command uses a small native `ClipDiff.ShellExtension.dll` beside the executable. Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive after ClipDiff has exited.
+The two-file command uses a small native `ClipDiff.ShellExtension.<sha256>.dll` beside the executable (`ClipDiff.ShellExtension.dll` during development). Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive after ClipDiff has exited.
 
 A newer Explorer request or accepted clipboard value cancels pending selected-file work. The single-file command checks that its original capture is still current when the read finishes. Slow reads and incomplete pipe messages do not block receipt of newer commands; failed forwarding gives concise feedback.
 
@@ -91,7 +91,7 @@ The built-in viewer keeps captured text in memory only. An external program cann
 
 This cleanup is best effort. A crash, power loss, open file handle, or external viewer that hands work to another process can leave files behind, and the selected program may cache or retain its own copy outside ClipDiff's control. Do not select an external viewer when this disk exposure is unacceptable. Cancelling the warning opens the built-in viewer without writing the files. If automatic privacy clearing or a newer comparison invalidates the saved pair while the warning is open, neither OK nor Cancel reopens or exports it.
 
-ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, the chosen shortcut's modifier/key codes, and whether the login prompt has been shown in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove this instance's temporary comparison directories. Empty exclusive owner leases protect live workspaces in another session from startup cleanup; leases contain no captured text. Shared Explorer registration claims contain only executable/DLL commands and menu metadata, and stale claims are removed at startup.
+ClipDiff stores only the selected executable path, the one-time-warning acknowledgement, the chosen shortcut's modifier/key codes, whether the login prompt has been shown, and update-check consent/last attempt time/last notified version in `%LOCALAPPDATA%\ClipDiff\settings.json`; clipboard text and previews are never stored there. Rebuilding or replacing the executable does not reset the acknowledgement. To retest the notice, close ClipDiff and set `PlaintextWarningAcknowledged` to `false` in that file; the selected program can remain unchanged. With the built-in viewer, normal exit loses all captured content. With an external viewer, normal exit also attempts to remove this instance's temporary comparison directories. Empty exclusive owner leases protect live workspaces in another session from startup cleanup; leases contain no captured text. Shared Explorer registration claims contain only executable/DLL commands and menu metadata, and stale claims are removed at startup.
 
 Before reading text, ClipDiff inspects and honours these advisory [clipboard formats](https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard-formats):
 
@@ -125,35 +125,64 @@ Windows Server Core is not supported. The initial release target is `win-x64`.
 
 ## Install or update
 
-Download one of these assets from the GitHub release and extract the whole
-archive into its own directory:
+Download `ClipDiff-<version>-win-x64-Setup.exe` from the
+[latest GitHub Release](https://github.com/stuartd/ClipboardDiff/releases/latest)
+and run it. The installer includes .NET, installs under
+`%LOCALAPPDATA%\Programs\ClipDiff` without administrator rights, and offers to
+launch ClipDiff. Run a newer installer to update: it closes the installed app,
+replaces the executable, and preserves your preferences and existing start-at-login choice.
+Closing ClipDiff discards the two in-memory captures.
 
-- `ClipDiff-<version>-win-x64-self-contained.zip` includes its own .NET runtime
-  and works without a separately installed runtime. It is the larger download.
-- `ClipDiff-<version>-win-x64-net10.zip` is much smaller but requires the x64
-  **.NET 10 Desktop Runtime** (`Microsoft.WindowsDesktop.App`), not merely the
-  base `Microsoft.NETCore.App` runtime.
+For your first move from an older portable build, quit that copy before running
+the installer. Your preferences already live outside the portable folder and are
+retained. Remove any manually created Startup-folder shortcut to the old copy.
+The installer does not delete old portable folders.
 
-Check an existing installation with `dotnet --list-runtimes`; the smaller build
-requires a `Microsoft.WindowsDesktop.App 10.x` entry for x64. Both archives
-contain exactly these two files:
+Explorer may continue using a loaded older extension temporarily. Each different
+extension binary has its own `ClipDiff.ShellExtension.<sha256>.dll` filename;
+updates leave the loaded old DLL in place and the app registers the current one.
+Later launches remove obsolete, unlocked DLLs. Cleanup failures never block
+startup. Normal updates do not require restarting Explorer or Windows.
 
-```text
-ClipDiff.exe
-ClipDiff.ShellExtension.dll
-```
+Uninstall through Windows **Installed apps**. Uninstall stops ClipDiff and
+removes its installed executable, shortcuts and owned registrations. An extension
+DLL held by Explorer can remain in the installation folder until released;
+uninstall does not restart Explorer to remove it. Preferences are retained.
 
-They must stay beside one another. Run `ClipDiff.exe`; the application manages
-the Explorer integration per user. Do not copy the DLL to a Windows system
-directory or register it manually.
+Portable ZIPs remain available:
 
-ClipDiff is portable and has no installer. The directory may be anywhere the
-current user can write, for example
-`%LOCALAPPDATA%\Programs\ClipDiff\1.0.0`. To update, quit
-ClipDiff, extract the new ZIP to a new directory, and run the new executable.
-Using a new directory avoids trying to overwrite an older shell-extension DLL
-that Explorer may still have loaded. Restarting Explorer or signing out may be
-needed before the old directory can be deleted.
+- `ClipDiff-<version>-win-x64-self-contained.zip` includes .NET.
+- `ClipDiff-<version>-win-x64-net10.zip` requires the x64 **.NET 10 Desktop
+  Runtime** (`Microsoft.WindowsDesktop.App 10.x`), not just the base runtime.
+
+Each ZIP contains exactly `ClipDiff.exe` and its matching
+`ClipDiff.ShellExtension.<sha256>.dll`. Keep them beside one another. For a portable
+update, quit ClipDiff, extract the new ZIP, and run the new executable. Leave any
+locked older extension in place. Do not register DLLs manually or copy them to a
+Windows system directory.
+
+All downloads remain unsigned. Windows SmartScreen may warn about the installer
+or application; packaging does not remove that warning.
+
+## Update checks
+
+On the first normal launch, ClipDiff asks whether to check `api.github.com` for
+new releases. **Enable** permits background checks at most once every 24 hours;
+**Not now** saves that choice and makes no automatic requests. The tray menu's
+**Automatically check for updates** toggle changes this preference. Manual
+**Check for updates...** works regardless of the automatic setting and reports
+up-to-date or failure states. Offline checks never stop clipboard monitoring.
+
+Checks read the latest published, non-prerelease GitHub Release. Each newer
+version produces at most one automatic tray notification, even across restarts.
+Click the notification or the update-available tray item for **Download** and
+**Dismiss**. Download opens the specific GitHub release page in your browser;
+run its Setup installer yourself. Nothing is downloaded or installed automatically.
+
+GitHub receives the normal request metadata, including your IP address. Requests
+contain no clipboard text, document data, selected paths or settings. Stored
+update preferences contain only consent, the last check attempt time, and the
+last notified version.
 
 ## Build and test
 
@@ -239,6 +268,7 @@ It stages each variant in a clean private directory, then creates these gitignor
 directories and ZIPs:
 
 ```text
+releases\ClipDiff-<version>-win-x64-Setup.exe
 releases\ClipDiff-<version>-win-x64-self-contained\
 releases\ClipDiff-<version>-win-x64-self-contained.zip
 releases\ClipDiff-<version>-win-x64-net10\
@@ -246,7 +276,7 @@ releases\ClipDiff-<version>-win-x64-net10.zip
 ```
 
 Both directories and ZIPs are validated to contain exactly `ClipDiff.exe` and
-`ClipDiff.ShellExtension.dll`. Those are the complete release; keep them
+`ClipDiff.ShellExtension.<sha256>.dll`. Those are the complete portable payload; keep them
 together. The self-contained variant bundles .NET; the `net10` variant expects
 the x64 .NET 10 Desktop Runtime on the target computer. PDB, `deps.json`,
 `runtimeconfig.json`, `bin`, `obj`, and the rest of the raw publish directories
@@ -262,11 +292,10 @@ To skip the native Explorer integration tests for a local release, pass `-SkipNa
 
 This still builds and packages the native DLL and runs the .NET tests. Native tests run by default and remain enabled in CI. You can combine this switch with `-Launch`.
 
-Quit ClipDiff before upgrading. The versioned package directory deliberately
-makes side-by-side extraction straightforward because Explorer may keep the old
-DLL loaded. Restart Explorer or sign out if the old handler remains loaded.
-Starting the new version removes the obsolete two-file static menu registration
-automatically.
+The Setup installer handles upgrades and closes ClipDiff automatically. A loaded
+old extension may continue serving Explorer until released; its COM contract
+remains compatible with the new app. The app registers its current extension
+and removes obsolete unlocked DLLs on later launches.
 
 If PowerShell reports that script execution is disabled, allow the checked-out
 script for this process only, then run it again:
@@ -279,7 +308,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 Copy the chosen ZIP to the target PC and extract both files together. Choose the
 `net10` archive only when the x64 .NET 10 Desktop Runtime is already installed.
 
-No installer, automatic updater, or code signing is included in the initial release.
+Installers and optional update notifications are included. Automatic installation
+and code signing are not included. Building release packages requires Inno Setup
+6.3 or later in addition to the .NET SDK and C++ build tools.
 
 Maintainer instructions for publishing a tagged GitHub release are in
 [`RELEASING.md`](RELEASING.md).
@@ -308,7 +339,7 @@ On a Windows desktop, verify:
 - each supported installed viewer receives the previous/current sides in the right order and with the documented labels and read-only switches where supported;
 - external comparison files appear only below `%LOCALAPPDATA%\ClipDiff\Temp`, contain the exact text, and are removed after the launched process exits, on ClipDiff exit, or on the next start;
 - removing or renaming the selected viewer executable causes **Show Diff** to fall back to the built-in viewer;
-- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, shortcut codes, and the login-prompt flag, never clipboard content;
+- `%LOCALAPPDATA%\ClipDiff\settings.json` contains only the executable preference, warning acknowledgement, shortcut codes, login-prompt flag, and update-check consent/time/version metadata, never clipboard content;
 - **Keyboard shortcut...** records a replacement such as `Ctrl+Alt+6`, keeps the old shortcut active when the replacement is already in use, updates the tray label after success, persists across restart, and resets to `Ctrl+Alt+D`;
 - **Copy unified diff** pastes into Notepad, has all three exclusion formats, and is not recaptured;
 - two identical copies produce a diff reporting **No differences**, while images leave history unchanged;

@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security;
 using Microsoft.Win32;
+using ClipDiff.Windows.Installation;
 
 namespace ClipDiff.Windows.Explorer;
 
@@ -25,7 +26,7 @@ internal sealed class ExplorerContextMenuRegistration : IDisposable
 	private readonly string singleCommandLine;
 	private readonly string comServerCommandLine;
 	private readonly string iconPath;
-	private readonly string extensionPath = Path.Combine(AppContext.BaseDirectory, "ClipDiff.ShellExtension.dll");
+	private readonly string extensionPath = Path.Combine(AppContext.BaseDirectory, ShellExtensionFiles.CurrentFileName);
 	private readonly EventWaitHandle? pairReady;
 	private readonly ExplorerRegistrationCoordinator? registrationCoordinator;
 	private bool pairRegistered;

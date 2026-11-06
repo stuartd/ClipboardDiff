@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using ClipDiff.Windows.Hotkeys;
+using ClipDiff.Windows.Updates;
 
 namespace ClipDiff.Windows.Settings;
 
@@ -8,7 +9,8 @@ internal sealed record ClipDiffSettings(
     string? SelectedExecutablePath = null,
     bool PlaintextWarningAcknowledged = false,
     HotKeyGesture? HotKey = null,
-	bool StartupPromptShown = false);
+	bool StartupPromptShown = false,
+	UpdateCheckSettings? UpdateChecks = null);
 
 internal sealed class ClipDiffSettingsStore
 {

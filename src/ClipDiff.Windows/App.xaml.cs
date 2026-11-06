@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Windows;
 using ClipDiff.Windows.Explorer;
+using ClipDiff.Windows.Installation;
 
 namespace ClipDiff.Windows;
 
@@ -9,6 +10,7 @@ public partial class App : System.Windows.Application
 	private Mutex? instanceMutex;
 	private AppController? controller;
 	private bool ownsMutex;
+	private InstallerShutdown? installerShutdown;
 
 	protected override void OnStartup(StartupEventArgs args)
 	{
@@ -36,6 +38,7 @@ public partial class App : System.Windows.Application
 			return;
 		}
 
+		installerShutdown = new InstallerShutdown(Dispatcher, Shutdown);
 		controller = new AppController();
 		if (isExplorerCommand)
 		{
@@ -43,12 +46,18 @@ public partial class App : System.Windows.Application
 		}
 		else
 		{
-			Dispatcher.InvokeAsync(controller.InitializeStartAtLogin);
+			Dispatcher.InvokeAsync(() =>
+			{
+				controller.InitializeStartAtLogin();
+				controller?.InitializeUpdateConsent();
+			});
 		}
 	}
 
 	protected override void OnExit(ExitEventArgs args)
 	{
+		installerShutdown?.Dispose();
+		installerShutdown = null;
 		controller?.Dispose();
 		controller = null;
 

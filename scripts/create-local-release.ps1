@@ -14,8 +14,10 @@ $packageStagingRoot = Join-Path $repositoryRoot 'artifacts/release-package'
 $applicationProject = Join-Path $repositoryRoot 'src/ClipDiff.Windows/ClipDiff.Windows.csproj'
 $coreTests = Join-Path $repositoryRoot 'tests/ClipDiff.Core.Tests/ClipDiff.Core.Tests.csproj'
 $windowsTests = Join-Path $repositoryRoot 'tests/ClipDiff.Windows.Tests/ClipDiff.Windows.Tests.csproj'
+$updateTests = Join-Path $repositoryRoot 'tests/ClipDiff.Update.Tests/ClipDiff.Update.Tests.csproj'
 $nativeDll = Join-Path $repositoryRoot 'artifacts/native/Release/ClipDiff.ShellExtension.dll'
-$requiredPayload = @('ClipDiff.exe', 'ClipDiff.ShellExtension.dll')
+$extensionFileName = $null
+$requiredPayload = @()
 
 function Assert-ReleasePayload([string]$Directory, [string]$Description)
 {
@@ -24,7 +26,7 @@ function Assert-ReleasePayload([string]$Directory, [string]$Description)
 
 	if ($unexpectedPayload.Count -ne 0)
 	{
-		throw "$Description validation failed. Expected only: $($requiredPayload -join ', ')."
+		throw "$Description validation failed. Expected only: $($requiredPayload -join ', '). Actual: $($actualPayload -join ', ')."
 	}
 }
 
@@ -87,6 +89,8 @@ try
 	}
 
 	& (Join-Path $PSScriptRoot 'build-shell-extension.ps1') -Configuration Release -Test:(-not $SkipNativeTests)
+	$extensionFileName = 'ClipDiff.ShellExtension.' + (Get-FileHash $nativeDll -Algorithm SHA256).Hash.ToLowerInvariant() + '.dll'
+	$requiredPayload = @('ClipDiff.exe', $extensionFileName)
 
 	dotnet test $coreTests --configuration Release
 
@@ -100,6 +104,13 @@ try
 	if ($LASTEXITCODE -ne 0)
 	{
 		throw 'Windows policy tests failed.'
+	}
+
+	dotnet test $updateTests --configuration Release
+
+	if ($LASTEXITCODE -ne 0)
+	{
+		throw 'Update policy tests failed.'
 	}
 
 	# dotnet publish does not clean custom output directories. Build both variants
@@ -135,6 +146,7 @@ try
 			--self-contained $selfContained `
 			--output $package.PublishDirectory `
 			-p:Version=$Version `
+			-p:ShellExtensionFileName=$extensionFileName `
 			-p:PublishSingleFile=true `
 			-p:PublishTrimmed=false `
 			-p:IncludeNativeLibrariesForSelfExtract=true
@@ -155,14 +167,14 @@ try
 
 		foreach ($file in $requiredPayload)
 		{
-			$source = if ($file -eq 'ClipDiff.ShellExtension.dll') { $nativeDll } else { Join-Path $package.PublishDirectory $file }
+			$source = if ($file -eq $extensionFileName) { $nativeDll } else { Join-Path $package.PublishDirectory $file }
 
 			if (-not (Test-Path $source -PathType Leaf))
 			{
 				throw "$($package.Name) is missing required file: $file"
 			}
 
-			Copy-Item $source $package.StagingDirectory
+			Copy-Item $source (Join-Path $package.StagingDirectory $file)
 		}
 
 		Assert-ReleasePayload $package.StagingDirectory "$($package.Name) directory"
@@ -187,9 +199,15 @@ try
 		}
 	}
 
-	# Replace public outputs only after both variants pass validation, so a failed
-	# build cannot publish mismatched or partial packages.
+	# Build the installer privately before exposing any release assets.
+	& (Join-Path $PSScriptRoot 'create-installer.ps1') -Version $Version `
+		-PayloadDirectory $packages[0].StagingDirectory -ExtensionFileName $extensionFileName `
+		-OutputDirectory $packageStagingRoot
+	$installerName = "ClipDiff-$Version-win-x64-Setup.exe"
+
+	# Replace public outputs only after all packages pass validation.
 	New-Item $releaseRoot -ItemType Directory -Force | Out-Null
+	Move-Item (Join-Path $packageStagingRoot $installerName) (Join-Path $releaseRoot $installerName) -Force
 
 	foreach ($package in $packages)
 	{
@@ -214,7 +232,8 @@ try
 	}
 
 	Write-Host "Payload:           $($requiredPayload -join ', ')"
-	Write-Host 'Install:           Extract both files from one package into the same directory, then run ClipDiff.exe.'
+	Write-Host "Installer:         $(Join-Path $releaseRoot $installerName)"
+	Write-Host 'Install/update:    Run the Setup.exe installer. Portable ZIPs remain available.'
 
 	if ($Launch)
 	{
