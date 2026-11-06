@@ -186,15 +186,29 @@ try
 	Hold-Extension $changedName
 	Invoke-Installer (Join-Path $installDirectory 'unins000.exe') 'uninstall' -Uninstall
 
+	# The uninstaller launcher can exit before its temporary second phase finishes.
+	# Wait for that phase's post-uninstall registration cleanup, not just the launcher.
+	for ($attempt = 0; $attempt -lt 100; $attempt++)
+	{
+		$runRemaining = $null -ne [Microsoft.Win32.Registry]::GetValue($runRegistryPath, 'ClipDiff', $null)
+		$extensionRemaining = Test-Path 'HKCU:\Software\Classes\CLSID\{6B46A974-40E2-4AD4-9F68-E534202B11E8}'
+
+		if (-not $runRemaining -and -not $extensionRemaining)
+		{
+			break
+		}
+
+		Start-Sleep -Milliseconds 100
+	}
+
 	if (-not $app.WaitForExit(10000) -or (Test-Path (Join-Path $installDirectory 'ClipDiff.exe')) -or (Test-Path $uninstallKey))
 	{
 		throw 'Uninstall did not stop the app and remove the executable/installation record.'
 	}
 
-	if ([Microsoft.Win32.Registry]::GetValue($runRegistryPath, 'ClipDiff', $null) -or
-		(Test-Path 'HKCU:\Software\Classes\CLSID\{6B46A974-40E2-4AD4-9F68-E534202B11E8}'))
+	if ($runRemaining -or $extensionRemaining)
 	{
-		throw 'Uninstall left the installed app registered.'
+		throw "Uninstall left the installed app registered (startup=$runRemaining, extension=$extensionRemaining)."
 	}
 
 	Write-Host 'Installer first install, running-app upgrades, unchanged/changed loaded DLLs, and uninstall passed without a restart.'
