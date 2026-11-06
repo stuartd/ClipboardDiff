@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release-version.ps1')
 $Version = Get-ReleaseVersion -Version $Version
+$fileVersion = $Version.Split('-')[0] + '.0'
 $compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
 
 if (-not $compiler)
@@ -51,7 +52,7 @@ if (Test-Path $installer)
 	Remove-Item $installer -Force
 }
 
-& $compiler "/DAppVersion=$Version" "/DPayloadDirectory=$PayloadDirectory" `
+& $compiler "/DAppVersion=$Version" "/DAppFileVersion=$fileVersion" "/DPayloadDirectory=$PayloadDirectory" `
 	"/DExtensionFileName=$ExtensionFileName" "/DInstallerOutputDirectory=$OutputDirectory" `
 	(Join-Path $PSScriptRoot '../installer/ClipDiff.iss')
 

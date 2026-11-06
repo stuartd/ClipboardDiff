@@ -2,6 +2,9 @@
 #ifndef AppVersion
 	#error AppVersion is required
 #endif
+#ifndef AppFileVersion
+	#error AppFileVersion is required
+#endif
 #ifndef PayloadDirectory
 	#error PayloadDirectory is required
 #endif
@@ -16,6 +19,7 @@
 AppId={{75F83916-586C-4D73-B744-AD39917A5039}
 AppName=ClipDiff
 AppVersion={#AppVersion}
+VersionInfoVersion={#AppFileVersion}
 AppPublisher=Stuart Dunkeld
 AppPublisherURL=https://stuartd.dev
 AppSupportURL=https://github.com/stuartd/ClipboardDiff
