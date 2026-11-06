@@ -36,7 +36,8 @@ $installDirectory = Join-Path $testRoot 'Installed app'
 $settingsPath = Join-Path $env:LOCALAPPDATA 'ClipDiff/settings.json'
 $savedSettings = if (Test-Path $settingsPath) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$savedRun = Get-ItemPropertyValue $runKey -Name ClipDiff -ErrorAction SilentlyContinue
+$runRegistryPath = 'HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run'
+$savedRun = [Microsoft.Win32.Registry]::GetValue($runRegistryPath, 'ClipDiff', $null)
 $loadedImages = [Collections.Generic.List[IntPtr]]::new()
 $app = $null
 
@@ -187,7 +188,7 @@ try
 		throw 'Uninstall did not stop the app and remove the executable/installation record.'
 	}
 
-	if ((Get-ItemPropertyValue $runKey -Name ClipDiff -ErrorAction SilentlyContinue) -or
+	if ([Microsoft.Win32.Registry]::GetValue($runRegistryPath, 'ClipDiff', $null) -or
 		(Test-Path 'HKCU:\Software\Classes\CLSID\{6B46A974-40E2-4AD4-9F68-E534202B11E8}'))
 	{
 		throw 'Uninstall left the installed app registered.'
