@@ -158,9 +158,11 @@ try
 	}
 
 	$changedName = 'ClipDiff.ShellExtension.' + (Get-FileHash $changedDll -Algorithm SHA256).Hash.ToLowerInvariant() + '.dll'
+	$numericVersion = [Version]($Version.Split('-')[0])
+	$fixtureVersion = "$($numericVersion.Major).$($numericVersion.Minor).$($numericVersion.Build + 1)-installer-test.1"
 	$publishDirectory = Join-Path $testRoot 'publish'
 	& dotnet publish (Join-Path $repositoryRoot 'src/ClipDiff.Windows/ClipDiff.Windows.csproj') --configuration Release `
-		--runtime win-x64 --self-contained true --output $publishDirectory "-p:Version=$Version" `
+		--runtime win-x64 --self-contained true --output $publishDirectory "-p:Version=$fixtureVersion" `
 		"-p:ShellExtensionFileName=$changedName" -p:PublishSingleFile=true -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true
 
 	if ($LASTEXITCODE -ne 0)
@@ -170,10 +172,10 @@ try
 
 	Copy-Item (Join-Path $publishDirectory 'ClipDiff.exe') $changedPayload
 	Copy-Item $changedDll (Join-Path $changedPayload $changedName)
-	& (Join-Path $PSScriptRoot 'create-installer.ps1') -Version $Version -PayloadDirectory $changedPayload `
+	& (Join-Path $PSScriptRoot 'create-installer.ps1') -Version $fixtureVersion -PayloadDirectory $changedPayload `
 		-ExtensionFileName $changedName -OutputDirectory $testRoot
 	$app = Start-TestApp $originalExtension
-	Invoke-Installer (Join-Path $testRoot "ClipDiff-$Version-win-x64-Setup.exe") 'upgrade-changed-extension'
+	Invoke-Installer (Join-Path $testRoot "ClipDiff-$fixtureVersion-win-x64-Setup.exe") 'upgrade-changed-extension'
 
 	if (-not $app.WaitForExit(10000) -or -not (Test-Path (Join-Path $installDirectory $originalExtension)))
 	{
