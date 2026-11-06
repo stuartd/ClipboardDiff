@@ -35,8 +35,8 @@ $testRoot = Join-Path $repositoryRoot "artifacts/installer-smoke/$([Guid]::NewGu
 $installDirectory = Join-Path $testRoot 'Installed app'
 $settingsPath = Join-Path $env:LOCALAPPDATA 'ClipDiff/settings.json'
 $savedSettings = if (Test-Path $settingsPath) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
-$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$runRegistryPath = 'HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run'
+$runSubKey = 'Software\Microsoft\Windows\CurrentVersion\Run'
+$runRegistryPath = 'HKEY_CURRENT_USER\' + $runSubKey
 $savedRun = [Microsoft.Win32.Registry]::GetValue($runRegistryPath, 'ClipDiff', $null)
 $loadedImages = [Collections.Generic.List[IntPtr]]::new()
 $app = $null
@@ -129,7 +129,7 @@ try
 	[IO.File]::WriteAllText($settingsPath, '{"StartupPromptShown":true,"UpdateChecks":{"AutomaticChecksEnabled":false}}')
 	Invoke-Installer $baselineInstaller 'first-install'
 	$originalExtension = Get-ChildItem $baselinePayload -Filter 'ClipDiff.ShellExtension.*.dll' | Select-Object -ExpandProperty Name -First 1
-	Set-ItemProperty $runKey -Name ClipDiff -Value "`"$(Join-Path $installDirectory 'ClipDiff.exe')`""
+	[Microsoft.Win32.Registry]::SetValue($runRegistryPath, 'ClipDiff', "`"$(Join-Path $installDirectory 'ClipDiff.exe')`"")
 	$app = Start-TestApp $originalExtension
 	Hold-Extension $originalExtension
 	Invoke-Installer $baselineInstaller 'upgrade-unchanged-extension'
@@ -149,7 +149,8 @@ try
 	try
 	{
 		$stream.Position = $stream.Length
-		$stream.Write([Text.Encoding]::ASCII.GetBytes('ClipDiff installer integration fixture'))
+		$fixtureBytes = [Text.Encoding]::ASCII.GetBytes('ClipDiff installer integration fixture')
+		$stream.Write($fixtureBytes, 0, $fixtureBytes.Length)
 	}
 	finally
 	{
@@ -221,10 +222,22 @@ finally
 
 	if ($null -ne $savedRun)
 	{
-		Set-ItemProperty $runKey -Name ClipDiff -Value $savedRun
+		[Microsoft.Win32.Registry]::SetValue($runRegistryPath, 'ClipDiff', $savedRun)
 	}
 	else
 	{
-		Remove-ItemProperty $runKey -Name ClipDiff -ErrorAction SilentlyContinue
+		$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($runSubKey, $true)
+
+		if ($null -ne $key)
+		{
+			try
+			{
+				$key.DeleteValue('ClipDiff', $false)
+			}
+			finally
+			{
+				$key.Dispose()
+			}
+		}
 	}
 }
