@@ -17,6 +17,8 @@
     <Link>
       <AdditionalDependencies>shell32.lib;ole32.lib;uuid.lib;user32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+	  <!-- Stable binaries let app-only releases reuse the same content-addressed DLL. -->
+	  <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
 </Project>
