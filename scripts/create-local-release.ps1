@@ -26,7 +26,7 @@ function Assert-ReleasePayload([string]$Directory, [string]$Description)
 
 	if ($unexpectedPayload.Count -ne 0)
 	{
-		throw "$Description validation failed. Expected only: $($requiredPayload -join ', ')."
+		throw "$Description validation failed. Expected only: $($requiredPayload -join ', '). Actual: $($actualPayload -join ', ')."
 	}
 }
 
@@ -174,7 +174,7 @@ try
 				throw "$($package.Name) is missing required file: $file"
 			}
 
-			Copy-Item $source $package.StagingDirectory
+			Copy-Item $source (Join-Path $package.StagingDirectory $file)
 		}
 
 		Assert-ReleasePayload $package.StagingDirectory "$($package.Name) directory"
