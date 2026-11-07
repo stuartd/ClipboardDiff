@@ -17,20 +17,24 @@ Formatting rules:
 
 Example:
 
+```
 if (valid)
-   return 
-   
+    return
+```
+
 Should be:
 
+```
 if (valid)
 {
-	return
+    return
 }
+```
 
 - Always have blank lines before and after if, for etc
 
 So rather than this:
-
+```
 var position = 0;
 foreach (var range in highlights)
 {
@@ -39,9 +43,11 @@ foreach (var range in highlights)
     Add(position, start, false);
 }
 Add(position, source.Length, false);
+```
 
 It would be this:
 
+```
 var position = 0;
 
 foreach (var range in highlights)
@@ -52,19 +58,23 @@ foreach (var range in highlights)
 }
 
 Add(position, source.Length, false);
+```
 
 - Use blank lines to separate chunks of code semantically
 
 Example: here all the code is mashed together
 
+```
 cancellationToken.ThrowIfCancellationRequested();
 int oldEnd = oldIndex == oldTokens.Count ? oldUnits.Count : oldTokens[oldIndex].Start;
 int newEnd = newIndex == newTokens.Count ? newUnits.Count : newTokens[newIndex].Start;
 var matches = Align(oldUnits.GetRange(oldStart, oldEnd - oldStart),
 newUnits.GetRange(newStart, newEnd - newStart), ref searchBudget, false);
+```
 
 But here it is separated - cancellation handling, setup, and calculation are separated.
 
+```
 cancellationToken.ThrowIfCancellationRequested();
 
 int oldEnd = oldIndex == oldTokens.Count ? oldUnits.Count : oldTokens[oldIndex].Start;
@@ -72,9 +82,11 @@ int newEnd = newIndex == newTokens.Count ? newUnits.Count : newTokens[newIndex].
 
 var matches = Align(oldUnits.GetRange(oldStart, oldEnd - oldStart),
 newUnits.GetRange(newStart, newEnd - newStart), ref searchBudget, false);
+```
 
 - Do not add blank lines in if/else blocks:
 
+```
 if (normalize && IsWhitespace(value))
 {
 	if (units.Count > 0)
@@ -93,34 +105,41 @@ else
 {
 	units.Add(new(value, index, index + 1, 1));
 }
+```
 
-- Do not allow parameters to hide field@
+- Do not allow parameters to hide fields:
 
+```
 // Wrong
 void Method(string name)
 {
-	this,name = name;
+	this.name = name;
 }
 
-// Wrong
+// Right
 void Method(string newName)
 {
-	this,name = newName;
+	this.name = newName;
 }
+```
 
 - Prefer to use type names for fields, not parameters.
 This makes the code more readable.
 
+```
 // Wrong
 internal void TryCaptureRegisteredShortcut(HotKeyGesture hotKeyGesture)
 {
 	// field name does not match type
     this.gesture = hotKeyGesture;
 }
+```
 
+```
 // Right
 internal void TryCaptureRegisteredShortcut(HotKeyGesture gesture)
 {
 	// field name matches type
     this.hotKeyGesture = gesture;
 }
+```
