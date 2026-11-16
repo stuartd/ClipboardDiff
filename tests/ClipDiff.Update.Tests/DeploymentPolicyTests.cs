@@ -16,7 +16,7 @@ public sealed class DeploymentPolicyTests
 
 		try
 		{
-			var current = "ClipDiff.ShellExtension." + new string('a', 64) + ".dll";
+			var current = "ClipDiff.ShellExtension.a123456.dll";
 			var peer = "ClipDiff.ShellExtension." + new string('b', 64) + ".dll";
 			var obsolete = "ClipDiff.ShellExtension." + new string('c', 64) + ".dll";
 			var unknown = "ClipDiff.ShellExtension.my-file.dll";
@@ -45,7 +45,7 @@ public sealed class DeploymentPolicyTests
 	public void RejectsExtensionMetadataThatCouldEscapeTheInstallDirectory()
 	{
 		Assert.AreEqual("ClipDiff.ShellExtension.dll", ShellExtensionFiles.ResolveFileName("../other.dll"));
-		var name = "ClipDiff.ShellExtension." + new string('a', 64) + ".dll";
+		var name = "ClipDiff.ShellExtension.a123456.dll";
 		Assert.AreEqual(name, ShellExtensionFiles.ResolveFileName(name));
 	}
 

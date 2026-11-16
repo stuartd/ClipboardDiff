@@ -157,7 +157,7 @@ try
 		$stream.Dispose()
 	}
 
-	$changedName = 'ClipDiff.ShellExtension.' + (Get-FileHash $changedDll -Algorithm SHA256).Hash.ToLowerInvariant() + '.dll'
+	$changedName = 'ClipDiff.ShellExtension.' + (Get-FileHash $changedDll -Algorithm SHA256).Hash.Substring(0, 7).ToLowerInvariant() + '.dll'
 	$numericVersion = [Version]($Version.Split('-')[0])
 	$fixtureVersion = "$($numericVersion.Major).$($numericVersion.Minor).$($numericVersion.Build + 1)-installer-test.1"
 	$publishDirectory = Join-Path $testRoot 'publish'
