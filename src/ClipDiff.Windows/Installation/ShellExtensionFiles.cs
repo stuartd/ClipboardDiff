@@ -8,7 +8,7 @@ namespace ClipDiff.Windows.Installation;
 internal static class ShellExtensionFiles
 {
 	private static readonly Regex FileNamePattern = new(
-		@"\AClipDiff\.ShellExtension(?:\.[0-9a-f]{64})?\.dll\z", RegexOptions.CultureInvariant);
+		@"\AClipDiff\.ShellExtension(?:\.(?:[0-9a-f]{7}|[0-9a-f]{64}))?\.dll\z", RegexOptions.CultureInvariant);
 
 	public static string CurrentFileName { get; } = ResolveFileName(typeof(ShellExtensionFiles).Assembly
 		.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(attribute => attribute.Key == "ShellExtensionFileName")?.Value);

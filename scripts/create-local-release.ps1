@@ -89,7 +89,7 @@ try
 	}
 
 	& (Join-Path $PSScriptRoot 'build-shell-extension.ps1') -Configuration Release -Test:(-not $SkipNativeTests)
-	$extensionFileName = 'ClipDiff.ShellExtension.' + (Get-FileHash $nativeDll -Algorithm SHA256).Hash.ToLowerInvariant() + '.dll'
+	$extensionFileName = 'ClipDiff.ShellExtension.' + (Get-FileHash $nativeDll -Algorithm SHA256).Hash.Substring(0, 7).ToLowerInvariant() + '.dll'
 	$requiredPayload = @('ClipDiff.exe', $extensionFileName)
 
 	dotnet test $coreTests --configuration Release

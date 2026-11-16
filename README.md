@@ -52,7 +52,7 @@ After ClipDiff has captured at least one value, and while clipboard monitoring i
 
 Both context-menu registrations are per-user, require no administrator access, and use classic Explorer verbs, so Windows 11 may place them under **Show more options**. The two-file command appears only when exactly two files are selected and ClipDiff is running and monitoring; the individual-file command additionally requires a usable current capture. Losing the last capture removes the individual-file command; quitting removes both when no other live session needs them. Concurrent sessions for the same user coordinate the shared registrations. Their individual-file label is generic because the registry is shared, while invocation validates the capture in the local session. A later ClipDiff start cleans up registrations left by an abnormal exit. Coordination retries brief lock contention; if a peer stays stalled beyond the retry deadline, the surviving instance reconciles registration on its next capture update or tray-menu opening.
 
-The two-file command uses a small native `ClipDiff.ShellExtension.<sha256>.dll` beside the executable (`ClipDiff.ShellExtension.dll` during development). Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive after ClipDiff has exited.
+The two-file command uses a small native `ClipDiff.ShellExtension.<sha256-prefix>.dll` beside the executable (`ClipDiff.ShellExtension.dll` during development). Its [Shell initialization interface](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellextinit-initialize) receives the complete selection, so it can show the command only for two files. It checks Shell metadata without reading file contents, then forwards the selection data object to ClipDiff's existing out-of-process COM drop target when clicked. Selected paths never appear in a process command line or the registry. The DLL holds the selection only for the menu's lifetime; file conversion and comparison run in ClipDiff. A memory-only readiness event keeps cached menus inactive after ClipDiff has exited.
 
 A newer Explorer request or accepted clipboard value cancels pending selected-file work. The single-file command checks that its original capture is still current when the read finishes. Slow reads and incomplete pipe messages do not block receipt of newer commands; failed forwarding gives concise feedback.
 
@@ -138,8 +138,7 @@ the installer. Your preferences already live outside the portable folder and are
 retained. Remove any manually created Startup-folder shortcut to the old copy.
 The installer does not delete old portable folders.
 
-Explorer may continue using a loaded older extension temporarily. Each different
-extension binary has its own `ClipDiff.ShellExtension.<sha256>.dll` filename;
+Explorer may continue using a loaded older extension temporarily. The first seven hex characters of the DLL’s SHA-256 hash form the suffix in its `ClipDiff.ShellExtension.<sha256-prefix>.dll` filename;
 updates leave the loaded old DLL in place and the app registers the current one.
 Later launches remove obsolete, unlocked DLLs. Cleanup failures never block
 startup. Normal updates do not require restarting Explorer or Windows.
@@ -156,7 +155,7 @@ Portable ZIPs remain available:
   Runtime** (`Microsoft.WindowsDesktop.App 10.x`), not just the base runtime.
 
 Each ZIP contains exactly `ClipDiff.exe` and its matching
-`ClipDiff.ShellExtension.<sha256>.dll`. Keep them beside one another. For a portable
+`ClipDiff.ShellExtension.<sha256-prefix>.dll`. Keep them beside one another. For a portable
 update, quit ClipDiff, extract the new ZIP, and run the new executable. Leave any
 locked older extension in place. Do not register DLLs manually or copy them to a
 Windows system directory.
@@ -276,7 +275,7 @@ releases\ClipDiff-<version>-win-x64-net10.zip
 ```
 
 Both directories and ZIPs are validated to contain exactly `ClipDiff.exe` and
-`ClipDiff.ShellExtension.<sha256>.dll`. Those are the complete portable payload; keep them
+`ClipDiff.ShellExtension.<sha256-prefix>.dll`. Those are the complete portable payload; keep them
 together. The self-contained variant bundles .NET; the `net10` variant expects
 the x64 .NET 10 Desktop Runtime on the target computer. PDB, `deps.json`,
 `runtimeconfig.json`, `bin`, `obj`, and the rest of the raw publish directories

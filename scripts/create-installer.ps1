@@ -22,7 +22,7 @@ if (-not (Test-Path $compiler -PathType Leaf))
 	throw 'Inno Setup 6.3 or later is required. Install Inno Setup 6, or put ISCC.exe on PATH.'
 }
 
-if ($ExtensionFileName -cnotmatch '^ClipDiff\.ShellExtension\.[0-9a-f]{64}\.dll$')
+if ($ExtensionFileName -cnotmatch '^ClipDiff\.ShellExtension\.[0-9a-f]{7}\.dll$')
 {
 	throw 'The installer requires a content-addressed shell extension filename.'
 }
@@ -38,7 +38,7 @@ if (@(Compare-Object $expected $actual).Count -ne 0)
 
 $dllHash = (Get-FileHash (Join-Path $PayloadDirectory $ExtensionFileName) -Algorithm SHA256).Hash.ToLowerInvariant()
 
-if ($ExtensionFileName -cne "ClipDiff.ShellExtension.$dllHash.dll")
+if ($ExtensionFileName -cne "ClipDiff.ShellExtension.$($dllHash.Substring(0, 7)).dll")
 {
 	throw 'The extension content does not match its filename.'
 }
@@ -53,7 +53,7 @@ if (Test-Path $installer)
 }
 
 & $compiler "/DAppVersion=$Version" "/DAppFileVersion=$fileVersion" "/DPayloadDirectory=$PayloadDirectory" `
-	"/DExtensionFileName=$ExtensionFileName" "/DInstallerOutputDirectory=$OutputDirectory" `
+	"/DExtensionHash=$dllHash" "/DExtensionFileName=$ExtensionFileName" "/DInstallerOutputDirectory=$OutputDirectory" `
 	(Join-Path $PSScriptRoot '../installer/ClipDiff.iss')
 
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer -PathType Leaf))

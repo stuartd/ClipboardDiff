@@ -96,8 +96,17 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+	ExtensionPath: String;
 begin
 	Result := '';
+	ExtensionPath := ExpandConstant('{app}\{#ExtensionFileName}');
+
+	if FileExists(ExtensionPath) and (CompareText(GetSHA256OfFile(ExtensionPath), '{#ExtensionHash}') <> 0) then
+	begin
+		Result := 'An existing shell extension has the same filename but different contents: ' + ExtensionPath;
+		Exit;
+	end;
 
 	if not StopClipDiff() then
 	begin
@@ -147,10 +156,10 @@ begin
 	end;
 
 	Prefix := 'ClipDiff.ShellExtension.';
-	Hash := Copy(Name, Length(Prefix) + 1, 64);
+	Hash := Copy(Name, Length(Prefix) + 1, Length(Name) - Length(Prefix) - 4);
 
 	if (Copy(Name, 1, Length(Prefix)) <> Prefix) or
-		(Length(Name) <> Length(Prefix) + 64 + 4) or
+		((Length(Hash) <> 7) and (Length(Hash) <> 64)) or
 		(Copy(Name, Length(Name) - 3, 4) <> '.dll') then
 	begin
 		Exit;

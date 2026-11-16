@@ -47,7 +47,7 @@ Use:
 - Win32 APIs through small, explicit P/Invoke wrappers
 - PowerShell for local build/release scripts
 
-The two-file Explorer menu additionally uses a small native C++17 `ClipDiff.ShellExtension.<sha256>.dll` in release packages (`ClipDiff.ShellExtension.dll` during development), built with the Visual Studio C++ toolset and Windows SDK. This is the approved exception to the C#-only, single-executable design: only selection/menu handling runs in Explorer, with a statically linked C++ runtime and no third-party runtime dependencies. File conversion and comparison remain in the C# application.
+The two-file Explorer menu additionally uses a small native C++17 `ClipDiff.ShellExtension.<sha256-prefix>.dll` in release packages (`ClipDiff.ShellExtension.dll` during development), built with the Visual Studio C++ toolset and Windows SDK. This is the approved exception to the C#-only, single-executable design: only selection/menu handling runs in Explorer, with a statically linked C++ runtime and no third-party runtime dependencies. File conversion and comparison remain in the C# application.
 
 The Windows application project should target:
 
@@ -1319,8 +1319,8 @@ self-contained and .NET 10 Desktop Runtime dependent x64 single-file application
 without trimming. `-SkipNativeTests` is a local-only opt-out of native integration
 tests; it does not skip the native build or .NET tests.
 
-Hash the native DLL with SHA-256 and ship it as
-`ClipDiff.ShellExtension.<sha256>.dll`. Embed that exact filename in the app's
+Use the first seven lowercase hex characters of the native DLL's SHA-256 hash in
+`ClipDiff.ShellExtension.<sha256-prefix>.dll`. Embed that exact filename in the app's
 assembly metadata and use it for per-user registration. Each validated portable
 directory/ZIP contains exactly that DLL and `ClipDiff.exe`. The hash is independent
 of the application version. Use reproducible native linking to avoid changing the

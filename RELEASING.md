@@ -7,7 +7,7 @@ without elevation under `%LOCALAPPDATA%\Programs\ClipDiff`. Every ClipDiff Windo
 
 ```text
 ClipDiff.exe
-ClipDiff.ShellExtension.<sha256>.dll
+ClipDiff.ShellExtension.<sha256-prefix>.dll
 ```
 
 Both files go in the same directory. The executable is the .NET application;
@@ -34,12 +34,12 @@ releases\ClipDiff-<version>-win-x64-Setup.exe
 
 releases\ClipDiff-<version>-win-x64-self-contained\
     ClipDiff.exe
-    ClipDiff.ShellExtension.<sha256>.dll
+    ClipDiff.ShellExtension.<sha256-prefix>.dll
 releases\ClipDiff-<version>-win-x64-self-contained.zip
 
 releases\ClipDiff-<version>-win-x64-net10\
     ClipDiff.exe
-    ClipDiff.ShellExtension.<sha256>.dll
+    ClipDiff.ShellExtension.<sha256-prefix>.dll
 releases\ClipDiff-<version>-win-x64-net10.zip
 ```
 
@@ -95,7 +95,7 @@ exit before replacing its EXE. It preserves preferences and an existing startup
 opt-in, then offers relaunch. Pre-installer portable builds require a one-time
 manual quit; their folders are not deleted.
 
-SHA-256 filenames are independent of app versions. Reproducible native linking
+Filenames use the first seven lowercase hex characters of the DLL’s SHA-256 hash and are independent of app versions. Reproducible native linking
 lets unchanged binaries reuse their name. Installers never overwrite an existing
 hashed DLL; the app registers the current path and attempts to clean obsolete,
 unlocked DLLs on launch, skipping other sessions' claims. Preserve the native
