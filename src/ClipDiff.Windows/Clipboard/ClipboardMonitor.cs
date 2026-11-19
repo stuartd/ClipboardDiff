@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using ClipDiff.Windows.Diagnostics;
 using ClipDiff.Windows.Native;
 
 namespace ClipDiff.Windows.Clipboard;
@@ -14,6 +16,7 @@ internal sealed class ClipboardMonitor : IDisposable
 	];
 
 	private readonly NativeMessageWindow nativeMessageWindow;
+	private readonly DiagnosticLog diagnosticLog;
 	private readonly NativeClipboard nativeClipboard;
 	private readonly ClipboardPrivacyInspector clipboardPrivacyInspector;
 	private readonly ClipboardInspectionReader clipboardInspectionReader;
@@ -26,9 +29,10 @@ internal sealed class ClipboardMonitor : IDisposable
 	private bool enabled = true;
 	private bool disposed;
 
-	public ClipboardMonitor(NativeMessageWindow messageWindow)
+	public ClipboardMonitor(NativeMessageWindow messageWindow, DiagnosticLog log)
 	{
 		nativeMessageWindow = messageWindow ?? throw new ArgumentNullException(nameof(messageWindow));
+		diagnosticLog = log;
 		nativeClipboard = new NativeClipboard();
 		var formats = new ClipboardFormatIds(
 			RegisterFormat("ExcludeClipboardContentFromMonitorProcessing"),
@@ -44,6 +48,11 @@ internal sealed class ClipboardMonitor : IDisposable
 		latestRequestedSequence = baselineSequence;
 		nativeMessageWindow.MessageReceived += OnMessageReceived;
 		IsRegistered = NativeMethods.AddClipboardFormatListener(nativeMessageWindow.Handle);
+
+		if (!IsRegistered)
+		{
+			diagnosticLog.Write(DiagnosticEvent.ClipboardListenerUnavailable, Marshal.GetLastPInvokeError());
+		}
 	}
 
 	public event EventHandler<ClipboardObservation>? ObservationReceived;
@@ -190,6 +199,7 @@ internal sealed class ClipboardMonitor : IDisposable
 
 				if (enabled && NativeMethods.GetClipboardSequenceNumber() == expectedSequence)
 				{
+					diagnosticLog.Write(DiagnosticEvent.ClipboardReadFailed);
 					baselineSequence = expectedSequence;
 					ObservationReceived?.Invoke(
 						this,

@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using ClipDiff.Windows.Diagnostics;
 using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Installation;
 
@@ -7,6 +8,7 @@ namespace ClipDiff.Windows;
 
 public partial class App : System.Windows.Application
 {
+	private readonly DiagnosticLog diagnosticLog = new();
 	private Mutex? instanceMutex;
 	private AppController? controller;
 	private bool ownsMutex;
@@ -14,6 +16,7 @@ public partial class App : System.Windows.Application
 
 	protected override void OnStartup(StartupEventArgs args)
 	{
+		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 		base.OnStartup(args);
 
 		var isExplorerCommand = ExplorerContextCommandLine.TryGetSelectedFile(
@@ -21,12 +24,14 @@ public partial class App : System.Windows.Application
 			out var selectedFilePath);
 
 		instanceMutex = new Mutex(true, @"Local\ClipDiff", out ownsMutex);
+
 		if (!ownsMutex)
 		{
 			if (isExplorerCommand)
 			{
 				if (!ExplorerCommandClient.TrySendSelectedFile(selectedFilePath))
 				{
+					diagnosticLog.Write(DiagnosticEvent.ExplorerDeliveryFailed);
 					System.Windows.MessageBox.Show("ClipDiff could not receive the Explorer comparison. Try the command again.",
 						"ClipDiff", MessageBoxButton.OK, MessageBoxImage.Warning);
 				}
@@ -38,8 +43,10 @@ public partial class App : System.Windows.Application
 			return;
 		}
 
+		diagnosticLog.Write(DiagnosticEvent.Starting);
 		installerShutdown = new InstallerShutdown(Dispatcher, Shutdown);
-		controller = new AppController();
+		controller = new AppController(diagnosticLog);
+
 		if (isExplorerCommand)
 		{
 			controller.CompareWithCurrent(selectedFilePath);
@@ -63,6 +70,7 @@ public partial class App : System.Windows.Application
 
 		if (ownsMutex)
 		{
+			diagnosticLog.Write(DiagnosticEvent.Stopped);
 			instanceMutex?.ReleaseMutex();
 			ownsMutex = false;
 		}
@@ -70,5 +78,19 @@ public partial class App : System.Windows.Application
 		instanceMutex?.Dispose();
 		instanceMutex = null;
 		base.OnExit(args);
+		AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
+		FlushDiagnosticLog();
 	}
+
+	private void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
+	{
+		diagnosticLog.Write(DiagnosticEvent.UnhandledException, (args.ExceptionObject as Exception)?.HResult);
+
+		if (args.IsTerminating)
+		{
+			FlushDiagnosticLog();
+		}
+	}
+
+	private void FlushDiagnosticLog() => diagnosticLog.CompleteAsync().Wait(TimeSpan.FromMilliseconds(250));
 }

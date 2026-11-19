@@ -1,12 +1,14 @@
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using ClipDiff.Windows.Diagnostics;
 
 namespace ClipDiff.Windows.Updates;
 
 internal sealed record GitHubRelease(ReleaseVersion Version, Uri DownloadPage);
 
-internal sealed class GitHubReleaseClient(HttpClient client)
+internal sealed class GitHubReleaseClient(HttpClient client, DiagnosticLog? diagnosticLog = null)
 {
 	public const string LatestReleaseApi = "https://api.github.com/repos/stuartd/ClipboardDiff/releases/latest";
 	private const string ReleasePagePrefix = "https://github.com/stuartd/ClipboardDiff/releases/tag/";
@@ -19,15 +21,33 @@ internal sealed class GitHubReleaseClient(HttpClient client)
 		using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApi);
 		request.Headers.UserAgent.ParseAdd("ClipDiff");
 		request.Headers.Accept.ParseAdd("application/vnd.github+json");
-		using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
-			.ConfigureAwait(false);
-		response.EnsureSuccessStatusCode();
-		using var stream = await response.Content.ReadAsStreamAsync(deadline.Token).ConfigureAwait(false);
+		HttpStatusCode? status = null;
+		GitHubRelease? release = null;
+		diagnosticLog?.WriteUpdateRequest();
+
+		try
+		{
+			using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
+				.ConfigureAwait(false);
+			status = response.StatusCode;
+			response.EnsureSuccessStatusCode();
+			release = await ReadReleaseAsync(response.Content, deadline.Token).ConfigureAwait(false);
+			return release;
+		}
+		finally
+		{
+			diagnosticLog?.WriteUpdateResponse(status, release?.Version);
+		}
+	}
+
+	private static async Task<GitHubRelease> ReadReleaseAsync(HttpContent content, CancellationToken cancellationToken)
+	{
+		using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 		using var payload = new MemoryStream();
 		var buffer = new byte[4096];
 		int count;
 
-		while ((count = await stream.ReadAsync(buffer, deadline.Token).ConfigureAwait(false)) != 0)
+		while ((count = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
 		{
 			if (payload.Length + count > MaximumResponseBytes)
 			{

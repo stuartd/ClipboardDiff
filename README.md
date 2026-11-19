@@ -115,6 +115,18 @@ Important limitations:
 
 ClipDiff does not guess whether text is sensitive from its length, punctuation, entropy, apparent source process, or token-like appearance.
 
+## Diagnostic log
+
+Open `%LOCALAPPDATA%\ClipDiff\ClipDiff.log` for startup, shutdown, and failure
+events. The file rolls over at 256 KiB and keeps one backup, `ClipDiff.log.previous`.
+Entries contain UTC timestamps and process IDs.
+
+For update checks, `UpdateRequest` records the GET URL, `UpdateResponse` records
+the HTTP status and published version when available, and `UpdateDecision` records
+the check mode, installed version, outcome, and reason. A check skipped before
+contacting GitHub only records its decision. The log excludes clipboard data,
+file names and paths, raw HTTP bodies and headers, and exception messages.
+
 ## Requirements
 
 - Windows 10 version 1809 or newer, or Windows 11

@@ -2,6 +2,7 @@ using System.IO;
 using System.Media;
 using System.Windows;
 using ClipDiff.Windows.Clipboard;
+using ClipDiff.Windows.Diagnostics;
 using ClipDiff.Windows.ExternalDiff;
 using ClipDiff.Windows.Explorer;
 using ClipDiff.Windows.Hotkeys;
@@ -18,6 +19,7 @@ namespace ClipDiff.Windows;
 internal sealed partial class AppController : IDisposable
 {
 	private readonly DiffEngine diffEngine = new();
+	private readonly DiagnosticLog diagnosticLog;
 	private readonly LatestComparison comparison = new();
 	private readonly ComparisonPresentation comparisonPresentation = new();
 	private readonly ExplorerComparisonRequests explorerComparisonRequests;
@@ -43,15 +45,22 @@ internal sealed partial class AppController : IDisposable
 	private readonly StartupRegistration startupRegistration = new();
 	private bool disposed;
 
-	public AppController()
+	public AppController(DiagnosticLog log)
 	{
+		diagnosticLog = log;
 		messageWindow = new NativeMessageWindow();
-		clipboardMonitor = new ClipboardMonitor(messageWindow);
+		clipboardMonitor = new ClipboardMonitor(messageWindow, diagnosticLog);
 		clipboardWriter = new ClipboardWriter(messageWindow.Handle);
 		history = new ClipboardHistory(clipboardMonitor.BaselineSequence);
 		settingsStore = new ClipDiffSettingsStore();
 		settings = settingsStore.Load();
 		hotKey = new GlobalHotKey(new NativeHotKeyBackend(messageWindow), HotKeyGesture.Normalize(settings.HotKey));
+
+		if (!hotKey.IsRegistered)
+		{
+			diagnosticLog.Write(DiagnosticEvent.HotKeyUnavailable);
+		}
+
 		externalDiffTools = ExternalDiffToolDiscovery.FindInstalled(settings.SelectedExecutablePath);
 		externalDiffLauncher = new ExternalDiffLauncher();
 		trayIcon = new TrayIconController(
@@ -149,7 +158,7 @@ internal sealed partial class AppController : IDisposable
 
 		settings = settings with { StartupPromptShown = true };
 
-		if (!settingsStore.TrySave(settings))
+		if (!TrySaveSettings(settings))
 		{
 			ShowStartupError("ClipDiff could not save your answer. The startup question may appear next time.");
 		}
@@ -184,6 +193,17 @@ internal sealed partial class AppController : IDisposable
 
 	private static void ShowStartupError(string message) =>
 		System.Windows.MessageBox.Show(message, "ClipDiff", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+	private bool TrySaveSettings(ClipDiffSettings preferences)
+	{
+		if (settingsStore.TrySave(preferences))
+		{
+			return true;
+		}
+
+		diagnosticLog.Write(DiagnosticEvent.SettingsSaveFailed);
+		return false;
+	}
 
 	public void CompareWithCurrent(string selectedFilePath)
 	{
@@ -325,10 +345,15 @@ internal sealed partial class AppController : IDisposable
 
 		var updatedSettings = settings with { HotKey = gesture };
 		var result = HotKeyChangeTransaction.TrySave(
-			hotKey, gesture, () => settingsStore.TrySave(updatedSettings));
+			hotKey, gesture, () => TrySaveSettings(updatedSettings));
+
 		if (result == HotKeyChangeResult.Success)
 		{
 			settings = updatedSettings;
+		}
+		else if (result is HotKeyChangeResult.Unavailable or HotKeyChangeResult.SaveFailedAndRestoreFailed)
+		{
+			diagnosticLog.Write(DiagnosticEvent.HotKeyChangeFailed);
 		}
 
 		UpdatePresentation();
@@ -342,7 +367,7 @@ internal sealed partial class AppController : IDisposable
 			SelectedExecutablePath = args.Choice?.ExecutablePath
 		};
 
-		if (!settingsStore.TrySave(settings))
+		if (!TrySaveSettings(settings))
 		{
 			ShowStartupError("ClipDiff could not save the diff viewer selection. It may reset next time.");
 		}
@@ -396,10 +421,27 @@ internal sealed partial class AppController : IDisposable
 		explorerComparisonRequests.Cancel();
 		comparison.Cancel();
 		var selectedTool = GetSelectedExternalDiffTool();
+
+		if (selectedTool is null && !string.IsNullOrWhiteSpace(settings.SelectedExecutablePath))
+		{
+			diagnosticLog.Write(DiagnosticEvent.ExternalDiffFailed);
+		}
+
 		comparisonPresentation.Show(
 			selectedTool is null ? null : ConfirmExternalDiffRisk,
-			() => externalDiffLauncher.TryLaunch(selectedTool!, previous, current),
+			() => TryLaunchExternalDiff(selectedTool!, previous, current),
 			() => ShowBuiltInDiff(previous, current));
+	}
+
+	private bool TryLaunchExternalDiff(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
+	{
+		if (externalDiffLauncher.TryLaunch(choice, previous, current))
+		{
+			return true;
+		}
+
+		diagnosticLog.Write(DiagnosticEvent.ExternalDiffFailed);
+		return false;
 	}
 
 	private void ShowBuiltInDiff(ClipboardEntry previous, ClipboardEntry current)
@@ -444,9 +486,9 @@ internal sealed partial class AppController : IDisposable
 		}
 		catch (Exception exception) when (exception is InvalidOperationException or OverflowException)
 		{
-			// Never include input text in diagnostics or user-facing errors.
 			if (!disposed)
 			{
+				diagnosticLog.Write(DiagnosticEvent.BuiltInDiffFailed, exception.HResult);
 				SystemSounds.Beep.Play();
 			}
 		}
@@ -535,7 +577,7 @@ internal sealed partial class AppController : IDisposable
 
 		settings = settings with { PlaintextWarningAcknowledged = true };
 
-		if (!settingsStore.TrySave(settings))
+		if (!TrySaveSettings(settings))
 		{
 			ShowStartupError("ClipDiff could not save the privacy acknowledgement. The notice may appear next time.");
 		}
@@ -555,6 +597,7 @@ internal sealed partial class AppController : IDisposable
 
 		if (!clipboardWriter.TryWriteProtectedText(text, out var sequenceNumber))
 		{
+			diagnosticLog.Write(DiagnosticEvent.ClipboardWriteFailed);
 			SystemSounds.Beep.Play();
 			return;
 		}

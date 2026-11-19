@@ -20,9 +20,9 @@ internal sealed partial class AppController
 	{
 		var versionText = typeof(AppController).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 		ReleaseVersion.TryParse(versionText, out var version);
-		var client = new GitHubReleaseClient(updateHttpClient);
+		var client = new GitHubReleaseClient(updateHttpClient, diagnosticLog);
 		updateCheckService = new UpdateCheckService(version, client.FetchLatestAsync,
-			() => settings.UpdateChecks ?? new(), TrySaveUpdateSettings);
+			() => settings.UpdateChecks ?? new(), TrySaveUpdateSettings, diagnosticLog: diagnosticLog);
 		trayIcon.ToggleAutomaticUpdatesRequested += OnToggleAutomaticUpdatesRequested;
 		trayIcon.CheckForUpdatesRequested += OnCheckForUpdatesRequested;
 		trayIcon.AvailableUpdateRequested += OnAvailableUpdateRequested;
@@ -62,7 +62,7 @@ internal sealed partial class AppController
 	{
 		var updated = settings with { UpdateChecks = preferences };
 
-		if (!settingsStore.TrySave(updated))
+		if (!TrySaveSettings(updated))
 		{
 			return false;
 		}

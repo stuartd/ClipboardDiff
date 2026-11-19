@@ -1104,6 +1104,15 @@ Never:
 - Crash merely because the clipboard is temporarily unavailable.
 - Show repeated modal dialogs from background clipboard changes.
 
+Keep a local diagnostic log at `%LOCALAPPDATA%\ClipDiff\ClipDiff.log`, with one
+backup and a 256 KiB limit per file. Log fixed lifecycle and failure events and
+numeric error codes where available. For update checks, record each attempted GET
+and its URL, the HTTP status and validated release version when available, and
+the update decision with its reason. Record the reason for skipped checks even
+when no request is attempted. Exclude clipboard data, file names and paths, raw
+HTTP bodies and headers, and exception text. Log writes run off the UI thread
+and filesystem failures must not interrupt ClipDiff.
+
 ## 21. Testing requirements
 
 ### 21.1 Clipboard history tests
