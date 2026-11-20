@@ -64,9 +64,9 @@ internal sealed class UpdateCheckService(
 		var settings = readSettings();
 		var now = timeProvider.GetUtcNow();
 
-		UpdateCheckResult Decide(UpdateCheckStatus status, UpdateCheckReason reason, GitHubRelease? release = null)
+		UpdateCheckResult Decide(UpdateCheckStatus status, UpdateCheckReason reason, GitHubRelease? release = null, Exception? exception = null)
 		{
-			diagnosticLog?.WriteUpdateDecision(manual, installedVersion, status, reason);
+			diagnosticLog?.WriteUpdateDecision(manual, installedVersion, status, reason, exception);
 			return new(status, release);
 		}
 
@@ -132,24 +132,24 @@ internal sealed class UpdateCheckService(
 
 			return Decide(UpdateCheckStatus.Available, UpdateCheckReason.NewerReleasePublished, release);
 		}
-		catch (OperationCanceledException)
+		catch (OperationCanceledException exception)
 		{
 			return cancellation.IsCancellationRequested
 				? Decide(UpdateCheckStatus.Skipped, UpdateCheckReason.Cancelled)
-				: Decide(UpdateCheckStatus.Failed, UpdateCheckReason.RequestTimedOut);
+				: Decide(UpdateCheckStatus.Failed, UpdateCheckReason.RequestTimedOut, exception: exception);
 		}
 		catch (HttpRequestException exception)
 		{
 			return Decide(UpdateCheckStatus.Failed,
-				exception.StatusCode.HasValue ? UpdateCheckReason.HttpError : UpdateCheckReason.RequestFailed);
+				exception.StatusCode.HasValue ? UpdateCheckReason.HttpError : UpdateCheckReason.RequestFailed, exception: exception);
 		}
 		catch (Exception exception) when (exception is InvalidDataException or JsonException)
 		{
-			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.InvalidResponse);
+			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.InvalidResponse, exception: exception);
 		}
-		catch (IOException)
+		catch (IOException exception)
 		{
-			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.RequestFailed);
+			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.RequestFailed, exception: exception);
 		}
 		finally
 		{

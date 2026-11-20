@@ -84,7 +84,7 @@ public partial class App : System.Windows.Application
 
 	private void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
 	{
-		diagnosticLog.Write(DiagnosticEvent.UnhandledException, (args.ExceptionObject as Exception)?.HResult);
+		diagnosticLog.Write(DiagnosticEvent.UnhandledException, exception: args.ExceptionObject as Exception);
 
 		if (args.IsTerminating)
 		{

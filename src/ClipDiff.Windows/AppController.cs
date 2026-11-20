@@ -435,12 +435,12 @@ internal sealed partial class AppController : IDisposable
 
 	private bool TryLaunchExternalDiff(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
 	{
-		if (externalDiffLauncher.TryLaunch(choice, previous, current))
+		if (externalDiffLauncher.TryLaunch(choice, previous, current, out var failure))
 		{
 			return true;
 		}
 
-		diagnosticLog.Write(DiagnosticEvent.ExternalDiffFailed);
+		diagnosticLog.Write(DiagnosticEvent.ExternalDiffFailed, exception: failure);
 		return false;
 	}
 
@@ -488,7 +488,7 @@ internal sealed partial class AppController : IDisposable
 		{
 			if (!disposed)
 			{
-				diagnosticLog.Write(DiagnosticEvent.BuiltInDiffFailed, exception.HResult);
+				diagnosticLog.Write(DiagnosticEvent.BuiltInDiffFailed, exception: exception);
 				SystemSounds.Beep.Play();
 			}
 		}
