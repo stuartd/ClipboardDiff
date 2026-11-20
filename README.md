@@ -210,18 +210,15 @@ last notified version.
    Alternatively, install it through Visual Studio Installer by selecting the
    **.NET desktop development** workload in a Visual Studio version that supports
    .NET 10.
-2. Open a new PowerShell window after installation and confirm that a `10.0.x`
-   SDK is available and selected:
+2. Clone the repository or extract the source, then open a new PowerShell window
+   in the directory containing `ClipDiff.Windows.sln`. The repository's
+   `global.json` selects the latest installed stable .NET 10.0 SDK. Confirm the
+   selection:
 
    ```powershell
    dotnet --list-sdks
    dotnet --version
    ```
-
-   If `dotnet --version` does not start with `10.`, update/install the SDK before
-   continuing. Installing only a runtime is not sufficient to build ClipDiff.
-3. Clone the repository (or open PowerShell in an extracted source directory),
-   then change to the directory containing `ClipDiff.Windows.sln`.
 
 ### Build from PowerShell
 
