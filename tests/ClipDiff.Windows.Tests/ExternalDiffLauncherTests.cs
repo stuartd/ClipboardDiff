@@ -48,7 +48,9 @@ public sealed class ExternalDiffLauncherTests
 			using var launcher = new ExternalDiffLauncher(new ExternalDiffWorkspace(Path.Combine(root, "workspaces")));
 			var choice = ExitingViewer() with { ExecutablePath = executable };
 
-			Assert.IsFalse(launcher.TryLaunch(choice, Entry("synthetic older"), Entry("synthetic newer")));
+			Assert.IsFalse(launcher.TryLaunch(choice, Entry("synthetic older"), Entry("synthetic newer"), out var failure));
+			Assert.IsNotNull(failure);
+			Assert.IsFalse(string.IsNullOrEmpty(failure.Message));
 			Assert.IsEmpty(Directory.GetFileSystemEntries(Path.Combine(root, "workspaces")));
 		}
 		finally

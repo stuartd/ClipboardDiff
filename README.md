@@ -42,7 +42,7 @@ The decision uses both safe binary-extension handling and content inspection, so
 
 ClipDiff retains the source basename separately from the converted text. The filename is always shown on the corresponding side of the built-in diff, in unified/copied diff headers, in the notification-area current/previous item, and in external-viewer labels. If both sides have the same filename but come from different paths, ClipDiff adds only enough parent directories to distinguish them—for example, `branch-a/src/settings.json` and `branch-b/src/settings.json`.
 
-The full source paths are retained only in the same two-entry in-memory history as the captured values so ClipDiff can calculate those labels. The diff document keeps the resolved labels but drops the original paths. Paths are never logged, stored in settings or the Explorer registration, or reproduced in the external-viewer temporary workspace. Evicting or clearing an entry, or exiting ClipDiff, discards its retained path.
+The full source paths are retained only in the same two-entry in-memory history as the captured values so ClipDiff can calculate those labels. The diff document keeps the resolved labels but drops the original paths. Paths are not stored in settings or the Explorer registration, or reproduced in the external-viewer temporary workspace. Exception diagnostics may include paths supplied by the failing API. Evicting or clearing an entry, or exiting ClipDiff, discards its retained path.
 
 When exactly two files are copied together, ClipDiff converts each one independently and immediately uses them as the comparison pair: the first clipboard path is **Previous** and the second is **Current**.
 
@@ -58,7 +58,7 @@ A newer Explorer request or accepted clipboard value cancels pending selected-fi
 
 Copies containing more than two files are ignored; ClipDiff never creates a comparison value from a file list.
 
-File contents and paths are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. For the individual-file command, Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe. For the two-file command, Explorer marshals the selection directly to the running ClipDiff process. In both cases, each path is retained only with its in-memory entry for collision disambiguation; it is never logged or persisted.
+File contents are never written by these built-in workflows; the resulting value or pair follows the same two-entry, in-memory history policy as copied text. For the individual-file command, Explorer necessarily supplies the directly selected file path to a short-lived ClipDiff process. ClipDiff forwards it to the existing tray process over a same-user, per-session local pipe. For the two-file command, Explorer marshals the selection directly to the running ClipDiff process. In both cases, each path is retained only with its in-memory entry for collision disambiguation; it is not otherwise persisted, except when included in exception diagnostics.
 
 For large comparisons, Myers line matching uses at most 8 MiB of frontier/trace integer payload and 2,000,000 search steps. When that budget is reached, ClipDiff preserves exact common leading/trailing lines and pairs the remaining block by position. All text and line numbers remain available, though matching lines inside that block may appear as changed. Document storage still grows with the number of input lines.
 
@@ -124,8 +124,14 @@ Entries contain UTC timestamps and process IDs.
 For update checks, `UpdateRequest` records the GET URL, `UpdateResponse` records
 the HTTP status and published version when available, and `UpdateDecision` records
 the check mode, installed version, outcome, and reason. A check skipped before
-contacting GitHub only records its decision. The log excludes clipboard data,
-file names and paths, raw HTTP bodies and headers, and exception messages.
+contacting GitHub only records its decision.
+
+Failure entries include exception types, messages, stack traces and inner
+exceptions when available. Line breaks are escaped to keep each event on one
+line; unusually large exception details are truncated at 32,768 characters.
+ClipDiff does not explicitly log clipboard data, file contents, or raw HTTP
+bodies and headers. Exception details can contain filenames, paths and other
+context supplied by the failing API.
 
 ## Requirements
 

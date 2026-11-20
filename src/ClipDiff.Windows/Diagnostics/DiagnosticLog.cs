@@ -42,9 +42,9 @@ internal sealed class DiagnosticLog
 		writer = Task.Run(() => WriteEntriesAsync(logFilePath));
 	}
 
-	// Keep free-form messages out of the public API because exceptions and paths can contain captured data.
-	public void Write(DiagnosticEvent diagnosticEvent, int? errorCode = null) =>
-		Enqueue(diagnosticEvent, errorCode is { } code ? $"code=0x{code:X8}" : null);
+	// Do not pass clipboard text or previews as diagnostic messages.
+	public void Write(DiagnosticEvent diagnosticEvent, int? errorCode = null, Exception? exception = null) =>
+		Enqueue(diagnosticEvent, errorCode is { } code ? $"code=0x{code:X8}" : null, exception);
 
 	public void WriteUpdateRequest() =>
 		Enqueue(DiagnosticEvent.UpdateRequest, $"GET {GitHubReleaseClient.LatestReleaseApi}");
@@ -53,9 +53,9 @@ internal sealed class DiagnosticLog
 		Enqueue(DiagnosticEvent.UpdateResponse,
 			$"http_status={((int?)status)?.ToString(CultureInfo.InvariantCulture) ?? "none"} release={releaseVersion?.Text ?? "none"}");
 
-	public void WriteUpdateDecision(bool manual, ReleaseVersion? installedVersion, UpdateCheckStatus status, UpdateCheckReason reason) =>
+	public void WriteUpdateDecision(bool manual, ReleaseVersion? installedVersion, UpdateCheckStatus status, UpdateCheckReason reason, Exception? exception = null) =>
 		Enqueue(DiagnosticEvent.UpdateDecision,
-			$"mode={(manual ? "manual" : "automatic")} installed={installedVersion?.Text ?? "unknown"} result={status} reason={reason}");
+			$"mode={(manual ? "manual" : "automatic")} installed={installedVersion?.Text ?? "unknown"} result={status} reason={reason}", exception);
 
 	public Task CompleteAsync()
 	{
@@ -63,8 +63,25 @@ internal sealed class DiagnosticLog
 		return writer;
 	}
 
-	private void Enqueue(DiagnosticEvent diagnosticEvent, string? detail) =>
+	private void Enqueue(DiagnosticEvent diagnosticEvent, string? detail, Exception? exception = null)
+	{
+		if (exception is not null)
+		{
+			// ToString includes the type, message, stack trace and inner exceptions.
+			// Escape newlines so a failure remains one timestamped log entry.
+			var exceptionText = exception.ToString().Replace("\r", "\\r").Replace("\n", "\\n");
+
+			// Keep unusually large exceptions within the file rotation limit.
+			if (exceptionText.Length > 32768)
+			{
+				exceptionText = exceptionText[..32768] + " [truncated]";
+			}
+
+			detail = $"{detail} exception_code=0x{exception.HResult:X8} exception={exceptionText}".TrimStart();
+		}
+
 		entries.Writer.TryWrite(new LogEntry(DateTimeOffset.UtcNow, diagnosticEvent, detail));
+	}
 
 	private async Task WriteEntriesAsync(string? logFilePath)
 	{

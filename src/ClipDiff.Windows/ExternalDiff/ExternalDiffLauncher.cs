@@ -17,8 +17,12 @@ internal sealed class ExternalDiffLauncher : IDisposable
 		externalDiffWorkspace.CleanupStaleDirectories();
 	}
 
-	public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current)
+	public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current) =>
+		TryLaunch(choice, previous, current, out _);
+
+	public bool TryLaunch(ExternalDiffToolChoice choice, ClipboardEntry previous, ClipboardEntry current, out Exception? failure)
 	{
+		failure = null;
 		ArgumentNullException.ThrowIfNull(choice);
 		ArgumentNullException.ThrowIfNull(previous);
 		ArgumentNullException.ThrowIfNull(current);
@@ -94,6 +98,8 @@ internal sealed class ExternalDiffLauncher : IDisposable
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
 		{
+			failure = exception;
+
 			if (comparison is not null)
 			{
 				CleanupComparison(comparison);

@@ -83,7 +83,12 @@ public sealed class GitHubReleaseClientTests
 			StringAssert.EndsWith(lines[0], "UpdateDecision mode=automatic installed=1.0.0 result=Skipped reason=AutomaticChecksNotEnabled");
 			StringAssert.EndsWith(lines[1], $"UpdateRequest GET {GitHubReleaseClient.LatestReleaseApi}");
 			StringAssert.EndsWith(lines[2], $"UpdateResponse http_status={(int)status} release={publishedVersion}");
-			StringAssert.EndsWith(lines[3], $"UpdateDecision mode=manual installed=1.0.0 result={expected} reason={reason}");
+			if (expected == "Failed")
+			{
+				StringAssert.Contains(lines[3], "exception=");
+			}
+
+			StringAssert.Contains(lines[3], $"UpdateDecision mode=manual installed=1.0.0 result={expected} reason={reason}");
 		}
 		finally
 		{
