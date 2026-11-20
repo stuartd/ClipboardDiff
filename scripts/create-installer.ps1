@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release-version.ps1')
 $Version = Get-ReleaseVersion -Version $Version
-$fileVersion = $Version.Split('-')[0] + '.0'
+$fileVersion = Get-ReleaseFileVersion -Version $Version
 $compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
 
 if (-not $compiler)

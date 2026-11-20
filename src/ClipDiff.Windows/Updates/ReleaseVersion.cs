@@ -5,7 +5,7 @@ namespace ClipDiff.Windows.Updates;
 internal sealed class ReleaseVersion : IComparable<ReleaseVersion>
 {
 	private static readonly Regex Pattern = new(
-		@"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z",
+		@"\A(?<numeric>(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2,3})(?:-(?<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z",
 		RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 	private readonly string[] numbers;
 	private readonly string[] prerelease;
@@ -13,8 +13,10 @@ internal sealed class ReleaseVersion : IComparable<ReleaseVersion>
 	private ReleaseVersion(string text, Match match)
 	{
 		Text = text;
-		numbers = [match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value];
-		prerelease = match.Groups[4].Success ? match.Groups[4].Value.Split('.') : [];
+		var parts = match.Groups["numeric"].Value.Split('.');
+		numbers = parts.Length == 3 ? [.. parts, "0"] : parts;
+		var prereleaseGroup = match.Groups["prerelease"];
+		prerelease = prereleaseGroup.Success ? prereleaseGroup.Value.Split('.') : [];
 	}
 
 	public string Text { get; }
@@ -30,8 +32,9 @@ internal sealed class ReleaseVersion : IComparable<ReleaseVersion>
 
 		text = text.StartsWith('v') ? text[1..] : text;
 		var match = Pattern.Match(text);
+		var prereleaseGroup = match.Groups["prerelease"];
 
-		if (!match.Success || (match.Groups[4].Success && match.Groups[4].Value.Split('.')
+		if (!match.Success || (prereleaseGroup.Success && prereleaseGroup.Value.Split('.')
 			.Any(part => IsNumeric(part) && part.Length > 1 && part[0] == '0')))
 		{
 			return false;

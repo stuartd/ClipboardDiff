@@ -59,6 +59,7 @@ try
 	}
 
 	$Version = Get-ReleaseVersion -Version $Version
+	$binaryVersion = Get-ReleaseFileVersion -Version $Version
 
 	$packages = @(
 		[pscustomobject]@{
@@ -157,7 +158,6 @@ try
 		}
 
 		$applicationVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $package.PublishDirectory 'ClipDiff.exe'))
-		$binaryVersion = $Version.Split('-')[0] + '.0'
 
 		if ($applicationVersion.FileVersion -ne $binaryVersion -or
 			-not ($applicationVersion.ProductVersion -eq $Version -or $applicationVersion.ProductVersion.StartsWith("$Version+", [StringComparison]::Ordinal)))

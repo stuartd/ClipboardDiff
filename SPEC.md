@@ -1362,10 +1362,13 @@ requesting a reboot and retains user preferences.
 
 The tag workflow publishes `ClipDiff-<version>-win-x64-Setup.exe` alongside both
 portable ZIPs only after build, packaging and installer smoke checks succeed.
-Versioned artifact names preserve prerelease suffixes. `scripts/test-installer.ps1`
-checks installation, running-app upgrades with unchanged and changed loaded DLLs,
-and uninstall. Real Explorer interactions still require the manual Windows checks
-in `docs/windows-update-testing.md`. Unsigned downloads may trigger SmartScreen.
+Release tags accept three numeric parts or an optional fourth revision, with an
+optional prerelease suffix. Artifact names preserve the full tag version after
+the leading `v`. Windows file versions use zero for an omitted revision.
+`scripts/test-installer.ps1` checks installation, running-app upgrades with
+unchanged and changed loaded DLLs, and uninstall. Real Explorer interactions
+still require the manual Windows checks in `docs/windows-update-testing.md`.
+Unsigned downloads may trigger SmartScreen.
 
 MSI, MSIX, Store distribution, code signing and automatic installation are outside
 this change.
@@ -1442,7 +1445,9 @@ already in progress. No automatic request is allowed if consent or the attempt
 time cannot be saved. Manual checks bypass the automatic setting/throttle and
 show current/newer/failure states. Bound request time and response size.
 
-Compare SemVer versions, ignoring build metadata and handling prerelease ordering.
+Compare major, minor, patch, and optional revision numerically in that order,
+treating an omitted revision as zero. Apply SemVer prerelease ordering after
+comparing the numeric parts and ignore build metadata.
 The endpoint supplies the latest published non-prerelease release. A newer version
 produces one unobtrusive tray notification per version, remembered across restarts.
 Clicking it offers **Download** (the exact GitHub release page) and **Dismiss**.

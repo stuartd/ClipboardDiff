@@ -62,7 +62,7 @@ a published release.
 ## Publish on GitHub
 
 1. Merge the release changes into `main` and confirm **Windows build and release** succeeds.
-2. Choose a semantic version such as `1.2.3`.
+2. Choose a version such as `1.2.3` or `1.2.3.4`.
 3. Create and push an annotated tag for that exact `main` commit:
 
    ```powershell
@@ -70,11 +70,15 @@ a published release.
    git push origin v1.2.3
    ```
 
-The **Windows build and release** workflow is the sole tag-release workflow.
-It shares tag validation and package naming with the release script, checks regular
-and prerelease version propagation on ordinary builds, and verifies published
-executable metadata. Tags such as `v1.2.3-preview.1` preserve the prerelease suffix
-in the product version and both ZIP names. The workflow validates the tag, runs the complete release script,
+The fourth part is a numeric revision, so `v0.9.1120.2` sorts after `v0.9.1120`
+and before `v0.9.1121`. Earlier ClipDiff builds need a manual download to update
+to a release with a four-part tag.
+
+The **Windows build and release** workflow shares tag validation and package naming
+with the release script. It checks release and prerelease versions with three or
+four parts on ordinary builds and verifies published executable metadata. Tags
+such as `v1.2.3-preview.1` preserve the prerelease suffix in the product version
+and both ZIP names. The workflow validates the tag, runs the complete release script,
 runs the installer smoke test, and creates a GitHub release with the
 `ClipDiff-1.2.3-win-x64-Setup.exe` installer and both
 `ClipDiff-1.2.3-win-x64-self-contained.zip` and

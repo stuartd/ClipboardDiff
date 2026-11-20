@@ -5,13 +5,29 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release-version.ps1')
 $applicationProject = Join-Path $PSScriptRoot '../src/ClipDiff.Windows/ClipDiff.Windows.csproj'
 
-foreach ($version in @('1.2.3', '1.2.3-preview.1'))
+$expectedFileVersions = [ordered]@{
+	'1.2.3' = '1.2.3.0'
+	'1.2.3-preview.1' = '1.2.3.0'
+	'0.9.1120.2' = '0.9.1120.2'
+	'1.2.3.0' = '1.2.3.0'
+	'1.2.3.4-preview.1' = '1.2.3.4'
+}
+
+foreach ($entry in $expectedFileVersions.GetEnumerator())
 {
+	$version = $entry.Key
 	$tagVersion = Get-ReleaseVersion -Version "v$version" -FromTag
 
 	if ($tagVersion -ne $version -or (Get-ReleaseVersion -Version $version) -ne $version)
 	{
 		throw "The release tag did not resolve to '$version'."
+	}
+
+	$binaryVersion = $entry.Value
+
+	if ((Get-ReleaseFileVersion -Version $tagVersion) -ne $binaryVersion)
+	{
+		throw "The release tag did not resolve to file version '$binaryVersion'."
 	}
 
 	foreach ($selfContained in @($true, $false))
@@ -33,7 +49,6 @@ foreach ($version in @('1.2.3', '1.2.3-preview.1'))
 	}
 
 	$properties = ($propertyOutput -join "`n" | ConvertFrom-Json).Properties
-	$binaryVersion = $version.Split('-')[0] + '.0'
 
 	if ($properties.Version -ne $version -or
 		$properties.AssemblyVersion -ne $binaryVersion -or
@@ -44,7 +59,7 @@ foreach ($version in @('1.2.3', '1.2.3-preview.1'))
 	}
 }
 
-foreach ($tag in @('', '1.2.3', 'v', 'v1.2', 'v1.2.3+metadata', 'v1.2.3/invalid'))
+foreach ($tag in @('', '1.2.3', 'v', 'v1.2', 'v1.2.3.04', 'v1.2.3.4.5', 'v1.2.3+metadata', 'v1.2.3/invalid'))
 {
 	$rejected = $false
 

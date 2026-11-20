@@ -48,7 +48,9 @@ public sealed class GitHubReleaseClientTests
 
 	[TestMethod]
 	[DataRow(HttpStatusCode.OK, "v1.2.3", "1.2.3", "Available", "NewerReleasePublished")]
+	[DataRow(HttpStatusCode.OK, "v1.0.0.2", "1.0.0.2", "Available", "NewerReleasePublished")]
 	[DataRow(HttpStatusCode.OK, "v1.0.0", "1.0.0", "Current", "InstalledVersionAtLeastPublished")]
+	[DataRow(HttpStatusCode.OK, "v1.0.0.0", "1.0.0.0", "Current", "InstalledVersionAtLeastPublished")]
 	[DataRow(HttpStatusCode.OK, "invalid-tag", "none", "Failed", "InvalidResponse")]
 	[DataRow(HttpStatusCode.Forbidden, "v1.2.3", "none", "Failed", "HttpError")]
 	public async Task LogsRequestResponseAndDecision(HttpStatusCode status, string tag, string publishedVersion,

@@ -5,7 +5,7 @@ function Get-ReleaseVersion
 		[switch]$FromTag
 	)
 
-	$pattern = '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$'
+	$pattern = '^[0-9]+\.[0-9]+\.[0-9]+(?:\.(?:0|[1-9][0-9]*))?(?:-[0-9A-Za-z.-]+)?$'
 
 	if ($FromTag)
 	{
@@ -19,10 +19,24 @@ function Get-ReleaseVersion
 
 	if ($Version -notmatch $pattern)
 	{
-		throw "Release version '$Version' is invalid. Use a version such as 1.2.3 or 1.2.3-preview.1."
+		throw "Release version '$Version' is invalid. Use a version such as 1.2.3, 1.2.3.4, or 1.2.3-preview.1."
 	}
 
 	return $Version
+}
+
+function Get-ReleaseFileVersion
+{
+	param([string]$Version)
+
+	$numericVersion = $Version.Split('-')[0]
+
+	if ($numericVersion.Split('.').Count -eq 3)
+	{
+		return "$numericVersion.0"
+	}
+
+	return $numericVersion
 }
 
 function Get-ReleasePackageName

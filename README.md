@@ -260,9 +260,10 @@ An older test launcher could print `elevated=0, elevationType=2` after dropping 
 If the native test run fails, include the full output from `Native build:` through the final `[FAIL]` line and script error. The output identifies the test case, expected visibility, direct-handler and Windows-aggregate results, HRESULT/Win32 errors, selection counts and Shell attributes, and effective COM/menu registration. A visibility mismatch also prints menu IDs, states, separator labels, and a read-only snapshot of Shell restriction settings and ClipDiff's Approved/Blocked entries. These probes do not change policy or read clipboard contents or selected file paths. Passing the direct-handler check but failing the Windows-aggregate check narrows the problem to Shell discovery/aggregation; it does not by itself establish that a work-machine policy is responsible. Microsoft's [Shell extension approval policy documentation](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#enforceshellextensionsecurity) explains one possible restriction.
 
 GitHub Actions runs the same release script on `windows-latest` for every push
-and pull request. It checks regular and prerelease tag versions, assembly metadata,
-and asset names on every run. A `v1.2.3` or `v1.2.3-preview.1` tag publishes both
-validated ZIPs using that same version. Each successful run provides `ClipDiff-win-x64-self-contained`
+and pull request. It checks release and prerelease tags with three or four numeric
+parts, assembly metadata, and asset names on every run. A tag such as `v1.2.3.4`
+or `v1.2.3-preview.1` publishes both validated ZIPs using that same version.
+Each successful run provides `ClipDiff-win-x64-self-contained`
 and `ClipDiff-win-x64-net10` artifacts. Each contains only the executable and
 native DLL; extract both into the same directory. The workflow can be run
 manually from the repository's **Actions** tab as well. Actual Explorer desktop
