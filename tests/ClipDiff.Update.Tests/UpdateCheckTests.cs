@@ -18,14 +18,12 @@ public sealed class UpdateCheckTests
 	}
 
 	[TestMethod]
-	public async Task FailedChecksAreThrottledAcrossRestarts()
+	public async Task RestartAfterFailedCheckMakesAnotherRequest()
 	{
 		var fixture = new Fixture(new(true)) { Fail = true };
 		Assert.AreEqual(UpdateCheckStatus.Failed, (await fixture.Service().CheckAsync(false, default)).Status);
-		fixture.Clock.Now += TimeSpan.FromHours(23);
-		Assert.AreEqual(UpdateCheckStatus.Skipped, (await fixture.Service().CheckAsync(false, default)).Status);
-		fixture.Clock.Now += TimeSpan.FromHours(1);
-		Assert.AreEqual(UpdateCheckStatus.Failed, (await fixture.Service().CheckAsync(false, default)).Status);
+		fixture.Fail = false;
+		Assert.AreEqual(UpdateCheckStatus.Available, (await fixture.Service().CheckAsync(false, default)).Status);
 		Assert.AreEqual(2, fixture.Requests);
 	}
 
@@ -42,7 +40,7 @@ public sealed class UpdateCheckTests
 	}
 
 	[TestMethod]
-	public async Task ManualChecksIgnoreConsentThrottleAndNotificationSuppression()
+	public async Task ManualChecksIgnoreConsentAndNotificationSuppression()
 	{
 		var fixture = new Fixture(new(false));
 		Assert.AreEqual(UpdateCheckStatus.Available, (await fixture.Service().CheckAsync(true, default)).Status);
@@ -94,11 +92,11 @@ public sealed class UpdateCheckTests
 	}
 
 	[TestMethod]
-	public async Task FutureAttemptDoesNotCauseRepeatedRequestsWhenClockMovesBack()
+	public async Task StartupChecksEvenWhenSavedAttemptIsInTheFuture()
 	{
 		var fixture = new Fixture(new(true, DateTimeOffset.UtcNow.AddDays(2)));
-		Assert.AreEqual(UpdateCheckStatus.Skipped, (await fixture.Service().CheckAsync(false, default)).Status);
-		Assert.AreEqual(0, fixture.Requests);
+		Assert.AreEqual(UpdateCheckStatus.Available, (await fixture.Service().CheckAsync(false, default)).Status);
+		Assert.AreEqual(1, fixture.Requests);
 	}
 
 	internal static ReleaseVersion Parse(string text)

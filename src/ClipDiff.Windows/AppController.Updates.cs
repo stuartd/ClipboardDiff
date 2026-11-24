@@ -52,7 +52,7 @@ internal sealed partial class AppController
 		}
 
 		RefreshUpdateChecks();
-		updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
+		updateTimer = new DispatcherTimer { Interval = TimeSpan.FromDays(1) };
 		updateTimer.Tick += OnUpdateTimer;
 		updateTimer.Start();
 		_ = CheckForUpdatesAsync(manual: false);
