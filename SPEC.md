@@ -1438,11 +1438,11 @@ either choice, including a decline. Do not prompt secondary instances or Explore
 command invocations. The tray menu provides **Automatically check for updates**
 and **Check for updates...**; no separate Settings window is required.
 
-Automatic checks run asynchronously at most every 24 hours. Persist attempt time
-before the request, including failed attempts. Check periodically while the app
-remains open. Disable takes effect immediately and cancels an automatic request
+Automatic checks run asynchronously on startup and every 24 hours while the app
+remains open. Persist attempt time before the request, including failed attempts.
+Disable takes effect immediately and cancels an automatic request
 already in progress. No automatic request is allowed if consent or the attempt
-time cannot be saved. Manual checks bypass the automatic setting/throttle and
+time cannot be saved. Manual checks bypass the automatic setting and
 show current/newer/failure states. Bound request time and response size.
 
 Compare major, minor, patch, and optional revision numerically in that order,

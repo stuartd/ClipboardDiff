@@ -60,7 +60,7 @@ internal sealed class UpdateWindow : Window
 	public static bool AskConsent()
 	{
 		var window = new UpdateWindow(consent: true);
-		window.messageText.Text = "Allow ClipDiff to check api.github.com for new releases automatically, at most once a day? " +
+		window.messageText.Text = "Allow ClipDiff to check api.github.com for new releases on startup and every 24 hours while running? " +
 			"GitHub receives a normal web request, including your IP address. No clipboard content or document data is sent.\n\n" +
 			"Updates are never downloaded or installed automatically. You can change this in the tray menu, or check manually at any time.";
 		return window.ShowDialog() == true;

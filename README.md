@@ -184,7 +184,7 @@ or application; packaging does not remove that warning.
 ## Update checks
 
 On the first normal launch, ClipDiff asks whether to check `api.github.com` for
-new releases. **Enable** permits background checks at most once every 24 hours;
+new releases. **Enable** permits background checks on startup and every 24 hours while ClipDiff is running.
 **Not now** saves that choice and makes no automatic requests. The tray menu's
 **Automatically check for updates** toggle changes this preference. Manual
 **Check for updates...** works regardless of the automatic setting and reports

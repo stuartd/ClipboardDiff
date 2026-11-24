@@ -67,8 +67,8 @@ Windows image lock; it does not exercise Explorer's menus or COM cache.
   `api.github.com`, describe the purpose, and explain no content is sent. Confirm
   one background request and that clipboard work continues during it.
 - Restart repeatedly within 24 hours, including after an offline/failed attempt.
-  Confirm no repeat automatic requests. Leave ClipDiff running past the next daily
-  deadline to verify periodic checks without restarting.
+  Confirm one automatic request per launch. Leave ClipDiff running and verify
+  the next automatic request occurs 24 hours later.
 - Use a build with an installed version below the latest published stable release
   (build locally with `-Version` before packaging) to verify the notification.
   Click it: **Download** opens that release's GitHub page; **Dismiss** closes the

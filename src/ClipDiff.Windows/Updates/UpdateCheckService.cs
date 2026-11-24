@@ -15,7 +15,6 @@ internal enum UpdateCheckStatus { Skipped, Busy, Current, Available, Failed }
 internal enum UpdateCheckReason
 {
 	AutomaticChecksNotEnabled,
-	WithinCheckInterval,
 	CheckInProgress,
 	InstalledVersionUnknown,
 	AttemptTimeSaveFailed,
@@ -75,11 +74,6 @@ internal sealed class UpdateCheckService(
 			return Decide(UpdateCheckStatus.Skipped, UpdateCheckReason.AutomaticChecksNotEnabled);
 		}
 
-		if (!manual && settings.LastAttemptUtc is { } last && now - last < TimeSpan.FromDays(1))
-		{
-			return Decide(UpdateCheckStatus.Skipped, UpdateCheckReason.WithinCheckInterval);
-		}
-
 		if (checking)
 		{
 			return Decide(UpdateCheckStatus.Busy, UpdateCheckReason.CheckInProgress);
@@ -90,7 +84,6 @@ internal sealed class UpdateCheckService(
 			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.InstalledVersionUnknown);
 		}
 
-		// Persist attempts, including offline failures, so relaunching cannot cause repeated requests.
 		if (!saveSettings(settings with { LastAttemptUtc = now }) && !manual)
 		{
 			return Decide(UpdateCheckStatus.Failed, UpdateCheckReason.AttemptTimeSaveFailed);
